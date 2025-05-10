@@ -18,7 +18,7 @@ class Cliente extends Model
         'condicion_vivienda',
         'actividad',
         'condicion_personal',
-        'estadoCliente',
+        'estado_cliente',
     ];
 
     /**

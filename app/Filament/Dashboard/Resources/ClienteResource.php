@@ -39,7 +39,7 @@ class ClienteResource extends Resource
                                 TextInput::make('persona.celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required(),
                                 TextInput::make('persona.correo')->label('Correo Electrónico')->email()->required(),
                                 TextInput::make('persona.direccion')->label('Dirección')->required(),
-                                Select::make('persona.Distrito')->label('Distrito')->options([
+                                Select::make('persona.distrito')->label('Distrito')->options([
 
                                     'Sullana' => 'Sullana',
                                     'Bellavista ' => 'Bellavista',
@@ -63,7 +63,7 @@ class ClienteResource extends Resource
                             ->schema([
                                 TextInput::make('infocorp')->label('Infocorp')->required(),
                                 TextInput::make('ciclo')->label('Ciclo')->required(),
-                                Forms\Components\Select::make('condicionVivienda')
+                                Forms\Components\Select::make('condicion_vivienda')
                                     ->options([
                                         'Propia' => 'Propia',
                                         'Alquilada' => 'Alquilada',
@@ -74,7 +74,7 @@ class ClienteResource extends Resource
                                     ->label('Condición de Vivienda')
                                     ->required(),
                                 TextInput::make('actividad')->label('Actividad')->required(),
-                                Forms\Components\Select::make('condicionPersonal')
+                                Forms\Components\Select::make('condicion_personal')
                                     ->options([
                                         'Capacitado' => 'Capacitado',
                                         'Iletrado' => 'Iletrado',
@@ -84,7 +84,7 @@ class ClienteResource extends Resource
                                     ->searchable()
                                     ->label('Condición Personal')
                                     ->required(),
-                                Forms\Components\Select::make('estadoCliente')
+                                Forms\Components\Select::make('estado_cliente')
                                     ->options([
                                         'Activo' => 'Activo',
                                         'Inactivo' => 'Inactivo',
