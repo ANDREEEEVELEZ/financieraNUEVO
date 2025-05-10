@@ -58,11 +58,27 @@ class PersonaResource extends Resource
                             ->numeric()
                             ->required(),
                         Forms\Components\TextInput::make('correo')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->required(),
                         Forms\Components\TextInput::make('direccion')
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('distrito')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->required(),
+                         Forms\Components\Select::make('Distrito')
+                            ->options([
+                                'Sullana' => 'Sullana',
+                                'Bellavista ' => 'Bellavista',
+                                'Ignacio Escudero' => 'Ignacio Escudero',
+                                'Querecotillo' => 'Querecotillo',
+                                'Marcavelica' => 'Marcavelica',
+                                'Salitral' => 'Salitral',
+                                'Lancones' => 'Lancones',
+                                'Miguel Checa' => 'Miguel Checa',
+                                // Agrega más distritos según sea necesario
+                            ])
+                            ->native(false)
+                            ->searchable()
+                            ->label('Distrito')
+                            ->required(),
                         Forms\Components\Select::make('estado_civil')
                             ->options([
                                 'Soltero' => 'Soltero',
