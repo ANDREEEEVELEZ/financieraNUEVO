@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('prestamos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_ygrupo')->constrained('grupos')->onDelete('cascade'); 
+            $table->foreignId('grupo_id')->constrained('grupos')->onDelete('cascade'); 
             $table->string('tasa_interes')->nullable();
             $table->string('monto_prestado_total')->nullable();
             $table->string('monto_devolver')->nullable();

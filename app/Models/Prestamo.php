@@ -32,6 +32,6 @@ class Prestamo extends Model
 
     public function grupo()
     {
-        return $this->belongsTo(Grupo::class, 'id_grupo');
+        return $this->belongsTo(Grupo::class, 'grupo_id');
     }
 }

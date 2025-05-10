@@ -6,7 +6,7 @@ use App\Filament\Dashboard\Resources\PrestamoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
-class ListPrestamos extends ListRecords
+class ListPrestamo extends ListRecords
 {
     protected static string $resource = PrestamoResource::class;
 
