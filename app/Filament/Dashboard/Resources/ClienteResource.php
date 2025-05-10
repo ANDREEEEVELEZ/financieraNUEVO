@@ -117,10 +117,10 @@ class ClienteResource extends Resource
                 // Sección: Información Cliente
                 Tables\Columns\TextColumn::make('infocorp')->label('Infocorp'),
                 Tables\Columns\TextColumn::make('ciclo')->label('Ciclo'),
-                Tables\Columns\TextColumn::make('condicionVivienda')->label('Condición de Vivienda'),
+                Tables\Columns\TextColumn::make('condicion_vivienda')->label('Condición de Vivienda'),
                 Tables\Columns\TextColumn::make('actividad')->label('Actividad'),
-                Tables\Columns\TextColumn::make('condicionPersonal')->label('Condición Personal'),
-                Tables\Columns\TextColumn::make('estadoCliente')->label('Estado Cliente'),
+                Tables\Columns\TextColumn::make('condicion_personal')->label('Condición Personal'),
+                Tables\Columns\TextColumn::make('estado_cliente')->label('Estado Cliente'),
             ])
             ->filters([])
             ->actions([

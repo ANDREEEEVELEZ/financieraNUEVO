@@ -15,9 +15,9 @@ class Cliente extends Model
         'persona_id',
         'infocorp',
         'ciclo',
-        'condicionVivienda',
+        'condicion_vivienda',
         'actividad',
-        'condicionPersonal',
+        'condicion_personal',
         'estadoCliente',
     ];
 

@@ -16,10 +16,10 @@ return new class extends Migration
             $table->foreignId('persona_id')->constrained('personas')->onDelete('cascade');
             $table->string('infocorp')->nullable();
             $table->string('ciclo')->nullable();
-            $table->string('condicionVivienda')->nullable();
+            $table->string('condicion_vivienda')->nullable();
             $table->string('actividad')->nullable();
-            $table->string('condicionPersonal')->nullable();
-            $table->string('estadoCliente')->nullable();
+            $table->string('condicion_personal')->nullable();
+            $table->string('estado_cliente')->nullable();
             $table->timestamps();
         });
     }
