@@ -13,11 +13,12 @@ return new class extends Migration
     {
         Schema::create('pagos', function (Blueprint $table) {
             $table->id();
-            //$table->foreignId('cuota_grupal_id')->constrained('cuotas_grupales')->onDelete('cascade');
+            $table->foreignId('cuota_grupal_id')->constrained('cuotas_grupales')->onDelete('cascade');
             $table->string('tipo_pago')->nullable();
             $table->string('monto_pagado')->nullable();
             $table->dateTime('fecha_pago')->nullable();
             $table->string('estado_pago')->nullable();
+            $table->string('observaciones')->nullable();
             $table->timestamps();
         });
     }

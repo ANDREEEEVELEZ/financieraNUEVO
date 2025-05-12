@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Dashboard\Pages\AsistenteVirtual;
+use App\Filament\Dashboard\Pages\Moras;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -35,6 +36,9 @@ class DashboardPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
                 AsistenteVirtual::class,
+                Moras::class,
+
+                  
             ])
             ->discoverWidgets(in: app_path('Filament/Dashboard/Widgets'), for: 'App\\Filament\\Dashboard\\Widgets')
             ->widgets([
