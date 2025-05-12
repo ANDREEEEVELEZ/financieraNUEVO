@@ -61,7 +61,7 @@ public static function form(Form $form): Form
                     
                     Tabs\Tab::make('Datos de Usuario')
                         ->schema([
-                            TextInput::make('name')->email()->required(),
+                            TextInput::make('name')->required(),
                             TextInput::make('email')->email()->required(),
                             TextInput::make('password')->password()->required(),
                         ]),
