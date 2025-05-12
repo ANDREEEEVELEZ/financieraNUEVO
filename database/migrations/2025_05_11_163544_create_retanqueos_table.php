@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('retanqueos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('prestamos_id')->constrained()->onDelete('cascade');
+            $table->foreignId('prestamo_id')->constrained()->onDelete('cascade');
             $table->foreignId('grupo_id')->constrained()->onDelete('cascade');
-            $table->foreignId('asesores_id')->constrained()->onDelete('cascade');
+            $table->foreignId('asesore_id')->constrained()->onDelete('cascade');
             $table->string('monto_retanqueado')->nullable();
             $table->string('monto_devolver')->nullable();
             $table->string('monto_desembolsar')->nullable();

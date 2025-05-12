@@ -13,9 +13,11 @@ return new class extends Migration
     {
         Schema::create('moras', function (Blueprint $table) {
             $table->id();
+            //$table->foreignId('cuota_grupal_id')->constrained('cuotas_grupales')->onDelete('cascade');
             $table->integer('dias_atraso')->nullable();
             $table->String('monto_mora')->nullable();
             $table->String('estado_mora')->nullable();
+            
             $table->timestamps();
         });
     }
