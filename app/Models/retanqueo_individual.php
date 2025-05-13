@@ -12,7 +12,7 @@ class Retanqueo_Individual extends Model
     // Tabla asociada
     protected $table = 'retanqueo_individual';
 
-    // Atributos asignables masivamente
+    // Atributos 
     protected $fillable = [
         'retanqueo_id',
         'cliente_id',

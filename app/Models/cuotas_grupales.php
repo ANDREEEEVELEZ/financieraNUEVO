@@ -9,10 +9,9 @@ class Cuotas_Grupales extends Model
 {
     use HasFactory;
 
-    // Nombre de la tabla (opcional, pero útil si no sigue la convención plural estándar)
     protected $table = 'cuotas_grupales';
 
-    // Atributos asignables masivamente
+    // Atributos 
     protected $fillable = [
         'prestamo_id',
         'numero_cuota',
@@ -22,7 +21,7 @@ class Cuotas_Grupales extends Model
     ];
 
     /**
-     * Relación: una cuota grupal pertenece a un préstamo grupal.
+     * Relación: una cuota grupal pertenece a un préstamo grupal
      */
     public function prestamo()
     {

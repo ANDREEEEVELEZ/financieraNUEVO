@@ -12,7 +12,7 @@ class Prestamo_Individual extends Model
     // Tabla asociada
     protected $table = 'prestamo_individual';
 
-    // Atributos asignables masivamente
+    // Atributos
     protected $fillable = [
         'prestamo_id',
         'cliente_id',
@@ -24,7 +24,7 @@ class Prestamo_Individual extends Model
     ];
 
     /**
-     * Relación: un préstamo individual pertenece a un préstamo grupal.
+     * Relación: un préstamo individual pertenece a un préstamo grupal
      */
     public function prestamo()
     {
@@ -32,7 +32,7 @@ class Prestamo_Individual extends Model
     }
 
     /**
-     * Relación: un préstamo individual pertenece a un cliente.
+     * Relación: un préstamo individual pertenece a un cliente
      */
     public function cliente()
     {

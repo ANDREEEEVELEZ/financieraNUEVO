@@ -12,7 +12,7 @@ class Grupo_Cliente extends Model
     // Tabla asociada
     protected $table = 'grupo_cliente';
 
-    // Atributos asignables masivamente
+    // Atributos 
     protected $fillable = [
         'grupo_id',
         'cliente_id',

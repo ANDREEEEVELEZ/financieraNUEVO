@@ -18,14 +18,16 @@ class Pago extends Model
         'observaciones',
     ];
 
-    // ✅ Conversión automática a objetos Carbon
     protected $casts = [
         'fecha_pago' => 'datetime',
+    ];
+    protected $attributes = [
+    'estado_pago' => 'pendiente',
     ];
 
     public function cuotaGrupal()
     {
-        // Nota: Asegúrate que el modelo CuotaGrupal exista y esté nombrado correctamente
+      
         return $this->belongsTo(Cuotas_Grupales::class);
     }
 

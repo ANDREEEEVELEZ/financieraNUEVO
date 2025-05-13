@@ -23,16 +23,22 @@ class PagoResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('cuota_grupal_id')
-                    ->required()
-                    ->numeric(),
+                Forms\Components\TextInput::make('nombre_grupo')
+                    ->required(),
+                Forms\Components\TextInput::make('numero_cuota')
+                    ->numeric()
+                    ->required(),
+                Forms\Components\TextInput::make('monto_cuota')
+                    ->numeric()
+                    ->required(),
                 Forms\Components\TextInput::make('tipo_pago')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->required(),
                 Forms\Components\TextInput::make('monto_pagado')
-                    ->maxLength(255),
-                Forms\Components\DateTimePicker::make('fecha_pago'),
-                Forms\Components\TextInput::make('estado_pago')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->required(),
+                Forms\Components\DateTimePicker::make('fecha_pago')
+                    ->required(),
                 Forms\Components\TextInput::make('observaciones')
                     ->maxLength(255),
             ]);
