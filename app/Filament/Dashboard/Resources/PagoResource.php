@@ -3,43 +3,120 @@
 namespace App\Filament\Dashboard\Resources;
 
 use App\Filament\Dashboard\Resources\PagoResource\Pages;
-use App\Filament\Dashboard\Resources\PagoResource\RelationManagers;
 use App\Models\Pago;
+use App\Models\Cuotas_Grupales;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PagoResource extends Resource
 {
     protected static ?string $model = Pago::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationLabel = 'Pagos';
+    protected static ?string $modelLabel = 'Pago';
+    protected static ?string $pluralModelLabel = 'Pagos';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('nombre_grupo')
-                    ->required(),
-                Forms\Components\TextInput::make('numero_cuota')
+                Select::make('grupo_id')
+                    ->label('Grupo')
+                    ->options(function () {
+                        return Cuotas_Grupales::with('prestamo.grupo')
+                            ->get()
+                            ->mapWithKeys(function ($cuota) {
+                                $grupo = $cuota->prestamo->grupo ?? null;
+                                if ($grupo) {
+                                    return [$grupo->id => $grupo->nombre_grupo];
+                                }
+                                return [];
+                            })
+                            ->unique();
+                    })
+                    ->searchable()
+                    ->required()
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        $cuota = Cuotas_Grupales::whereHas('prestamo', function ($query) use ($state) {
+                                $query->where('grupo_id', $state);
+                            })
+                            ->where('estado_cuota_grupal', 'pendiente')
+                            ->orderBy('numero_cuota', 'asc')
+                            ->first();
+
+                        if ($cuota) {
+                            $set('cuota_grupal_id', $cuota->id);
+                            $set('numero_cuota', $cuota->numero_cuota);
+                            $set('monto_cuota', $cuota->monto_cuota_grupal);
+                        } else {
+                            $set('cuota_grupal_id', null);
+                            $set('numero_cuota', null);
+                            $set('monto_cuota', null);
+                        }
+                    })
+                    ->afterStateHydrated(function (callable $set, callable $get, $record) {
+                        if ($record) {
+                            $set('grupo_id', $record->cuotaGrupal->prestamo->grupo_id ?? null);
+                            $set('cuota_grupal_id', $record->cuota_grupal_id);
+                            $set('numero_cuota', $record->cuotaGrupal->numero_cuota ?? null);
+                            $set('monto_cuota', $record->cuotaGrupal->monto_cuota_grupal ?? null);
+                        }
+                    }),
+
+                Hidden::make('cuota_grupal_id')->required(),
+
+                TextInput::make('numero_cuota')
+                    ->label('Número de Cuota')
                     ->numeric()
-                    ->required(),
-                Forms\Components\TextInput::make('monto_cuota')
+                    ->disabled()
+                    ->required()
+                    ->dehydrated(),
+
+                TextInput::make('monto_cuota')
+                    ->label('Monto de la Cuota')
                     ->numeric()
+                    ->disabled()
+                    ->required()
+                    ->dehydrated(),
+
+                Select::make('tipo_pago')
+                    ->label('Tipo de Pago')
+                    ->options([
+                        'cuota' => 'Pago de Cuota',
+                        'amortizacion' => 'Amortización Adicional',
+                    ])
+                    ->required()
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                        if ($state === 'cuota') {
+                            $set('monto_pagado', $get('monto_cuota'));
+                        } else {
+                            $set('monto_pagado', null);
+                        }
+                    }),
+
+                TextInput::make('monto_pagado')
+                    ->label('Monto Pagado')
+                    ->numeric()
+                    ->required()
+                    ->disabled(fn (callable $get) => $get('tipo_pago') === 'cuota')
+                    ->dehydrated(),
+
+                DateTimePicker::make('fecha_pago')
+                    ->label('Fecha de Pago')
                     ->required(),
-                Forms\Components\TextInput::make('tipo_pago')
-                    ->maxLength(255)
-                    ->required(),
-                Forms\Components\TextInput::make('monto_pagado')
-                    ->maxLength(255)
-                    ->required(),
-                Forms\Components\DateTimePicker::make('fecha_pago')
-                    ->required(),
-                Forms\Components\TextInput::make('observaciones')
+
+                TextInput::make('observaciones')
+                    ->label('Observaciones')
                     ->maxLength(255),
             ]);
     }
@@ -48,25 +125,40 @@ class PagoResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('cuota_grupal_id')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('cuotaGrupal.prestamo.grupo.nombre_grupo')
+                    ->label('Grupo')
+                    ->sortable()
+                    ->searchable(),
+
                 Tables\Columns\TextColumn::make('tipo_pago')
+                    ->label('Tipo de Pago')
                     ->searchable(),
+
                 Tables\Columns\TextColumn::make('monto_pagado')
+                    ->label('Monto Pagado')
                     ->searchable(),
+
                 Tables\Columns\TextColumn::make('fecha_pago')
+                    ->label('Fecha de Pago')
                     ->dateTime()
                     ->sortable(),
+
                 Tables\Columns\TextColumn::make('estado_pago')
+                    ->label('Estado del Pago')
                     ->searchable(),
+
                 Tables\Columns\TextColumn::make('observaciones')
+                    ->label('Observaciones')
                     ->searchable(),
+
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Fecha de Registro')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Última Actualización')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -75,11 +167,11 @@ class PagoResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->label('Editar'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()->label('Eliminar seleccionados'),
                 ]),
             ]);
     }
@@ -95,8 +187,8 @@ class PagoResource extends Resource
     {
         return [
             'index' => Pages\ListPagos::route('/'),
-            'create' => Pages\CreatePago::route('/create'),
-            'edit' => Pages\EditPago::route('/{record}/edit'),
+            'create' => Pages\CreatePago::route('/crear'),
+            'edit' => Pages\EditPago::route('/{record}/editar'),
         ];
     }
 }

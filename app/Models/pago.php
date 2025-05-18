@@ -28,7 +28,7 @@ class Pago extends Model
     public function cuotaGrupal()
     {
       
-        return $this->belongsTo(Cuotas_Grupales::class);
+        return $this->belongsTo(Cuotas_Grupales::class, 'cuota_grupal_id');
     }
 
     public function setMontoPagadoAttribute($value)

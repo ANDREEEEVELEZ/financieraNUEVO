@@ -6,7 +6,7 @@ use App\Filament\Dashboard\Resources\AsesorResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
-class ListAsesors extends ListRecords
+class ListAsesores extends ListRecords
 {
     protected static string $resource = AsesorResource::class;
 

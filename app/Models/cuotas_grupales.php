@@ -11,13 +11,20 @@ class Cuotas_Grupales extends Model
 
     protected $table = 'cuotas_grupales';
 
-    // Atributos 
     protected $fillable = [
         'prestamo_id',
         'numero_cuota',
         'monto_cuota_grupal',
         'fecha_vencimiento',
+        'saldo_pendiente',
         'estado_cuota_grupal',
+        'estado_pago',
+    ];
+
+    protected $casts = [
+        'fecha_vencimiento' => 'date',
+        'monto_cuota_grupal' => 'decimal:2',
+        'saldo_pendiente' => 'decimal:2',
     ];
 
     /**
@@ -25,6 +32,23 @@ class Cuotas_Grupales extends Model
      */
     public function prestamo()
     {
-        return $this->belongsTo(Prestamo::class);
+        return $this->belongsTo(Prestamo::class, 'prestamo_id');
+    }
+
+    /**
+     * Relación: una cuota grupal puede tener múltiples pagos
+     */
+    public function pagos()
+    {
+        return $this->hasMany(Pago::class, 'cuota_grupal_id');
+    }
+
+    /**
+     * Scope: obtener cuotas vencidas y no pagadas completamente
+     */
+    public function scopeVencidas($query)
+    {
+        return $query->whereDate('fecha_vencimiento', '<', now())
+                     ->where('estado_pago', '!=', 'pagado');
     }
 }

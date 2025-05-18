@@ -8,9 +8,9 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 
 class AsistenteVirtual extends Page
 {
@@ -27,13 +27,25 @@ class AsistenteVirtual extends Page
 
     public function mount(): void
     {
-        $this->activeTab = 0;
         $this->consultas = consulta_asistente::latest()->take(10)->get();
+
+        $this->form->fill([
+            'query' => '',
+            'response' => '',
+            'activeTab' => 0,
+        ]);
+
+        $this->activeTab = 0;
     }
 
     protected function getFormSchema(): array
     {
         return [
+            Hidden::make('activeTab')
+                ->default(0)
+                ->reactive()
+                ->afterStateUpdated(fn ($state) => $this->activeTab = (int) $state),
+
             Tabs::make('AsistenteTabs')
                 ->tabs([
                     Tabs\Tab::make('Asistente')
@@ -67,22 +79,14 @@ class AsistenteVirtual extends Page
                     Tabs\Tab::make('Historial')
                         ->schema([
                             \Filament\Forms\Components\View::make('filament.dashboard.pages.historial-table')
-                                ->label('Últimas consultas'),
+                                ->label('Últimas consultas')
+                                ->viewData(['consultas' => $this->consultas]),
                         ]),
                 ])
-                ->activeTab($this->activeTab)
-                ->persistTab()
+                ->activeTab(1) // 1-based index: 1 = "Asistente" tab
                 ->reactive()
-                ->afterStateUpdated(function ($state) {
-                    $this->activeTab = $state;
-                    Log::info('ActiveTab changed via afterStateUpdated to: ' . $state);
-                }),
+                ->afterStateUpdated(fn ($state) => $this->form->fill(['activeTab' => $state - 1])),
         ];
-    }
-
-    protected function getFormModel(): string
-    {
-        return consulta_asistente::class;
     }
 
     public function submitQuery()
@@ -101,17 +105,12 @@ class AsistenteVirtual extends Page
 
         $this->consultas = consulta_asistente::latest()->take(10)->get();
         $this->reset(['query', 'response']);
+        $this->form->fill(['activeTab' => 0]);
         $this->activeTab = 0;
     }
 
     protected function processQuery($query): string
     {
         return "Respuesta a: " . $query;
-    }
-
-    public function updatedActiveTab($value)
-    {
-        $this->activeTab = $value;
-        Log::info('ActiveTab updated to: ' . $value);
     }
 }
