@@ -28,4 +28,13 @@ class Cliente extends Model
     {
         return $this->belongsTo(Persona::class);
     }
+
+    /**
+     * Relación muchos a muchos con Grupo a través de la tabla pivote grupo_cliente.
+     */
+    public function grupos()
+    {
+        return $this->belongsToMany(Grupo::class, 'grupo_cliente', 'cliente_id', 'grupo_id')
+            ->withTimestamps();
+    }
 }

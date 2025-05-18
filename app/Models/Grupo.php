@@ -26,4 +26,22 @@ class Grupo extends Model
     {
        //  return $this->hasMany(Integrante::class); // Suposición de una relación con una tabla de integrantes
     }
+
+    public function clientes()
+    {
+        return $this->belongsToMany(Cliente::class, 'grupo_cliente', 'grupo_id', 'cliente_id')
+            ->withTimestamps();
+    }
+
+    public function getIntegrantesNombresAttribute()
+    {
+        return $this->clientes->map(function($cliente) {
+            return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
+        })->implode(', ');
+    }
+    
+    public function getNumeroIntegrantesRealAttribute()
+    {
+        return $this->clientes()->count();
+    }
 }
