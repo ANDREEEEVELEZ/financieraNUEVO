@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Mora;
 
 class Cuotas_Grupales extends Model
 {
@@ -27,28 +28,15 @@ class Cuotas_Grupales extends Model
         'saldo_pendiente' => 'decimal:2',
     ];
 
-    /**
-     * Relación: una cuota grupal pertenece a un préstamo grupal
-     */
     public function prestamo()
     {
         return $this->belongsTo(Prestamo::class, 'prestamo_id');
     }
 
-    /**
-     * Relación: una cuota grupal puede tener múltiples pagos
-     */
-    public function pagos()
-    {
-        return $this->hasMany(Pago::class, 'cuota_grupal_id');
-    }
+    // Tu método estadoLegible
+    public function mora()
+{
+    return $this->hasOne(Mora::class, 'cuota_grupal_id');
+}
 
-    /**
-     * Scope: obtener cuotas vencidas y no pagadas completamente
-     */
-    public function scopeVencidas($query)
-    {
-        return $query->whereDate('fecha_vencimiento', '<', now())
-                     ->where('estado_pago', '!=', 'pagado');
-    }
 }

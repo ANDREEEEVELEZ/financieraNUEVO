@@ -20,6 +20,7 @@ class PrestamoResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
+
     public static function form(Forms\Form $form): Forms\Form
     {
         return $form->schema([

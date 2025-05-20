@@ -33,7 +33,7 @@ class PrestamoObserver
                 'monto_cuota_grupal' => round($montoPorCuota, 2),
                 'saldo_pendiente' => round($montoPorCuota, 2),
                 'fecha_vencimiento' => $fechaInicio->copy()->addDays($dias * $i),
-                'estado_cuota_grupal' => 'pendiente',
+                'estado_cuota_grupal' => 'vigente',
                 'estado_pago' => 'pendiente',
             ]);
         }

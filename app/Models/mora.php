@@ -4,52 +4,69 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Mora extends Model
 {
     use HasFactory;
 
-    /**
-     * Los atributos que se pueden asignar masivamente.
-     */
     protected $fillable = [
         'cuota_grupal_id',
-        'dias_atraso',
+        'fecha_atraso',
         'monto_mora',
         'estado_mora',
     ];
 
-    /**
-     * Casts para convertir automáticamente campos a sus tipos adecuados.
-     */
     protected $casts = [
-        'monto_mora' => 'decimal:2',
-        'dias_atraso' => 'integer',
+        'fecha_atraso' => 'date',
     ];
 
-    /**
-     * Relación: Una mora pertenece a una cuota grupal.
-     */
     public function cuotaGrupal()
     {
-        return $this->belongsTo(Cuotas_Grupales::class);
+        return $this->belongsTo(Cuotas_Grupales::class, 'cuota_grupal_id');
     }
 
-    /**
-     * Accesor: Estado de mora con primera letra en mayúscula.
-     */
     public function getEstadoMoraFormattedAttribute()
     {
         return ucfirst(str_replace('_', ' ', $this->estado_mora));
     }
 
-    /**
-     * Mutador opcional para asegurarte que el monto sea decimal con punto.
-     */
-    public function setMontoMoraAttribute($value)
+    public function getMontoMoraCalculadoAttribute()
     {
-        $this->attributes['monto_mora'] = is_numeric($value)
-            ? number_format($value, 2, '.', '')
-            : null;
+        $cuota = $this->cuotaGrupal;
+
+        if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
+            return 0;
+        }
+
+        $fechaAtraso = $this->fecha_atraso ?? now();
+        $fechaVencimiento = $cuota->fecha_vencimiento;
+
+        $diasAtraso = Carbon::parse($fechaAtraso)->isAfter($fechaVencimiento)
+            ? Carbon::parse($fechaAtraso)->diffInDays($fechaVencimiento)
+            : 0;
+
+        $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
+
+        return $integrantes * $diasAtraso * 1;
     }
+
+    public static function calcularMontoMora($cuota, $fechaAtraso = null)
+    {
+        if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
+            return 0;
+        }
+
+        $fechaAtraso = $fechaAtraso ?? now();
+        $fechaVencimiento = $cuota->fecha_vencimiento;
+
+        $diasAtraso = Carbon::parse($fechaAtraso)->isAfter($fechaVencimiento)
+            ? Carbon::parse($fechaAtraso)->diffInDays($fechaVencimiento)
+            : 0;
+
+        $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
+
+        return $integrantes * $diasAtraso * 1;
+    }
+
 }

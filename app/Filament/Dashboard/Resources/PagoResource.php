@@ -14,6 +14,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Tables\Table;
+use Filament\Tables\Actions\Action;
+use Illuminate\Support\Facades\Auth;
 
 class PagoResource extends Resource
 {
@@ -49,7 +51,8 @@ class PagoResource extends Resource
                         $cuota = Cuotas_Grupales::whereHas('prestamo', function ($query) use ($state) {
                                 $query->where('grupo_id', $state);
                             })
-                            ->where('estado_cuota_grupal', 'pendiente')
+                            ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
+                            ->whereIn('estado_pago', ['pendiente', 'parcial'])
                             ->orderBy('numero_cuota', 'asc')
                             ->first();
 
@@ -61,14 +64,6 @@ class PagoResource extends Resource
                             $set('cuota_grupal_id', null);
                             $set('numero_cuota', null);
                             $set('monto_cuota', null);
-                        }
-                    })
-                    ->afterStateHydrated(function (callable $set, callable $get, $record) {
-                        if ($record) {
-                            $set('grupo_id', $record->cuotaGrupal->prestamo->grupo_id ?? null);
-                            $set('cuota_grupal_id', $record->cuota_grupal_id);
-                            $set('numero_cuota', $record->cuotaGrupal->numero_cuota ?? null);
-                            $set('monto_cuota', $record->cuotaGrupal->monto_cuota_grupal ?? null);
                         }
                     }),
 
@@ -166,9 +161,7 @@ class PagoResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make()->label('Editar'),
-            ])
+          
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()->label('Eliminar seleccionados'),

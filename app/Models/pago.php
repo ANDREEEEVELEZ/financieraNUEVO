@@ -40,4 +40,40 @@ class Pago extends Model
     {
         return $this->fecha_pago ? $this->fecha_pago->format('d/m/Y H:i') : null;
     }
+    // En App\Models\Pago.php
+    public function aprobar()
+    {
+        // Solo se aprueba si estaba pendiente
+        if ($this->estado_pago !== 'pendiente') {
+            return;
+        }
+
+        $this->estado_pago = 'aprobado';
+        $this->save();
+
+        $cuota = $this->cuotaGrupal;
+
+        if ($this->tipo_pago === 'cuota') {
+            // Si el pago es completo (tipo cuota)
+            $cuota->estado_pago = 'pagado';
+            $cuota->estado_cuota_grupal = 'cancelada';
+            $cuota->saldo_pendiente = 0;
+        } elseif ($this->tipo_pago === 'amortizacion') {
+            // Si es amortización adicional, puede quedar en parcial
+            $nuevoSaldo = $cuota->saldo_pendiente - $this->monto_pagado;
+
+            $cuota->saldo_pendiente = $nuevoSaldo > 0 ? $nuevoSaldo : 0;
+
+            if ($nuevoSaldo <= 0) {
+                $cuota->estado_pago = 'pagado';
+                $cuota->estado_cuota_grupal = 'cancelada';
+            } else {
+                $cuota->estado_pago = 'parcial';
+                // El estado de la cuota grupal se mantiene en mora o vigente
+            }
+        }
+
+        $cuota->save();
+    }
+
 }
