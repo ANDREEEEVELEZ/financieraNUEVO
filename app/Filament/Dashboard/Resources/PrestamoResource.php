@@ -26,16 +26,82 @@ class PrestamoResource extends Resource
         return $form->schema([
             Select::make('grupo_id')
                 ->relationship('grupo', 'nombre_grupo')
-                ->required(),
+                ->required()
+                ->reactive()
+                ->afterStateUpdated(function ($state, callable $set) {
+                    $grupo = \App\Models\Grupo::with('clientes.persona')->find($state);
+                    if ($grupo) {
+                        $clientes = $grupo->clientes->map(function ($cliente) {
+                            return [
+                                'id' => $cliente->id,
+                                'nombre' => $cliente->persona->nombre,
+                                'apellidos' => $cliente->persona->apellidos,
+                                'dni' => $cliente->persona->DNI,
+                                'monto' => null,
+                            ];
+                        })->toArray();
+                        $set('clientes_grupo', $clientes);
+                    } else {
+                        $set('clientes_grupo', []);
+                    }
+                }),
+            \Filament\Forms\Components\Hidden::make('clientes_grupo')
+                ->dehydrateStateUsing(fn($state) => $state)
+                ->reactive(),
+            \Filament\Forms\Components\Repeater::make('clientes_grupo')
+                ->label('Integrantes del Grupo')
+                ->schema([
+                    \Filament\Forms\Components\TextInput::make('nombre')
+                        ->label('Nombre')
+                        ->disabled(),
+                    \Filament\Forms\Components\TextInput::make('apellidos')
+                        ->label('Apellidos')
+                        ->disabled(),
+                    \Filament\Forms\Components\TextInput::make('dni')
+                        ->label('DNI')
+                        ->disabled(),
+                    \Filament\Forms\Components\TextInput::make('monto')
+                        ->label('Monto a Prestar')
+                        ->numeric()
+                        ->required()
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            $clientes = $get('../../clientes_grupo') ?? [];
+                            $total = array_sum(array_map(fn($c) => floatval($c['monto'] ?? 0), $clientes));
+                            $set('../../monto_prestado_total', $total);
+                            $interes = floatval($get('../../tasa_interes'));
+                            if ($total > 0 && $interes >= 0) {
+                                $montoDevolver = $total * (1 + $interes / 100);
+                                $set('../../monto_devolver', number_format($montoDevolver, 2, '.', ''));
+                            } else {
+                                $set('../../monto_devolver', '');
+                            }
+                        }),
+                ])
+                ->visible(fn(callable $get) => !empty($get('clientes_grupo')))
+                ->columns(4),
             TextInput::make('tasa_interes')
-                ->numeric()
-                ->required(),
+                ->label('Tasa interés ( % )')
+                ->default(17)
+                ->readOnly()
+                ->numeric(),
             TextInput::make('monto_prestado_total')
+                ->label('Monto prestado total')
+                ->required()
                 ->numeric()
-                ->required(),
+                ->readOnly()
+                ->live()
+                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                    $monto = floatval($state);
+                    $interes = floatval($get('tasa_interes'));
+                    if ($monto > 0 && $interes >= 0) {
+                        $montoDevolver = $monto * (1 + $interes / 100);
+                        $set('monto_devolver', number_format($montoDevolver, 2, '.', ''));
+                    }
+                }),
             TextInput::make('monto_devolver')
-                ->numeric()
-                ->required(),
+                ->label('Monto devolver')
+                ->readOnly(),
             TextInput::make('cantidad_cuotas')
                 ->numeric()
                 ->required(),
@@ -54,7 +120,9 @@ class PrestamoResource extends Resource
                     'aprobado' => 'Aprobado',
                     'rechazado' => 'Rechazado',
                 ])
-                ->required(),
+                ->default('pendiente')
+                ->required()
+                ->disabled(fn() => !(\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasRole(['Jefe de Operaciones', 'Jefe de Créditos']))),
             TextInput::make('calificacion')
                 ->numeric()
                 ->required(),
@@ -71,6 +139,9 @@ class PrestamoResource extends Resource
             TextColumn::make('fecha_prestamo')->dateTime(),
             TextColumn::make('estado')->sortable(),
             TextColumn::make('calificacion')->sortable(),
+        ])
+        ->actions([
+            Tables\Actions\EditAction::make(),
         ]);
     }
 

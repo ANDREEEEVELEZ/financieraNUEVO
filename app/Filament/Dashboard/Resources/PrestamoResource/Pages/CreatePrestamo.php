@@ -9,4 +9,10 @@ use Filament\Resources\Pages\CreateRecord;
 class CreatePrestamo extends CreateRecord
 {
     protected static string $resource = PrestamoResource::class;
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['estado'] = 'Pendiente';
+        return $data;
+    }
 }
