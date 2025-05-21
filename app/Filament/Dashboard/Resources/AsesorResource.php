@@ -36,43 +36,50 @@ class AsesorResource extends Resource
             Tabs::make('DatosAsesor')
                 ->tabs([
                     Tabs\Tab::make('Información Personal')
-                        ->schema([
-                            TextInput::make('DNI')->label('DNI')->required()->maxLength(8)->minLength(8)->numeric(),
-                            TextInput::make('nombre')->label('Nombre')->required(),
-                            TextInput::make('apellidos')->label('Apellidos')->required(),
-                            Select::make('sexo')->label('Sexo')->required()->options([
-                                'Hombre' => 'Hombre',
-                                'Mujer' => 'Mujer',
-                            ])->native(false),
-                            DatePicker::make('fecha_nacimiento')->label('Fecha de Nacimiento')->required(),
-                            TextInput::make('celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required(),
-                            TextInput::make('correo')->label('Correo Electrónico')->email()->required(),
-                            TextInput::make('direccion')->label('Dirección')->required(),
-                            Select::make('distrito')->label('Distrito')->options([
-                                'Sullana' => 'Sullana',
-                                'Bellavista' => 'Bellavista',
-                                'Ignacio Escudero' => 'Ignacio Escudero',
-                                'Querecotillo' => 'Querecotillo',
-                                'Marcavelica' => 'Marcavelica',
-                                'Salitral' => 'Salitral',
-                                'Lancones' => 'Lancones',
-                                'Miguel Checa' => 'Miguel Checa',
-                            ])->native(false)->required(),
-                            Select::make('estado_civil')->label('Estado Civil')->options([
-                                'Soltero' => 'Soltero',
-                                'Casado' => 'Casado',
-                                'Divorciado' => 'Divorciado',
-                                'Viudo' => 'Viudo',
-                            ])->native(false)->required(),
-                        ])->columns(2),
+    ->schema([
+        Forms\Components\Group::make([
+            TextInput::make('DNI')->label('DNI')->required()->maxLength(8)->minLength(8)->numeric(),
+            TextInput::make('nombre')->label('Nombre')->required(),
+            TextInput::make('apellidos')->label('Apellidos')->required(),
+            Select::make('sexo')->label('Sexo')->required()->options([
+                'Hombre' => 'Hombre',
+                'Mujer' => 'Mujer',
+            ])->native(false),
+            DatePicker::make('fecha_nacimiento')->label('Fecha de Nacimiento')->required(),
+            TextInput::make('celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required(),
+            TextInput::make('correo')->label('Correo Electrónico')->email()->required(),
+            TextInput::make('direccion')->label('Dirección')->required(),
+            Select::make('distrito')->label('Distrito')->options([
+                'Sullana' => 'Sullana',
+                'Bellavista' => 'Bellavista',
+                'Ignacio Escudero' => 'Ignacio Escudero',
+                'Querecotillo' => 'Querecotillo',
+                'Marcavelica' => 'Marcavelica',
+                'Salitral' => 'Salitral',
+                'Lancones' => 'Lancones',
+                'Miguel Checa' => 'Miguel Checa',
+            ])->native(false)->required(),
+            Select::make('estado_civil')->label('Estado Civil')->options([
+                'Soltero' => 'Soltero',
+                'Casado' => 'Casado',
+                'Divorciado' => 'Divorciado',
+                'Viudo' => 'Viudo',
+            ])->native(false)->required(),
+        ])->columns(2)->relationship('persona'),
+                            
+            ]),
                     Tabs\Tab::make('Datos de Usuario')
                         ->schema([
-                            Forms\Components\Fieldset::make('user')
-                                ->schema([
-                                    TextInput::make('user.name')->label('Nombre de Usuario')->required(),
-                                    TextInput::make('user.email')->label('Correo')->email()->required(),
-                                    TextInput::make('user.password')->label('Contraseña')->password()->required(),
-                                ]),
+                            Forms\Components\Group::make([
+                                TextInput::make('name')->label('Nombre de Usuario')->required(),
+                                TextInput::make('email')->label('Correo')->email()->required(),
+                                TextInput::make('password')
+                                    ->label('Contraseña')
+                                    ->password()
+                                    ->dehydrateStateUsing(fn ($state) => !empty($state) ? bcrypt($state) : null)
+                                    ->dehydrated(fn ($state) => filled($state))
+                                    ->required(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\CreateRecord),
+                            ])->relationship('user'),
                         ]),
                     Tabs\Tab::make('Datos del Asesor')
                         ->schema([
