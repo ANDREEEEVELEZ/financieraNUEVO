@@ -122,7 +122,11 @@ class PrestamoResource extends Resource
                 ])
                 ->default('pendiente')
                 ->required()
-                ->disabled(fn() => !(\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasRole(['Jefe de Operaciones', 'Jefe de Créditos']))),
+                ->disabled(fn() => !(
+                    \Illuminate\Support\Facades\Auth::check() &&
+                    \Illuminate\Support\Facades\Auth::user()->hasRole(['Jefe de Operaciones', 'Jefe de Créditos']) &&
+                    request()->routeIs('filament.dashboard.resources.prestamos.edit')
+                )),
             TextInput::make('calificacion')
                 ->numeric()
                 ->required(),
