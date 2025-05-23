@@ -33,6 +33,11 @@ class Grupo extends Model
             ->withTimestamps();
     }
 
+    public function prestamos()
+    {
+        return $this->hasMany(\App\Models\Prestamo::class, 'grupo_id');
+    }
+
     public function getIntegrantesNombresAttribute()
     {
         return $this->clientes->map(function($cliente) {

@@ -133,16 +133,46 @@ class PrestamoResource extends Resource
         ]);
     }
 
+    // Proteger el backend para que solo los roles permitidos puedan modificar el estado
+    public static function mutateFormDataBeforeSave(array $data): array
+    {
+        if (!\Illuminate\Support\Facades\Auth::user()->hasRole(['Jefe de Operaciones', 'Jefe de Créditos'])) {
+            unset($data['estado']);
+        }
+        return $data;
+    }
+
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table->columns([
             TextColumn::make('grupo.nombre_grupo')->label('Grupo'),
             TextColumn::make('tasa_interes')->sortable(),
             TextColumn::make('monto_prestado_total')->sortable(),
+            TextColumn::make('monto_devolver')->label('Monto a Devolver (Grupal)')->sortable(),
             TextColumn::make('cantidad_cuotas')->sortable(),
             TextColumn::make('fecha_prestamo')->dateTime(),
             TextColumn::make('estado')->sortable(),
             TextColumn::make('calificacion')->sortable(),
+            TextColumn::make('detalle_individual')
+                ->label('Detalle Individual')
+                ->html()
+                ->getStateUsing(function ($record) {
+                    $detalles = \App\Models\Prestamo_Individual::where('prestamo_id', $record->id)
+                        ->with('cliente.persona')
+                        ->get();
+                    if ($detalles->isEmpty()) {
+                        return '<span style="color: #888">Sin datos</span>';
+                    }
+                    $html = '<ul style="padding-left: 1em;">';
+                    foreach ($detalles as $detalle) {
+                        $nombre = $detalle->cliente->persona->nombre . ' ' . $detalle->cliente->persona->apellidos;
+                        $monto = number_format($detalle->monto_prestado_individual, 2);
+                        $devolver = number_format($detalle->monto_devolver_individual, 2);
+                        $html .= "<li><b>$nombre</b>: Prestado S/ $monto | A devolver S/ $devolver</li>";
+                    }
+                    $html .= '</ul>';
+                    return $html;
+                }),
         ])
         ->actions([
             Tables\Actions\EditAction::make(),

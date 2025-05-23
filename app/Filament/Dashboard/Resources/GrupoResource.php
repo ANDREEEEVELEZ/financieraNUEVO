@@ -90,6 +90,13 @@ class GrupoResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('imprimir_contratos')
+                    ->label('Imprimir Contratos')
+                    ->icon('heroicon-o-printer')
+                    ->color('success')
+                    ->url(fn($record) => $record ? route('contratos.grupo.imprimir', $record->id) : '#')
+                    ->openUrlInNewTab()
+                    ->visible(fn($record) => $record !== null),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

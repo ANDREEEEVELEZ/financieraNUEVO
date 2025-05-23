@@ -14,7 +14,7 @@ class Pago extends Model
         'tipo_pago',
         'monto_pagado',
         'fecha_pago',
-        'estado_pago',
+        'estado_pago', // Asegura que este campo sea fillable
         'observaciones',
     ];
 

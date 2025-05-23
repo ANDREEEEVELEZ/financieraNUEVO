@@ -12,7 +12,10 @@ class CreatePago extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $data['estado_pago'] = 'Pendiente';
+        // Solo establecer 'Pendiente' si no viene del formulario
+        if (empty($data['estado_pago'])) {
+            $data['estado_pago'] = 'Pendiente';
+        }
         return $data;
     }
 }

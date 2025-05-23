@@ -113,6 +113,17 @@ class PagoResource extends Resource
                 TextInput::make('observaciones')
                     ->label('Observaciones')
                     ->maxLength(255),
+
+                Select::make('estado_pago')
+                    ->label('Estado del Pago')
+                    ->options([
+                        'Pendiente' => 'Pendiente',
+                        'Aprobado' => 'Aprobado',
+                        'Rechazado' => 'Rechazado'
+                    ])
+                    ->default('Pendiente')
+                    ->disabled(fn() => Auth::user()?->hasRole('Asesor'))
+                    ->visible(fn() => true),
             ]);
     }
 

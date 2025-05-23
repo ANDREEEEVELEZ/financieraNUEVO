@@ -16,4 +16,16 @@ class ListGrupos extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    protected function getTableActions(): array
+    {
+        return [
+            Actions\Action::make('imprimir_contratos')
+                ->label('Imprimir Contratos')
+                ->icon('heroicon-o-printer')
+                ->color('success')
+                ->url(fn($record) => route('contratos.grupo.imprimir', $record->id))
+                ->openUrlInNewTab(),
+        ];
+    }
 }
