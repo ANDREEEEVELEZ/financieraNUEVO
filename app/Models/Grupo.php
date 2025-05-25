@@ -16,6 +16,7 @@ class Grupo extends Model
         'fecha_registro',
         'calificacion_grupo',
         'estado_grupo',
+        'asesor_id', // Relación con Asesor
     ];
 
     protected $casts = [
@@ -49,7 +50,6 @@ class Grupo extends Model
     {
         return $this->clientes()->count();
     }
-
     /**
      * Sincroniza el estado del grupo según el estado del préstamo principal.
      */
@@ -62,4 +62,10 @@ class Grupo extends Model
             $this->save();
         }
     }
+
+    public function asesor()
+    {
+        return $this->belongsTo(Asesor::class);
+    }
+
 }

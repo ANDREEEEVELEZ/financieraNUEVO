@@ -19,6 +19,7 @@ class Cliente extends Model
         'actividad',
         'condicion_personal',
         'estado_cliente',
+        'asesor_id', // Relación con Asesor
     ];
 
     /**
@@ -36,5 +37,9 @@ class Cliente extends Model
     {
         return $this->belongsToMany(Grupo::class, 'grupo_cliente', 'cliente_id', 'grupo_id')
             ->withTimestamps();
+    }
+    public function asesor()
+    {
+        return $this->belongsTo(Asesor::class);
     }
 }

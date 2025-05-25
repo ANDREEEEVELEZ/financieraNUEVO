@@ -29,4 +29,12 @@ class Asesor extends Model
     {
         return $this->belongsTo(User::class);
     }
+    public function grupos()
+    {
+        return $this->hasMany(Grupo::class);
+    }
+    public function clientes()
+    {
+        return $this->hasMany(Cliente::class);
+    }
 }

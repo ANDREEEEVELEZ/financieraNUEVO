@@ -13,7 +13,6 @@ class Mora extends Model
     protected $fillable = [
         'cuota_grupal_id',
         'fecha_atraso',
-        'monto_mora',
         'estado_mora',
     ];
 

@@ -13,6 +13,7 @@ class Pago extends Model
         'cuota_grupal_id',
         'tipo_pago',
         'monto_pagado',
+        'monto_mora_pagda',
         'fecha_pago',
         'estado_pago', // Asegura que este campo sea fillable
         'observaciones',
