@@ -35,4 +35,9 @@ class EditPago extends EditRecord
         }
         return $schema;
     }
+    
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }

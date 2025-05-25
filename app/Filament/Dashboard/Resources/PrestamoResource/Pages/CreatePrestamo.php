@@ -15,4 +15,9 @@ class CreatePrestamo extends CreateRecord
         $data['estado'] = 'Pendiente';
         return $data;
     }
+    
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }

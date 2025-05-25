@@ -25,4 +25,9 @@ class EditCliente extends EditRecord
             ['persona' => $this->record->persona->toArray()]
         ));
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }

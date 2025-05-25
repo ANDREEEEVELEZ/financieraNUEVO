@@ -49,4 +49,17 @@ class Grupo extends Model
     {
         return $this->clientes()->count();
     }
+
+    /**
+     * Sincroniza el estado del grupo según el estado del préstamo principal.
+     */
+    public function sincronizarEstadoPorPrestamoPrincipal()
+    {
+        // Considera solo el préstamo principal (más reciente o con estado relevante)
+        $prestamo = $this->prestamos()->orderByDesc('id')->first();
+        if ($prestamo) {
+            $this->estado_grupo = $prestamo->estado;
+            $this->save();
+        }
+    }
 }

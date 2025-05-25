@@ -49,7 +49,7 @@ class ClienteResource extends Resource
                                     'Salitral' => 'Salitral',
                                     'Lancones' => 'Lancones',
                                     'Miguel Checa' => 'Miguel Checa',
-                                    // Agrega más distritos según sea necesario
+                                   
                                 ])->native(false)->required(),
                                 Select::make('persona.estado_civil')->label('Estado Civil')->options([
                                     'Soltero' => 'Soltero',

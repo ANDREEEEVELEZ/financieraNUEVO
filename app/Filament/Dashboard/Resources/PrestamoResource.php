@@ -120,13 +120,14 @@ class PrestamoResource extends Resource
                     'aprobado' => 'Aprobado',
                     'rechazado' => 'Rechazado',
                 ])
-                ->default('pendiente')
+                ->default('Pendiente')
                 ->required()
                 ->disabled(fn() => !(
                     \Illuminate\Support\Facades\Auth::check() &&
-                    \Illuminate\Support\Facades\Auth::user()->hasRole(['Jefe de Operaciones', 'Jefe de Créditos']) &&
+                    \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de Operaciones', 'Jefe de Creditos']) &&
                     request()->routeIs('filament.dashboard.resources.prestamos.edit')
-                )),
+                ))
+                ->dehydrated(true), // <-- Asegura que siempre se envía el valor al backend
             TextInput::make('calificacion')
                 ->numeric()
                 ->required(),
@@ -136,9 +137,11 @@ class PrestamoResource extends Resource
     // Proteger el backend para que solo los roles permitidos puedan modificar el estado
     public static function mutateFormDataBeforeSave(array $data): array
     {
-        if (!\Illuminate\Support\Facades\Auth::user()->hasRole(['Jefe de Operaciones', 'Jefe de Créditos'])) {
+        if (!\Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de Operaciones', 'Jefe de Creditos'])) {
             unset($data['estado']);
         }
+        // Eliminar el campo nuevo_rol para que no intente guardarse en la tabla prestamos
+        unset($data['nuevo_rol']);
         return $data;
     }
 
@@ -174,9 +177,9 @@ class PrestamoResource extends Resource
                     return $html;
                 }),
         ])
-        ->actions([
-            Tables\Actions\EditAction::make(),
-        ]);
+            ->actions([
+                Tables\Actions\EditAction::make(),
+            ]);
     }
 
     public static function getPages(): array

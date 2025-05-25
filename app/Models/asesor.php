@@ -19,7 +19,7 @@ class Asesor extends Model
         'estado_asesor',
     ];
 
-    // Relaciones con otras entidades
+    // Relaciones con tablas
     public function persona()
     {
         return $this->belongsTo(Persona::class);

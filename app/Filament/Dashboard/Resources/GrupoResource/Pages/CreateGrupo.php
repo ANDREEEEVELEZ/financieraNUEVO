@@ -20,14 +20,33 @@ class CreateGrupo extends CreateRecord
         }
         // Estado por defecto
         $data['estado_grupo'] = $data['estado_grupo'] ?? 'Activo';
+        // Validar que el líder esté entre los clientes seleccionados
+        if (!empty($data['clientes']) && !in_array($data['lider_grupal'], $data['clientes'])) {
+            throw new \Exception('El líder grupal debe ser uno de los integrantes seleccionados.');
+        }
         return $data;
     }
 
     protected function afterCreate(): void
     {
         $clientes = $this->data['clientes'] ?? [];
+        $liderId = $this->data['lider_grupal'] ?? null;
         if (!empty($clientes)) {
-            $this->record->clientes()->sync($clientes);
+            $syncData = [];
+            foreach ($clientes as $clienteId) {
+                $syncData[$clienteId] = [
+                    'rol' => ($clienteId == $liderId) ? 'Líder Grupal' : 'Miembro',
+                ];
+            }
+            $this->record->clientes()->sync($syncData);
         }
+        // Actualizar el número de integrantes en la tabla grupos
+        $this->record->numero_integrantes = count($clientes);
+        $this->record->save();
+    }
+    
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
     }
 }

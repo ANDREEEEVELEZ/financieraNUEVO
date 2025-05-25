@@ -19,12 +19,12 @@ class AsesorResource extends Resource
 {
     protected static ?string $model = Asesor::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    // Aquí defines el nombre singular que aparece en la interfaz
+    // Aquí se define el nombre singular que aparece en la interfaz
     public static function getModelLabel(): string
     {
         return 'Asesor';
     }
-    // Aquí defines el nombre plural que aparece en la interfaz
+    // Aquí se define el nombre plural que aparece en la interfaz
     public static function getPluralModelLabel(): string
     {
         return 'Asesores';

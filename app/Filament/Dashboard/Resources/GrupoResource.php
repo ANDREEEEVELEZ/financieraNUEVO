@@ -31,7 +31,9 @@ class GrupoResource extends Resource
                     ->maxLength(255),
                 Forms\Components\TextInput::make('estado_grupo')
                     ->default('Activo')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->disabled()
+                    ->dehydrated(),
                 Forms\Components\Select::make('clientes')
                     ->label('Integrantes')
                     ->multiple()
@@ -40,6 +42,17 @@ class GrupoResource extends Resource
                         return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')'];
                     })->toArray())
                     ->required(),
+                Forms\Components\Select::make('lider_grupal')
+                    ->label('Líder Grupal')
+                    ->options(function (callable $get) {
+                        $ids = $get('clientes') ?? [];
+                        return Cliente::with('persona')->whereIn('id', $ids)->get()->mapWithKeys(function($cliente) {
+                            return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')'];
+                        })->toArray();
+                    })
+                    ->required()
+                    ->searchable()
+                    ->visible(fn(callable $get) => !empty($get('clientes'))),
                 Forms\Components\TextInput::make('numero_integrantes')
                     ->label('Numero de Integrantes')
                     ->disabled()
@@ -84,6 +97,30 @@ class GrupoResource extends Resource
                     ->label('Integrantes')
                     ->limit(50)
                     ->tooltip(fn($record) => $record->integrantes_nombres),
+                Tables\Columns\TextColumn::make('lider_grupal')
+                    ->label('Líder Grupal')
+                    ->getStateUsing(function($record) {
+                        // Buscar el cliente con rol 'Líder Grupal' en la relación pivote
+                        $lider = $record->clientes()->wherePivot('rol', 'Líder Grupal')->with('persona')->first();
+                        return $lider ? ($lider->persona->nombre . ' ' . $lider->persona->apellidos) : '-';
+                    }),
+                Tables\Columns\TextColumn::make('integrantes_roles')
+                    ->label('Integrantes y Roles')
+                    ->getStateUsing(function($record) {
+                        // Mostrar todos los integrantes con su rol
+                        $integrantes = $record->clientes()->with('persona')->get();
+                        return $integrantes->map(function($cliente) use ($record) {
+                            $rol = $cliente->pivot->rol ?? 'Miembro';
+                            $nombre = $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
+                            return $nombre . ' (' . $rol . ')';
+                        })->implode(', ');
+                    })
+                    ->limit(80)
+                    ->tooltip(fn($record) => $record->clientes()->with('persona')->get()->map(function($cliente) {
+                        $rol = $cliente->pivot->rol ?? 'Miembro';
+                        $nombre = $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
+                        return $nombre . ' (' . $rol . ')';
+                    })->implode(', ')),
             ])
             ->filters([
                 //

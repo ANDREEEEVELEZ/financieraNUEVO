@@ -27,14 +27,45 @@ class EditGrupo extends EditRecord
         }
         // Estado por defecto
         $data['estado_grupo'] = $data['estado_grupo'] ?? 'Activo';
+        // Validar que el líder esté entre los clientes seleccionados
+        if (!empty($data['clientes']) && !in_array($data['lider_grupal'], $data['clientes'])) {
+            throw new \Exception('El líder grupal debe ser uno de los integrantes seleccionados.');
+        }
         return $data;
     }
 
     protected function afterSave(): void
     {
         $clientes = $this->data['clientes'] ?? [];
+        $liderId = $this->data['lider_grupal'] ?? null;
         if (!empty($clientes)) {
-            $this->record->clientes()->sync($clientes);
+            $syncData = [];
+            foreach ($clientes as $clienteId) {
+                $syncData[$clienteId] = [
+                    'rol' => ($clienteId == $liderId) ? 'Líder Grupal' : 'Miembro',
+                ];
+            }
+            $this->record->clientes()->sync($syncData);
         }
+        // Actualizar el número de integrantes en la tabla grupos
+        $this->record->numero_integrantes = count($clientes);
+        $this->record->save();
+    }
+
+    protected function fillForm(): void
+    {
+        // Llenar el formulario con todos los datos del grupo
+        $data = $this->record->toArray();
+        $data['clientes'] = $this->record->clientes()->pluck('clientes.id')->toArray();
+        $lider = $this->record->clientes()->wherePivot('rol', 'Líder Grupal')->first();
+        if ($lider) {
+            $data['lider_grupal'] = $lider->id;
+        }
+        $this->form->fill($data);
+    }
+    
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
     }
 }

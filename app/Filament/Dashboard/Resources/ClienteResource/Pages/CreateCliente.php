@@ -18,4 +18,9 @@ class CreateCliente extends CreateRecord
         unset($data['persona']);
         return $data;
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }
