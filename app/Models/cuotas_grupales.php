@@ -34,9 +34,13 @@ class Cuotas_Grupales extends Model
     }
 
     // Tu método estadoLegible
-    public function mora()
-{
-    return $this->hasOne(Mora::class, 'cuota_grupal_id');
-}
+        public function mora()
+    {
+        return $this->hasOne(Mora::class, 'cuota_grupal_id');
+    }
+    public function pagos()
+    {
+        return $this->hasMany(Pago::class, 'cuota_grupal_id');
+    }
 
 }

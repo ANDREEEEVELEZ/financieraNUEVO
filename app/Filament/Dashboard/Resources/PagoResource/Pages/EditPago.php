@@ -15,6 +15,34 @@ class EditPago extends EditRecord
     {
         return [
             Actions\DeleteAction::make(),
+            Actions\Action::make('aprobar')
+                ->label('Aprobar')
+                ->icon('heroicon-m-check-circle')
+                ->color('success')
+                ->outlined()
+                ->size('sm')
+                ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && \Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                ->action(function ($record) {
+                    $record->aprobar();
+                    \Filament\Notifications\Notification::make()
+                        ->title('Pago aprobado')
+                        ->success()
+                        ->send();
+                }),
+            Actions\Action::make('rechazar')
+                ->label('Rechazar')
+                ->icon('heroicon-m-x-circle')
+                ->color('danger')
+                ->outlined()
+                ->size('sm')
+                ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && \Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                ->action(function ($record) {
+                    $record->rechazar();
+                    \Filament\Notifications\Notification::make()
+                        ->title('Pago rechazado')
+                        ->danger()
+                        ->send();
+                }),
         ];
     }
 

@@ -44,12 +44,12 @@ class Pago extends Model
     // En App\Models\Pago.php
     public function aprobar()
     {
-        // Solo se aprueba si estaba pendiente
-        if ($this->estado_pago !== 'pendiente') {
+        // Solo se aprueba si estaba pendiente (case-insensitive)
+        if (strtolower($this->estado_pago) !== 'pendiente') {
             return;
         }
 
-        $this->estado_pago = 'aprobado';
+        $this->estado_pago = 'Aprobado'; // Usa 'Aprobado' con mayúscula para coincidir con el sistema y la UI
         $this->save();
 
         $cuota = $this->cuotaGrupal;
@@ -62,9 +62,7 @@ class Pago extends Model
         } elseif ($this->tipo_pago === 'amortizacion') {
             // Si es amortización adicional, puede quedar en parcial
             $nuevoSaldo = $cuota->saldo_pendiente - $this->monto_pagado;
-
             $cuota->saldo_pendiente = $nuevoSaldo > 0 ? $nuevoSaldo : 0;
-
             if ($nuevoSaldo <= 0) {
                 $cuota->estado_pago = 'pagado';
                 $cuota->estado_cuota_grupal = 'cancelada';
@@ -73,8 +71,32 @@ class Pago extends Model
                 // El estado de la cuota grupal se mantiene en mora o vigente
             }
         }
-
         $cuota->save();
     }
+    // En App\Models\Pago.php
+        public function rechazar()
+        {
+            if (strtolower($this->estado_pago) !== 'pendiente') {
+                return;
+            }
+
+            $this->estado_pago = 'Rechazado';
+            $this->save();
+
+            // Restaurar estado de la cuota grupal si este pago era el único que la marcó como pagada
+            $cuota = $this->cuotaGrupal; // Asume que hay una relación definida: public function cuotaGrupal()
+
+            if ($cuota) {
+                // Verificar si no hay otros pagos "aceptados"
+                $pagosValidos = $cuota->pagos()->where('estado_pago', '!=', 'Rechazado')->get();
+
+                if ($pagosValidos->isEmpty()) {
+                    $cuota->estado_cuota_grupal = 'vigente';
+                    $cuota->estado_pago = 'pendiente';
+                    $cuota->save();
+                }
+            }
+        }
+
 
 }
