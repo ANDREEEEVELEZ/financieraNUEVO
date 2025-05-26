@@ -47,6 +47,15 @@ class PagoResource extends Resource
                     ->searchable()
                     ->required()
                     ->reactive()
+                    ->afterStateHydrated(function ($component, $state, $record) {
+                        // Si estamos editando, setear el grupo correspondiente al pago
+                        if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
+                            $component->state($record->cuotaGrupal->prestamo->grupo->id);
+                            $component->disabled(true); // Deshabilitar al editar
+                        } else {
+                            $component->disabled(false); // Habilitar al crear
+                        }
+                    })
                     ->afterStateUpdated(function ($state, callable $set) {
                         $cuota = Cuotas_Grupales::whereHas('prestamo', function ($query) use ($state) {
                                 $query->where('grupo_id', $state);
@@ -74,14 +83,24 @@ class PagoResource extends Resource
                     ->numeric()
                     ->disabled()
                     ->required()
-                    ->dehydrated(),
+                    ->dehydrated()
+                    ->afterStateHydrated(function ($component, $state, $record) {
+                        if ($record && $record->cuotaGrupal) {
+                            $component->state($record->cuotaGrupal->numero_cuota);
+                        }
+                    }),
 
                 TextInput::make('monto_cuota')
                     ->label('Monto de la Cuota')
                     ->numeric()
                     ->disabled()
                     ->required()
-                    ->dehydrated(),
+                    ->dehydrated()
+                    ->afterStateHydrated(function ($component, $state, $record) {
+                        if ($record && $record->cuotaGrupal) {
+                            $component->state($record->cuotaGrupal->monto_cuota_grupal);
+                        }
+                    }),
 
                 Select::make('tipo_pago')
                     ->label('Tipo de Pago')
