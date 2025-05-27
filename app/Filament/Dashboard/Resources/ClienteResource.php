@@ -89,8 +89,8 @@ class ClienteResource extends Resource
                                         'Activo' => 'Activo',
                                         'Inactivo' => 'Inactivo',
                                     ])
-                                    ->native(false)
-                                    ->searchable()
+                                    ->default('Activo')
+                                    ->disabled()
                                     ->label('Estado Cliente')
                                     ->required()
                             ])->columns(2),

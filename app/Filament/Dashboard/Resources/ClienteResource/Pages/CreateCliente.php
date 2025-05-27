@@ -16,6 +16,7 @@ class CreateCliente extends CreateRecord
         $persona = Persona::create($data['persona']);
         $data['persona_id'] = $persona->id;
         unset($data['persona']);
+        $data['estado_cliente'] = 'Activo'; // Forzar siempre Activo
         return $data;
     }
 

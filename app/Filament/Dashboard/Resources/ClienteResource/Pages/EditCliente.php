@@ -15,6 +15,7 @@ class EditCliente extends EditRecord
     {
         $this->record->persona->update($data['persona']);
         unset($data['persona']);
+        $data['estado_cliente'] = $this->record->estado_cliente; // Mantener el valor original
         return $data;
     }
 
