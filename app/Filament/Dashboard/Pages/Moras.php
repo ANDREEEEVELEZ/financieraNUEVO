@@ -36,7 +36,8 @@ class Moras extends Page
         Mora::updateOrCreate(
             ['cuota_grupal_id' => $cuota->id],
             [
-                'fecha_atraso' => $diasAtraso,
+                'fecha_atraso' => now(),
+
                 'monto_mora' => $montoMora,
                 'estado_mora' => 'pendiente',
             ]

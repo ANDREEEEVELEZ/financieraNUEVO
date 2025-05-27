@@ -23,4 +23,27 @@ class CreatePago extends CreateRecord
     {
         return static::getResource()::getUrl('index');
     }
+
+    public function mount(): void
+    {
+        parent::mount();
+        $cuotaGrupalId = request()->get('cuota_grupal_id');
+        if ($cuotaGrupalId) {
+            $cuota = \App\Models\Cuotas_Grupales::with('mora', 'prestamo.grupo')->find($cuotaGrupalId);
+            if ($cuota) {
+                $this->form->fill([
+                    'cuota_grupal_id' => $cuota->id,
+                    'grupo_id' => $cuota->prestamo->grupo->id ?? null,
+                    'numero_cuota' => $cuota->numero_cuota,
+                    'monto_cuota' => $cuota->monto_cuota_grupal,
+                    // No prellenar monto_pagado ni tipo_pago ni monto_mora_aplicada
+                ]);
+            }
+        }
+    }
+
+    protected function getFormSchema(): array
+    {
+        return parent::getFormSchema();
+    }
 }

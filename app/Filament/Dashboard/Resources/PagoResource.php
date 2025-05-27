@@ -104,15 +104,41 @@ class PagoResource extends Resource
                 ->label('Tipo de Pago')
                 ->options([
                     'cuota' => 'Pago de Cuota',
+                    'cuota_mora' => 'Pago de Cuota + Mora',
+                    'solo_mora' => 'Mora',
                     'amortizacion' => 'Amortización Adicional',
                 ])
                 ->required()
                 ->reactive()
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                    $cuotaId = $get('cuota_grupal_id');
+                    $cuota = \App\Models\Cuotas_Grupales::with('mora')->find($cuotaId);
+                    $saldoPendiente = $cuota ? floatval($cuota->saldo_pendiente) : 0;
+                    $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
                     if ($state === 'cuota') {
-                        $set('monto_pagado', $get('monto_cuota'));
+                        $set('monto_pagado', $saldoPendiente);
+                        $set('monto_mora_aplicada', 0);
+                    } elseif ($state === 'cuota_mora') {
+                        $set('monto_mora_aplicada', $montoMora);
+                        $set('monto_pagado', $saldoPendiente + $montoMora);
+                    } elseif ($state === 'solo_mora') {
+                        $set('monto_pagado', $montoMora);
+                        $set('monto_mora_aplicada', $montoMora);
                     } else {
                         $set('monto_pagado', null);
+                        $set('monto_mora_aplicada', 0);
+                    }
+                }),
+
+            TextInput::make('monto_mora_aplicada')
+                ->label('Monto de Mora Aplicado')
+                ->numeric()
+                ->disabled()
+                ->dehydrated(false)
+                ->visible(fn (callable $get) => $get('tipo_pago') === 'cuota_mora')
+                ->afterStateHydrated(function ($component, $state, $record) {
+                    if ($record && $record->tipo_pago === 'cuota_mora' && $record->cuotaGrupal && $record->cuotaGrupal->mora) {
+                        $component->state(abs($record->cuotaGrupal->mora->monto_mora_calculado));
                     }
                 }),
 
@@ -120,7 +146,7 @@ class PagoResource extends Resource
                 ->label('Monto Pagado')
                 ->numeric()
                 ->required()
-                ->disabled(fn (callable $get) => $get('tipo_pago') === 'cuota')
+                ->disabled(fn (callable $get) => $get('tipo_pago') === 'cuota' || $get('tipo_pago') === 'cuota_mora' || $get('tipo_pago') === 'solo_mora')
                 ->dehydrated(),
 
             DateTimePicker::make('fecha_pago')
@@ -136,26 +162,26 @@ class PagoResource extends Resource
                 ->options([
                     'Pendiente' => 'Pendiente',
                     'Aprobado' => 'Aprobado',
-                    'Rechazado' => 'Rechazado'
+                    'Rechazado' => 'Rechazado',
                 ])
                 ->default('Pendiente')
-                ->disabled(function ($get, $record) {
-                    if (Auth::user()?->hasRole('Asesor')) {
-                        return true;
-                    }
-                    $estado = strtolower($get('estado_pago') ?? $record?->estado_pago);
-                    return in_array($estado, ['aprobado', 'rechazado']);
-                }),
+                ->disabled()
+                ->dehydrated(),
 
             TextInput::make('saldo_pendiente')
-                ->label('Saldo Pendiente')
+                ->label('Saldo Pendiente (Total a Pagar)')
                 ->numeric()
                 ->disabled()
                 ->dehydrated(false)
                 ->visible(fn ($get, $record) => $record !== null)
                 ->afterStateHydrated(function ($component, $state, $record) {
                     if ($record && $record->cuotaGrupal) {
-                        $component->state($record->cuotaGrupal->saldo_pendiente);
+                        // Sumar todos los pagos aprobados para esta cuota
+                        $pagosAprobados = $record->cuotaGrupal->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
+                        $saldo = floatval($record->cuotaGrupal->saldo_pendiente);
+                        $mora = $record->cuotaGrupal->mora ? abs($record->cuotaGrupal->mora->monto_mora_calculado) : 0;
+                        $saldoReal = max(($saldo + $mora) - $pagosAprobados, 0);
+                        $component->state($saldoReal);
                     } else {
                         $component->state(null);
                     }
@@ -167,78 +193,102 @@ class PagoResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('cuotaGrupal.numero_cuota')
+                    ->label('Cuota')
+                    ->sortable()
+                    ->alignCenter()
+                    ->width('45px'),
+
                 Tables\Columns\TextColumn::make('cuotaGrupal.prestamo.grupo.nombre_grupo')
                     ->label('Grupo')
                     ->sortable()
                     ->searchable()
                     ->alignCenter()
-                    ->width('130px'),
-
-                Tables\Columns\TextColumn::make('cuotaGrupal.numero_cuota')
-                    ->label('N°')
-                    ->sortable()
-                    ->alignCenter()
-                    ->width('70px'),
-
-                Tables\Columns\TextColumn::make('cuotaGrupal.monto_cuota_grupal')
-                    ->label('Monto Cuota')
-                     ->alignCenter()
-                    ->sortable()
-                    ->money('PEN')
-                    ->width('110px'),
-
-                Tables\Columns\TextColumn::make('cuotaGrupal.fecha_vencimiento')
-                    ->label('Vencimiento')
-                    ->dateTime('d/m/Y')
-                    ->sortable()
-                    ->alignCenter()
-                    ->width('120px'),
+                    ->width('80px'),
 
                 Tables\Columns\TextColumn::make('tipo_pago')
                     ->label('Tipo')
                     ->alignCenter()
-                    ->width('100px'),
+                    ->width('65px'),
 
-                Tables\Columns\TextColumn::make('monto_pagado')
-                    ->label('Pagado')
-                     ->alignCenter()
-                    ->searchable()
-                    ->money('PEN')
-                    ->width('100px'),
-
-                Tables\Columns\TextColumn::make('fecha_pago')
-                    ->label('Fecha Pago')
+                Tables\Columns\TextColumn::make('cuotaGrupal.fecha_vencimiento')
+                    ->label('F.Venc.')
                     ->dateTime('d/m/Y')
                     ->sortable()
                     ->alignCenter()
-                    ->width('120px'),
+                    ->width('75px'),
+
+                Tables\Columns\TextColumn::make('cuotaGrupal.monto_cuota_grupal')
+                    ->label('Cuota')
+                    ->alignCenter()
+                    ->sortable()
+                    ->money('PEN')
+                    ->width('70px'),
+
+                Tables\Columns\TextColumn::make('cuotaGrupal.mora.monto_mora_calculado')
+                    ->label('Mora')
+                    ->alignCenter()
+                    ->money('PEN')
+                    ->formatStateUsing(function($state, $record) {
+                        $mora = $record->cuotaGrupal && $record->cuotaGrupal->mora ? $record->cuotaGrupal->mora : null;
+                        // Siempre mostrar el monto de mora calculado, aunque esté pagada
+                        if (!$mora || !isset($mora->monto_mora_calculado)) {
+                            return number_format(0, 2);
+                        }
+                        return number_format(abs($mora->monto_mora_calculado), 2);
+                    })
+                    ->width('65px'),
+
+                Tables\Columns\TextColumn::make('cuotaGrupal.monto_total_a_pagar')
+                    ->label('Total')
+                    ->alignCenter()
+                    ->money('PEN')
+                    ->formatStateUsing(function ($state, $record) {
+                        $cuota = $record->cuotaGrupal;
+                        $saldo = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
+                        $mora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                        // Siempre mostrar la suma cuota + mora, aunque ya esté pagada
+                        return number_format($saldo + $mora, 2);
+                    })
+                    ->width('75px'),
+
+                Tables\Columns\TextColumn::make('monto_pagado')
+                    ->label('Pagado')
+                    ->alignCenter()
+                    ->searchable()
+                    ->money('PEN')
+                    ->width('65px'),
+
+                Tables\Columns\TextColumn::make('fecha_pago')
+                    ->label('F. Pago')
+                    ->dateTime('d/m/Y')
+                    ->sortable()
+                    ->alignCenter()
+                    ->width('75px'),
+
+                Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
+                    ->label('Saldo')
+                    ->alignCenter()
+                    ->sortable()
+                    ->formatStateUsing(function ($state, $record) {
+                        $cuota = $record->cuotaGrupal;
+                        $saldo = $cuota ? floatval($cuota->saldo_pendiente) : 0;
+                        $mora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                        // Si la mora está pagada, no sumarla
+                        if ($cuota && $cuota->mora && isset($cuota->mora->estado_mora) && strtolower($cuota->mora->estado_mora) === 'pagada') {
+                            $mora = 0;
+                        }
+                        // Sumar todos los pagos aprobados para esta cuota
+                        $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
+                        $saldoReal = max(($saldo + $mora) - $pagosAprobados, 0);
+                        return number_format($saldoReal, 2);
+                    })
+                    ->width('70px'),
 
                 Tables\Columns\TextColumn::make('estado_pago')
                     ->label('Estado')
                     ->alignCenter()
-                    ->width('100px'),
-
-                Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
-                    ->label('Saldo')
-                     ->alignCenter()
-                    ->sortable()
-                    ->width('100px'),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Registrado')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->alignCenter()
-                    ->width('140px'),
-
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Actualizado')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->alignCenter()
-                    ->width('140px'),
+                    ->width('60px'),
             ])
             ->actions([
                 ActionGroup::make([

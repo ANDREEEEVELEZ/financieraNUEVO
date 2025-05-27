@@ -33,39 +33,43 @@ class Mora extends Model
     public function getMontoMoraCalculadoAttribute()
     {
         $cuota = $this->cuotaGrupal;
-
         if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
             return 0;
         }
 
-        $fechaAtraso = $this->fecha_atraso ?? now();
-        $fechaVencimiento = $cuota->fecha_vencimiento;
+        $fechaAtraso = $this->fecha_atraso ? \Carbon\Carbon::parse($this->fecha_atraso)->startOfDay() : now()->startOfDay();
+        $fechaVencimiento = \Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
 
-        $diasAtraso = Carbon::parse($fechaAtraso)->isAfter($fechaVencimiento)
-            ? Carbon::parse($fechaAtraso)->diffInDays($fechaVencimiento)
-            : 0;
+        $diasAtraso = 0;
+        if ($fechaAtraso->greaterThan($fechaVencimiento)) {
+            $diasAtraso = $fechaAtraso->diffInDays($fechaVencimiento);
+        }
 
-        $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
+        $integrantes = $cuota->prestamo->grupo->clientes()->count();
 
         return $integrantes * $diasAtraso * 1;
     }
 
-    public static function calcularMontoMora($cuota, $fechaAtraso = null)
+
+        public static function calcularMontoMora($cuota, $fechaAtraso = null)
     {
         if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
             return 0;
         }
 
-        $fechaAtraso = $fechaAtraso ?? now();
-        $fechaVencimiento = $cuota->fecha_vencimiento;
+        $fechaAtraso = $fechaAtraso ? \Carbon\Carbon::parse($fechaAtraso)->startOfDay() : now()->startOfDay();
+        $fechaVencimiento = \Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
 
-        $diasAtraso = Carbon::parse($fechaAtraso)->isAfter($fechaVencimiento)
-            ? Carbon::parse($fechaAtraso)->diffInDays($fechaVencimiento)
-            : 0;
+        $diasAtraso = 0;
+        if ($fechaAtraso->greaterThan($fechaVencimiento)) {
+            $diasAtraso = $fechaAtraso->diffInDays($fechaVencimiento);
+        }
 
-        $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
+        $integrantes = $cuota->prestamo->grupo->clientes()->count();
 
         return $integrantes * $diasAtraso * 1;
     }
+
+
 
 }
