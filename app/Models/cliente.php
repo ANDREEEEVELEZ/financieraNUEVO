@@ -42,4 +42,24 @@ class Cliente extends Model
     {
         return $this->belongsTo(Asesor::class);
     }
+
+    /**
+     * Verifica si el cliente ya pertenece a un grupo activo
+     */
+    public function tieneGrupoActivo(): bool
+    {
+        return $this->grupos()
+            ->where('estado_grupo', 'Activo')
+            ->exists();
+    }
+
+    /**
+     * Obtiene el grupo activo del cliente
+     */
+    public function getGrupoActivoAttribute()
+    {
+        return $this->grupos()
+            ->where('estado_grupo', 'Activo')
+            ->first();
+    }
 }

@@ -11,6 +11,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -25,8 +26,10 @@ class GrupoResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('nombre_grupo')
-                    ->maxLength(255),
-                Forms\Components\DatePicker::make('fecha_registro'),
+                    ->maxLength(255)
+                    ->required(),
+                Forms\Components\DatePicker::make('fecha_registro')
+                    ->required(),
                 Forms\Components\TextInput::make('calificacion_grupo')
                     ->maxLength(255),
                 Forms\Components\TextInput::make('estado_grupo')
@@ -38,10 +41,48 @@ class GrupoResource extends Resource
                     ->label('Integrantes')
                     ->multiple()
                     ->relationship('clientes', 'id')
-                    ->options(Cliente::with('persona')->get()->mapWithKeys(function($cliente) {
-                        return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')'];
-                    })->toArray())
-                    ->required(),
+                    ->options(function () {
+                        return Cliente::with(['persona', 'grupos' => function ($query) {
+                            $query->where('estado_grupo', 'Activo');
+                        }])
+                        ->get()
+                        ->mapWithKeys(function($cliente) {
+                            if ($cliente->tieneGrupoActivo()) {
+                                $grupoActivo = $cliente->grupoActivo;
+                                return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
+                            }
+                            return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
+                        });
+                    })
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                        if (!empty($state)) {
+                            $clientesConGrupo = Cliente::whereIn('id', $state)
+                                ->get()
+                                ->filter(function ($cliente) {
+                                    return $cliente->tieneGrupoActivo();
+                                });
+
+                            if ($clientesConGrupo->isNotEmpty()) {
+                                $mensajesError = $clientesConGrupo->map(function ($cliente) {
+                                    $grupoActivo = $cliente->grupoActivo;
+                                    return "{$cliente->persona->nombre} {$cliente->persona->apellidos} ya pertenece al grupo {$grupoActivo->nombre_grupo}";
+                                })->join("\n");
+
+                                Notification::make()
+                                    ->danger()
+                                    ->title('Error al agregar clientes')
+                                    ->body($mensajesError)
+                                    ->persistent()
+                                    ->send();
+
+                                // Remover los clientes que ya tienen grupo
+                                $set('clientes', array_values(array_diff($state, $clientesConGrupo->pluck('id')->toArray())));
+                            }
+                        }
+                    }),
                 Forms\Components\Select::make('lider_grupal')
                     ->label('Líder Grupal')
                     ->options(function (callable $get) {
