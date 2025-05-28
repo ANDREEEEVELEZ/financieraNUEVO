@@ -13,9 +13,10 @@ class EditCliente extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // Actualizar persona
         $this->record->persona->update($data['persona']);
         unset($data['persona']);
-        $data['estado_cliente'] = $this->record->estado_cliente; // Mantener el valor original
+        // No modificar el estado_cliente aquí para permitir su cambio
         return $data;
     }
 
@@ -25,6 +26,20 @@ class EditCliente extends EditRecord
             $this->record->toArray(),
             ['persona' => $this->record->persona->toArray()]
         ));
+    }
+
+    protected function getHeaderActions(): array 
+    {
+        return [
+            Actions\DeleteAction::make()
+                ->action(function () {
+                    // En lugar de eliminar, cambiar el estado a inactivo
+                    $this->record->estado_cliente = 'Inactivo';
+                    $this->record->save();
+                    
+                    $this->redirect($this->getResource()::getUrl('index'));
+                })
+        ];
     }
 
     protected function getRedirectUrl(): string

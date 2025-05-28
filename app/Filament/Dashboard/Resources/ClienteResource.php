@@ -102,34 +102,27 @@ class ClienteResource extends Resource
     {
         return $table
             ->columns([
-                // Sección: Información Personal
-                Tables\Columns\TextColumn::make('persona.DNI')->label('DNI'),
-                Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre'),
-                Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos'),
-                Tables\Columns\TextColumn::make('persona.sexo')->label('Sexo'),
-                Tables\Columns\TextColumn::make('persona.fecha_nacimiento')->label('Fecha de Nacimiento')->date(),
+                Tables\Columns\TextColumn::make('persona.DNI')->label('DNI')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('persona.celular')->label('Celular'),
-                Tables\Columns\TextColumn::make('persona.correo')->label('Correo Electrónico'),
-                Tables\Columns\TextColumn::make('persona.direccion')->label('Dirección'),
-                Tables\Columns\TextColumn::make('persona.distrito')->label('Distrito'),
-                Tables\Columns\TextColumn::make('persona.estado_civil')->label('Estado Civil'),
-
-                // Sección: Información Cliente
                 Tables\Columns\TextColumn::make('infocorp')->label('Infocorp'),
                 Tables\Columns\TextColumn::make('ciclo')->label('Ciclo'),
                 Tables\Columns\TextColumn::make('condicion_vivienda')->label('Condición de Vivienda'),
                 Tables\Columns\TextColumn::make('actividad')->label('Actividad'),
                 Tables\Columns\TextColumn::make('condicion_personal')->label('Condición Personal'),
-                Tables\Columns\TextColumn::make('estado_cliente')->label('Estado Cliente'),
+                Tables\Columns\TextColumn::make('estado_cliente')
+                    ->label('Estado Cliente')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Activo' => 'success',
+                        'Inactivo' => 'danger',
+                        default => 'gray',
+                    }),
             ])
             ->filters([])
             ->actions([
                 Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
             ]);
     }
 
