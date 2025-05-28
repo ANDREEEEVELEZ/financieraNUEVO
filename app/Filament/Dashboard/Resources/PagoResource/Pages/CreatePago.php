@@ -37,8 +37,14 @@ class CreatePago extends CreateRecord
                     'numero_cuota' => $cuota->numero_cuota,
                     'monto_cuota' => $cuota->monto_cuota_grupal,
                     // No prellenar monto_pagado ni tipo_pago ni monto_mora_aplicada
+                    'estado_pago' => 'Pendiente',
                 ]);
             }
+        } else {
+            // Si no viene de moras, asegurar que el estado sea pendiente por defecto
+            $this->form->fill([
+                'estado_pago' => 'Pendiente',
+            ]);
         }
     }
 

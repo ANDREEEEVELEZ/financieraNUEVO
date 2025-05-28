@@ -26,28 +26,27 @@ class Moras extends Page
             ->where('estado_cuota_grupal', 'mora')
             ->get();
 
-            foreach ($cuotasEnMora as $cuota) {
-        $diasAtraso = now()->isAfter($cuota->fecha_vencimiento)
-            ? now()->diffInDays($cuota->fecha_vencimiento)
-            : 0;
+        foreach ($cuotasEnMora as $cuota) {
+            $diasAtraso = now()->isAfter($cuota->fecha_vencimiento)
+                ? now()->diffInDays($cuota->fecha_vencimiento)
+                : 0;
 
-        $montoMora = Mora::calcularMontoMora($cuota);
+            $montoMora = Mora::calcularMontoMora($cuota);
 
-        Mora::updateOrCreate(
-            ['cuota_grupal_id' => $cuota->id],
-            [
-                'fecha_atraso' => now(),
+            Mora::updateOrCreate(
+                ['cuota_grupal_id' => $cuota->id],
+                [
+                    'fecha_atraso' => now(),
+                    'monto_mora' => $montoMora,
+                    'estado_mora' => 'pendiente',
+                ]
+            );
+        }
 
-                'monto_mora' => $montoMora,
-                'estado_mora' => 'pendiente',
-            ]
-        );
-    }
-
-
+        // Mostrar todas las cuotas que tengan una mora asociada (histórico)
         return [
             'cuotas_mora' => Cuotas_Grupales::with(['mora', 'prestamo.grupo'])
-                ->where('estado_cuota_grupal', 'mora')
+                ->whereHas('mora')
                 ->get()
         ];
     }

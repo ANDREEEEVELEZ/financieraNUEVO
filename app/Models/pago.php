@@ -56,7 +56,7 @@ class Pago extends Model
         $montoPagado = floatval($this->monto_pagado);
         $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
-   
+        // Si la cuota tiene mora pendiente, solo se puede cancelar todo si se paga cuota+mora
         if ($this->tipo_pago === 'cuota_mora' && $cuota->mora) {
             $totalAPagar = $cuota->saldo_pendiente + $montoMora;
             if ($montoPagado >= $totalAPagar) {
@@ -68,18 +68,26 @@ class Pago extends Model
                 $cuota->save();
                 return;
             }
-
-            $cuota->mora->estado_mora = 'pendiente';
-            $cuota->mora->save();
+            // Si no cubre todo, solo descuenta lo que corresponda
             $restanteParaCuota = min($montoPagado, $cuota->saldo_pendiente);
             $cuota->saldo_pendiente = max($cuota->saldo_pendiente - $restanteParaCuota, 0);
+            $cuota->mora->estado_mora = 'parcial';
+            $cuota->mora->save();
             $cuota->estado_pago = $cuota->saldo_pendiente > 0 ? 'parcial' : 'pagado';
             $cuota->estado_cuota_grupal = $cuota->saldo_pendiente > 0 ? 'mora' : 'cancelada';
             $cuota->save();
             return;
         }
 
+        // Si paga solo cuota y hay mora pendiente, la mora sigue pendiente y la cuota no se cancela
         if ($this->tipo_pago === 'cuota') {
+            if ($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcial'])) {
+                $cuota->saldo_pendiente = 0;
+                $cuota->estado_pago = 'pagado';
+                $cuota->estado_cuota_grupal = 'mora';
+                $cuota->save();
+                return;
+            }
             if ($montoPagado >= $montoCuota) {
                 $cuota->saldo_pendiente = 0;
                 $cuota->estado_pago = 'pagado';

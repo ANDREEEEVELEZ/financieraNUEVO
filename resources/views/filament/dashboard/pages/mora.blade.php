@@ -27,7 +27,7 @@
                         <td class="px-4 py-3 text-gray-800 dark:text-white">
                             @if($cuota->saldo_pendiente < $cuota->monto_cuota_grupal)
                                 <span class="px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-semibold">S/ {{ number_format($cuota->saldo_pendiente, 2) }}</span>
-                                <span class="text-xs text-yellow-700 block">(Parcial)</span>
+                                <span class="text-xs text-yellow-700 block"></span>
                             @else
                                 S/ {{ number_format($cuota->saldo_pendiente, 2) }}
                             @endif
@@ -43,7 +43,22 @@
                             @endif
                         </td>
                         <td class="px-4 py-3 text-green-700 dark:text-green-200">
-                            S/ {{ number_format($cuota->monto_total_a_pagar, 2) }}
+                            @php
+                                $mostrarTotal = false;
+                                $montoTotal = 0;
+                                if ($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcial'])) {
+                                    $montoTotal = $cuota->saldo_pendiente + abs($cuota->mora->monto_mora_calculado);
+                                    $mostrarTotal = $montoTotal > 0;
+                                } elseif ($cuota->saldo_pendiente > 0) {
+                                    $montoTotal = $cuota->saldo_pendiente;
+                                    $mostrarTotal = true;
+                                }
+                            @endphp
+                            @if($mostrarTotal)
+                                S/ {{ number_format($montoTotal, 2) }}
+                            @else
+                                <span class="text-gray-400">S/ 0.00</span>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-gray-800 dark:text-white">
                             @if($cuota->mora)
@@ -57,19 +72,28 @@
                             @endif
                         </td>
                         <td class="px-4 py-2 text-gray-800 dark:text-white">
-                <a href="{{ route('filament.dashboard.resources.pagos.create', ['cuota_grupal_id' => $cuota->id]) }}"
-                class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow 
-                        bg-blue-100 hover:bg-blue-200 text-black 
-                        dark:bg-blue-500 dark:hover:bg-blue-600 
-                        border border-blue-700 dark:border-blue-400
-                        transition duration-150 ease-in-out">
-                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span class="text-black dark:text-white align-middle">Registrar pago</span>
-                </a>
-
-
+                            @if($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcial']))
+                                <a href="{{ route('filament.dashboard.resources.pagos.create', ['cuota_grupal_id' => $cuota->id]) }}"
+                                    class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow 
+                                        bg-blue-100 hover:bg-blue-200 text-black 
+                                        dark:bg-blue-500 dark:hover:bg-blue-600 
+                                        border border-blue-700 dark:border-blue-400
+                                        transition duration-150 ease-in-out">
+                                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-black dark:text-white align-middle">Registrar pago</span>
+                                </a>
+                            @elseif($cuota->mora && $cuota->mora->estado_mora === 'pagada')
+                                <span class="inline-flex items-center px-3 py-1 rounded bg-green-100 text-green-800 font-semibold text-xs">
+                                    <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Pagada
+                                </span>
+                            @else
+                                <span class="text-gray-400 text-xs">Sin acciones</span>
+                            @endif
                         </td>
                     </tr>
                 @empty
