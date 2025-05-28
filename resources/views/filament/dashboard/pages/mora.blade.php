@@ -54,10 +54,6 @@
     Exportar PDF
 </button>
 
-
-
-
-
         </form>
         <dialog id="exportarModal" class="rounded-xl shadow-xl p-0 w-full max-w-lg bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700">
             <form method="GET" action="{{ route('moras.exportar.pdf') }}" class="p-6 flex flex-col gap-6">
@@ -65,7 +61,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="flex flex-col">
                         <label class="text-xs font-semibold mb-1 text-blue-700 dark:text-blue-200">Nombre del grupo</label>
-                        <input type="text" name="grupo" placeholder="Buscar grupo..." class="rounded-lg border border-blue-200 dark:border-blue-500 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 dark:bg-gray-900 dark:text-white transition placeholder:text-gray-400 dark:placeholder:text-gray-500" />
+                        <select name="grupo" class="rounded-lg border border-blue-200 dark:border-blue-500 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 dark:bg-gray-900 dark:text-white transition">
+                            <option value="">Todos</option>
+                            @foreach(\App\Models\Grupo::orderBy('nombre_grupo')->pluck('nombre_grupo') as $nombreGrupo)
+                                <option value="{{ $nombreGrupo }}" {{ request('grupo') == $nombreGrupo ? 'selected' : '' }}>{{ $nombreGrupo }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="flex flex-col">
                         <label class="text-xs font-semibold mb-1 text-blue-700 dark:text-blue-200">Monto mínimo (S/)</label>

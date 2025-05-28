@@ -19,6 +19,11 @@ class ListPagos extends ListRecords
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('primary') // Mejor contraste en modo claro
                 ->form([
+                    \Filament\Forms\Components\Select::make('grupo')
+                        ->label('Nombre del grupo')
+                        ->options(\App\Models\Grupo::orderBy('nombre_grupo')->pluck('nombre_grupo', 'nombre_grupo')->toArray())
+                        ->searchable()
+                        ->placeholder('Todos'),
                     \Filament\Forms\Components\DatePicker::make('from')->label('Desde'),
                     \Filament\Forms\Components\DatePicker::make('until')->label('Hasta'),
                     \Filament\Forms\Components\Select::make('estado_pago')
@@ -32,6 +37,7 @@ class ListPagos extends ListRecords
                 ])
                 ->action(function (array $data) {
                     $params = array_filter([
+                        'grupo' => $data['grupo'] ?? null,
                         'from' => $data['from'] ?? null,
                         'until' => $data['until'] ?? null,
                         'estado_pago' => $data['estado_pago'] ?? null,

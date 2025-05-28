@@ -17,8 +17,14 @@ class PagoPdfController extends Controller
         if ($request->filled('until')) {
             $query->whereDate('fecha_pago', '<=', $request->input('until'));
         }
+
         if ($request->filled('estado_pago') && $request->input('estado_pago') !== '') {
             $query->where('estado_pago', $request->input('estado_pago'));
+        }
+        if ($request->filled('grupo')) {
+            $query->whereHas('cuotaGrupal.prestamo.grupo', function($q) use ($request) {
+                $q->where('nombre_grupo', 'like', '%' . $request->input('grupo') . '%');
+            });
         }
         $pagos = $query->with(['cuotaGrupal.prestamo.grupo'])->get();
 
