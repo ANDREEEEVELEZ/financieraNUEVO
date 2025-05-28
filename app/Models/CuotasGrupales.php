@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Mora;
 
-class Cuotas_Grupales extends Model
+class CuotasGrupales extends Model
 {
     use HasFactory;
 

@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Prestamo;
-use App\Models\Cuotas_Grupales;
+use App\Models\CuotasGrupales;
 use Carbon\Carbon;
 
 class PrestamoObserver
@@ -27,7 +27,7 @@ class PrestamoObserver
         };
 
         for ($i = 1; $i <= $cantidadCuotas; $i++) {
-            Cuotas_Grupales::create([
+            CuotasGrupales::create([
                 'prestamo_id' => $prestamo->id,
                 'numero_cuota' => $i,
                 'monto_cuota_grupal' => round($montoPorCuota, 2),

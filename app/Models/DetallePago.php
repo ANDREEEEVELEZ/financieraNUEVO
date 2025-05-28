@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Models\Pago;
 use App\Models\PrestamoIndividual;
 
-class detalle_pago extends Model
+class DetallePago extends Model
 {
       use HasFactory;
 
@@ -33,6 +33,6 @@ class detalle_pago extends Model
      */
     public function prestamoIndividual()
     {
-        return $this->belongsTo(prestamo_individual::class);
+        return $this->belongsTo(PrestamoIndividual::class);
     }
 }

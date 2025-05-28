@@ -34,8 +34,8 @@ class Prestamo extends Model
     {
         return $this->belongsTo(Grupo::class, 'grupo_id');
     }
-        public function cuotas_grupales()
+        public function cuotasGrupales()
     {
-        return $this->hasMany(Cuotas_Grupales::class);
+        return $this->hasMany(CuotasGrupales::class);
     }
 }

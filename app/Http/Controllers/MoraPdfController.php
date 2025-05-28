@@ -3,14 +3,14 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Cuotas_Grupales;
+use App\Models\CuotasGrupales;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class MoraPdfController extends Controller
 {
     public function exportar(Request $request)
     {
-        $query = Cuotas_Grupales::with(['mora', 'prestamo.grupo'])
+        $query = CuotasGrupales::with(['mora', 'prestamo.grupo'])
             ->whereHas('mora');
 
         // Filtros dinámicos exactos

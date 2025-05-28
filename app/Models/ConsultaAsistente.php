@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class consulta_asistente extends Model
+class ConsultaAsistente extends Model
 {
     use HasFactory;
 

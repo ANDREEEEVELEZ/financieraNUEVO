@@ -4,7 +4,7 @@ namespace App\Filament\Dashboard\Pages;
 
 use Filament\Pages\Page;
 use App\Models\Mora;
-use App\Models\Cuotas_Grupales;
+use App\Models\CuotasGrupales;
 
 class Moras extends Page
 {
@@ -15,12 +15,12 @@ class Moras extends Page
 
     public function getViewData(): array
     {
-        Cuotas_Grupales::where('estado_cuota_grupal', 'vigente')
+        CuotasGrupales::where('estado_cuota_grupal', 'vigente')
             ->where('estado_pago', '!=', 'pagado')
             ->whereDate('fecha_vencimiento', '<', now())
             ->update(['estado_cuota_grupal' => 'mora']);
 
-        $cuotasEnMora = Cuotas_Grupales::with('prestamo.grupo')
+        $cuotasEnMora = CuotasGrupales::with('prestamo.grupo')
             ->where('estado_cuota_grupal', 'mora')
             ->get();
 
@@ -41,7 +41,7 @@ class Moras extends Page
             );
         }
 
-        $query = Cuotas_Grupales::with(['mora', 'prestamo.grupo'])
+        $query = CuotasGrupales::with(['mora', 'prestamo.grupo'])
             ->whereHas('mora');
 
         $filtro = request('filtro');

@@ -160,7 +160,7 @@ class PrestamoResource extends Resource
                 ->label('Detalle Individual')
                 ->html()
                 ->getStateUsing(function ($record) {
-                    $detalles = \App\Models\Prestamo_Individual::where('prestamo_id', $record->id)
+                    $detalles = \App\Models\PrestamoIndividual::where('prestamo_id', $record->id)
                         ->with('cliente.persona')
                         ->get();
                     if ($detalles->isEmpty()) {

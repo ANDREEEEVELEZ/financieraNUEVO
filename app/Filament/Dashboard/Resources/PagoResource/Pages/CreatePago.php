@@ -29,7 +29,7 @@ class CreatePago extends CreateRecord
         parent::mount();
         $cuotaGrupalId = request()->get('cuota_grupal_id');
         if ($cuotaGrupalId) {
-            $cuota = \App\Models\Cuotas_Grupales::with('mora', 'prestamo.grupo')->find($cuotaGrupalId);
+            $cuota = \App\Models\CuotasGrupales::with('mora', 'prestamo.grupo')->find($cuotaGrupalId);
             if ($cuota) {
                 $this->form->fill([
                     'cuota_grupal_id' => $cuota->id,

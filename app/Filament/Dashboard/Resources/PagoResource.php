@@ -4,7 +4,7 @@ namespace App\Filament\Dashboard\Resources;
 
 use App\Filament\Dashboard\Resources\PagoResource\Pages;
 use App\Models\Pago;
-use App\Models\Cuotas_Grupales;
+use App\Models\CuotasGrupales;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -32,7 +32,7 @@ class PagoResource extends Resource
             Select::make('grupo_id')
                 ->label('Grupo')
                 ->options(function () {
-                    return Cuotas_Grupales::with('prestamo.grupo')
+                    return CuotasGrupales::with('prestamo.grupo')
                         ->get()
                         ->mapWithKeys(function ($cuota) {
                             $grupo = $cuota->prestamo->grupo ?? null;
@@ -55,7 +55,7 @@ class PagoResource extends Resource
                     }
                 })
                 ->afterStateUpdated(function ($state, callable $set) {
-                    $cuota = Cuotas_Grupales::whereHas('prestamo', function ($query) use ($state) {
+                    $cuota = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
                         $query->where('grupo_id', $state);
                     })
                         ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
@@ -112,7 +112,7 @@ class PagoResource extends Resource
                 ->reactive()
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
                     $cuotaId = $get('cuota_grupal_id');
-                    $cuota = \App\Models\Cuotas_Grupales::with('mora')->find($cuotaId);
+                    $cuota = \App\Models\CuotasGrupales::with('mora')->find($cuotaId);
                     $saldoPendiente = $cuota ? floatval($cuota->saldo_pendiente) : 0;
                     $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
                     if ($state === 'cuota') {
