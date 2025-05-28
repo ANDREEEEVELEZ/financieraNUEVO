@@ -3,6 +3,7 @@
 namespace App\Filament\Dashboard\Pages;
 
 use App\Models\consulta_asistente;
+use App\Models\ConsultaAsistente;
 use Filament\Pages\Page;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Tabs;
@@ -27,7 +28,7 @@ class AsistenteVirtual extends Page
 
     public function mount(): void
     {
-        $this->consultas = consulta_asistente::latest()->take(10)->get();
+        $this->consultas = ConsultaAsistente::latest()->take(10)->get();
 
         $this->form->fill([
             'query' => '',
@@ -98,12 +99,12 @@ class AsistenteVirtual extends Page
 
         $this->response = $this->processQuery($this->query);
 
-        consulta_asistente::create([
+        ConsultaAsistente::create([
             'consulta' => $this->query,
             'respuesta' => $this->response,
         ]);
 
-        $this->consultas = consulta_asistente::latest()->take(10)->get();
+        $this->consultas = ConsultaAsistente::latest()->take(10)->get();
         $this->reset(['query', 'response']);
         $this->form->fill(['activeTab' => 0]);
         $this->activeTab = 0;
