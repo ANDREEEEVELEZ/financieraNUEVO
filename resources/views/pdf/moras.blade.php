@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Moras</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
+        th { background: #e0e7ef; color: #22223b; }
+        tr:nth-child(even) td { background: #f3f4f6; }
+        tr:hover td { background: #dbeafe; }
+    </style>
+</head>
+<body>
+    <h2 style="color:#2563eb;">Reporte de Moras</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Grupo</th>
+                <th>N° Cuota</th>
+                <th>Monto de Cuota</th>
+                <th>Fecha Vencimiento</th>
+                <th>Saldo pendiente</th>
+                <th>Días de Atraso</th>
+                <th>Monto Mora</th>
+                <th>Monto total a pagar</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach($cuotas_mora as $cuota)
+            <tr>
+                <td>{{ $cuota->prestamo->grupo->nombre_grupo ?? '-' }}</td>
+                <td>{{ $cuota->numero_cuota ?? '-' }}</td>
+                <td>S/ {{ number_format($cuota->monto_cuota_grupal, 2) }}</td>
+                <td>{{ $cuota->fecha_vencimiento ? \Carbon\Carbon::parse($cuota->fecha_vencimiento)->format('d/m/Y') : '-' }}</td>
+                <td>S/ {{ number_format($cuota->saldo_pendiente, 2) }}</td>
+                <td>
+                    @php
+                        $diasAtraso = 0;
+                        if ($cuota->fecha_vencimiento) {
+                            $diasAtraso = max(0, floor(\Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->diffInDays(now(), false)));
+                        }
+                    @endphp
+                    {{ $diasAtraso }}
+                </td>
+                <td>S/ {{ $cuota->mora ? number_format(abs($cuota->mora->monto_mora_calculado), 2) : '0.00' }}</td>
+                <td>
+                    @php
+                        $montoTotal = 0;
+                        if ($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcial'])) {
+                            $montoTotal = $cuota->saldo_pendiente + abs($cuota->mora->monto_mora_calculado);
+                        } elseif ($cuota->saldo_pendiente > 0) {
+                            $montoTotal = $cuota->saldo_pendiente;
+                        }
+                    @endphp
+                    S/ {{ number_format($montoTotal, 2) }}
+                </td>
+                <td>
+                    @if($cuota->mora)
+                        @if($cuota->mora->estado_mora === 'pendiente') Pendiente
+                        @elseif($cuota->mora->estado_mora === 'pagada') Pagada
+                        @elseif($cuota->mora->estado_mora === 'parcial') Parcial
+                        @else {{ ucfirst(str_replace('_', ' ', $cuota->mora->estado_mora)) }}
+                        @endif
+                    @else
+                        Sin mora
+                    @endif
+                </td>
+            </tr>
+        @endforeach
+        </tbody>
+    </table>
+</body>
+</html>

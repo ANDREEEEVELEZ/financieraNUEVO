@@ -15,13 +15,11 @@ class Moras extends Page
 
     public function getViewData(): array
     {
-        // Actualizar estado de cuotas vencidas no pagadas
         Cuotas_Grupales::where('estado_cuota_grupal', 'vigente')
             ->where('estado_pago', '!=', 'pagado')
             ->whereDate('fecha_vencimiento', '<', now())
             ->update(['estado_cuota_grupal' => 'mora']);
 
-        // Recalcular mora si está en estado "mora"
         $cuotasEnMora = Cuotas_Grupales::with('prestamo.grupo')
             ->where('estado_cuota_grupal', 'mora')
             ->get();
@@ -43,11 +41,37 @@ class Moras extends Page
             );
         }
 
-        // Mostrar todas las cuotas que tengan una mora asociada (histórico)
+        $query = Cuotas_Grupales::with(['mora', 'prestamo.grupo'])
+            ->whereHas('mora');
+
+        $filtro = request('filtro');
+        if ($filtro === 'grupo' && request('grupo')) {
+            $query->whereHas('prestamo.grupo', function($q) {
+                $q->where('nombre_grupo', 'like', '%' . request('grupo') . '%');
+            });
+        } elseif ($filtro === 'fecha' && (request('desde') || request('hasta'))) {
+            if (request('desde')) {
+                $query->whereDate('fecha_vencimiento', '>=', request('desde'));
+            }
+            if (request('hasta')) {
+                $query->whereDate('fecha_vencimiento', '<=', request('hasta'));
+            }
+        } elseif ($filtro === 'monto' && request('monto')) {
+            $query->whereHas('mora', function($q) {
+                $q->whereRaw('ABS(monto_mora_calculado) >= ?', [floatval(request('monto'))]);
+            });
+        } elseif ($filtro === 'estado' && request('estado_mora')) {
+            $estado = request('estado_mora');
+            $estadosValidos = ['pendiente', 'pagada', 'parcial'];
+            if (in_array($estado, $estadosValidos)) {
+                $query->whereHas('mora', function($q) use ($estado) {
+                    $q->where('estado_mora', $estado);
+                });
+            }
+        }
+
         return [
-            'cuotas_mora' => Cuotas_Grupales::with(['mora', 'prestamo.grupo'])
-                ->whereHas('mora')
-                ->get()
+            'cuotas_mora' => $query->get()
         ];
     }
 }

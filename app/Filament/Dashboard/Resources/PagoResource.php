@@ -197,6 +197,7 @@ class PagoResource extends Resource
                     ->label('Cuota')
                     ->sortable()
                     ->alignCenter()
+                    ->searchable()
                     ->width('45px'),
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.prestamo.grupo.nombre_grupo')
@@ -209,6 +210,7 @@ class PagoResource extends Resource
                 Tables\Columns\TextColumn::make('tipo_pago')
                     ->label('Tipo')
                     ->alignCenter()
+                    ->searchable()
                     ->width('65px'),
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.fecha_vencimiento')
@@ -288,12 +290,25 @@ class PagoResource extends Resource
                 Tables\Columns\TextColumn::make('estado_pago')
                     ->label('Estado')
                     ->alignCenter()
+                    ->searchable()
                     ->width('60px'),
+            ])
+            ->filters([
+                Tables\Filters\Filter::make('fecha_pago')
+                    ->form([
+                        Forms\Components\DatePicker::make('from')->label('Desde'),
+                        Forms\Components\DatePicker::make('until')->label('Hasta'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('fecha_pago', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('fecha_pago', '<=', $date));
+                    }),
+                // ...otros filtros si tienes...
             ])
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\EditAction::make(),
-
                     Action::make('aprobar')
                         ->label('Aprobar')
                         ->icon('heroicon-m-check-circle')
