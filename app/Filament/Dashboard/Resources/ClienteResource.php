@@ -9,6 +9,9 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use App\Filament\Widgets\ClienteStatsWidget;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
@@ -120,16 +123,56 @@ class ClienteResource extends Resource
                         default => 'gray',
                     }),
             ])
-            ->filters([])
+            ->filters([
+                Tables\Filters\SelectFilter::make('estado_cliente')
+                    ->options([
+                        'Activo' => 'Activos',
+                        'Inactivo' => 'Inactivos',
+                    ])
+                    ->label('Estado')
+                    ->default('Activo')
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when($data['value'], function (Builder $query, string $value): Builder {
+                            return $query->where('estado_cliente', $value);
+                        });
+                    })
+            ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('activar')
+                    ->label('Activar')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->estado_cliente === 'Inactivo')
+                    ->action(function ($record) {
+                        $record->estado_cliente = 'Activo';
+                        $record->save();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('¿Activar cliente?')
+                    ->modalDescription('¿Estás seguro de que quieres activar este cliente?')
+                    ->modalSubmitActionLabel('Sí, activar')
+                    ->modalCancelActionLabel('No, cancelar'),
             ]);
     }
 
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->with('persona');
+        return parent::getEloquentQuery()
+            ->with('persona');
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->persona->nombre . ' ' . $record->persona->apellidos;
+    }
+
+    public static function getWidgets(): array
+    {
+        return [
+            ClienteStatsWidget::class,
+        ];
     }
 
     public static function getRelations(): array
