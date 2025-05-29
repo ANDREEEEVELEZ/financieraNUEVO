@@ -6,6 +6,8 @@ use App\Filament\Dashboard\Resources\PagoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Forms;
+use Illuminate\Support\Facades\Auth;
+use Filament\Notifications\Notification;
 
 class EditPago extends EditRecord
 {
@@ -21,10 +23,11 @@ class EditPago extends EditRecord
                 ->color('success')
                 ->outlined()
                 ->size('sm')
-                ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && \Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) &&
+                    Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de Creditos']))
                 ->action(function ($record) {
                     $record->aprobar();
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title('Pago aprobado')
                         ->success()
                         ->send();
@@ -35,10 +38,11 @@ class EditPago extends EditRecord
                 ->color('danger')
                 ->outlined()
                 ->size('sm')
-                ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && \Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) &&
+                    Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de Creditos']))
                 ->action(function ($record) {
                     $record->rechazar();
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title('Pago rechazado')
                         ->danger()
                         ->send();
@@ -48,22 +52,31 @@ class EditPago extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // No eliminar 'estado_pago', permitir que se guarde lo que venga del formulario
         return $data;
     }
 
     protected function getFormSchema(): array
     {
-        $schema = parent::getFormSchema();
-        // Deshabilitar el campo estado_pago si el usuario no tiene el rol adecuado
-        foreach ($schema as &$component) {
-            if (method_exists($component, 'getName') && $component->getName() === 'estado_pago') {
-                $component = $component->disabled();
-            }
-        }
-        return $schema;
+        $canEditEstado = Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de Creditos']);
+
+        return [
+            Forms\Components\Select::make('estado_pago')
+                ->label('Estado del pago')
+                ->options([
+                    'Pendiente' => 'Pendiente',
+                    'Aprobado' => 'Aprobado',
+                    'Rechazado' => 'Rechazado',
+                ])
+                ->disabled(! $canEditEstado),
+            
+            Forms\Components\TextInput::make('monto')
+                ->label('Monto')
+                ->required()
+                ->numeric(),
+            
+        ];
     }
-    
+
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
