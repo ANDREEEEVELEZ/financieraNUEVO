@@ -62,6 +62,7 @@ class Pago extends Model
             if ($montoPagado >= $totalAPagar) {
                 $cuota->saldo_pendiente = 0;
                 $cuota->mora->estado_mora = 'pagada';
+                $cuota->mora->actualizarDiasAtraso();
                 $cuota->mora->save();
                 $cuota->estado_cuota_grupal = 'cancelada';
                 $cuota->estado_pago = 'pagado';
@@ -102,7 +103,7 @@ class Pago extends Model
                 $cuota->estado_pago = 'parcial';
             }
             $cuota->save();
-        } elseif ($this->tipo_pago === 'amortizacion') {
+        } elseif ($this->tipo_pago === 'pago_parcial') {
             $nuevoSaldo = $cuota->saldo_pendiente - $montoPagado;
             $cuota->saldo_pendiente = $nuevoSaldo > 0 ? $nuevoSaldo : 0;
             if ($nuevoSaldo <= 0) {
@@ -120,6 +121,7 @@ class Pago extends Model
           
             if ($montoPagado >= $montoMora) {
                 $cuota->mora->estado_mora = 'pagada';
+                $cuota->mora->actualizarDiasAtraso();
                 $cuota->mora->save();
         
                 if ($cuota->saldo_pendiente == 0) {

@@ -38,6 +38,7 @@ class DashboardPanelProvider extends PanelProvider
                 Pages\Dashboard::class,
                 AsistenteVirtual::class,
                 Moras::class,
+                \App\Filament\Dashboard\Pages\Asesor::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Dashboard/Widgets'), for: 'App\\Filament\\Dashboard\\Widgets')
             ->widgets([

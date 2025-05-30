@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\CuotasGrupales;
 use Carbon\Carbon;
 
 class Mora extends Model
@@ -20,7 +21,7 @@ class Mora extends Model
         'fecha_atraso' => 'date',
     ];
 
-    public function cuotaGrupal()
+    public function CuotaGrupal()
     {
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
     }
@@ -70,6 +71,17 @@ class Mora extends Model
         return $integrantes * $diasAtraso * 1;
     }
 
+    public function actualizarDiasAtraso() {
+        $fechaVencimiento = \Carbon\Carbon::parse($this->cuotaGrupal->fecha_vencimiento)->addDay()->startOfDay();
 
+        if ($this->estado_mora === 'pendiente' || $this->estado_mora === 'parcialmente_pagada') {
+            $fechaAtraso = $this->fecha_atraso ? \Carbon\Carbon::parse($this->fecha_atraso)->startOfDay() : now()->startOfDay();
 
+            if ($fechaAtraso->greaterThan($fechaVencimiento)) {
+                $this->fecha_atraso = $fechaAtraso;
+                $this->save();
+            }
+        }
+        // No recalcular días de atraso si la mora está pagada
+    }
 }

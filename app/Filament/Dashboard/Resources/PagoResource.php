@@ -106,7 +106,7 @@ class PagoResource extends Resource
                     'cuota' => 'Pago de Cuota',
                     'cuota_mora' => 'Pago de Cuota + Mora',
                     'solo_mora' => 'Mora',
-                    'amortizacion' => 'Amortización Adicional',
+                    'pago_parcial' => 'Pago Parcial',
                 ])
                 ->required()
                 ->reactive()
