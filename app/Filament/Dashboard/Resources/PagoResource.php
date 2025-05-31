@@ -17,6 +17,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder; 
 
 class PagoResource extends Resource
 {
@@ -342,6 +343,25 @@ class PagoResource extends Resource
     {
         return [];
     }
+    public static function getEloquentQuery(): Builder
+    {
+        $user = request()->user();
+
+        $query = parent::getEloquentQuery();
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
+            if ($asesor) {
+                $query->whereHas('cuotaGrupal.prestamo.grupo', function ($subQuery) use ($asesor) {
+                    $subQuery->where('asesor_id', $asesor->id);
+                });
+            }
+        }
+
+        return $query;
+    }
+
 
     public static function getPages(): array
     {
