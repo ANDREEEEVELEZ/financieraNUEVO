@@ -47,6 +47,7 @@ class GrupoResource extends Resource
                         }])
                         ->get()
                         ->mapWithKeys(function($cliente) {
+                            // Solo mostrar advertencia si el grupo es ACTIVO
                             if ($cliente->tieneGrupoActivo()) {
                                 $grupoActivo = $cliente->grupoActivo;
                                 return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
@@ -78,7 +79,7 @@ class GrupoResource extends Resource
                                     ->persistent()
                                     ->send();
 
-                                // Remover los clientes que ya tienen grupo
+                                // Remover los clientes que ya tienen grupo ACTIVO
                                 $set('clientes', array_values(array_diff($state, $clientesConGrupo->pluck('id')->toArray())));
                             }
                         }
@@ -125,7 +126,9 @@ class GrupoResource extends Resource
                 Tables\Columns\TextColumn::make('calificacion_grupo')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('estado_grupo')
-                    ->searchable(),
+                    ->searchable()
+                    ->badge()
+                    ->color(fn($state) => $state === 'Inactivo' ? 'danger' : ($state === 'Activo' ? 'success' : 'warning')),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

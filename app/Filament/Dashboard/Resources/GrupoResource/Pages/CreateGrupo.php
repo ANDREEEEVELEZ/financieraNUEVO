@@ -31,11 +31,15 @@ class CreateGrupo extends CreateRecord
     {
         $clientes = $this->data['clientes'] ?? [];
         $liderId = $this->data['lider_grupal'] ?? null;
+        $fechaHoy = now()->toDateString();
+        $estadoGrupo = $this->record->estado_grupo;
         if (!empty($clientes)) {
             $syncData = [];
             foreach ($clientes as $clienteId) {
                 $syncData[$clienteId] = [
                     'rol' => ($clienteId == $liderId) ? 'Líder Grupal' : 'Miembro',
+                    'fecha_ingreso' => $fechaHoy,
+                    'estado_grupo_cliente' => $estadoGrupo,
                 ];
             }
             $this->record->clientes()->sync($syncData);

@@ -17,6 +17,7 @@ class GrupoCliente extends Model
         'grupo_id',
         'cliente_id',
         'fecha_ingreso',
+        'fecha_salida',
         'rol',
         'estado_grupo_cliente',
     ];
