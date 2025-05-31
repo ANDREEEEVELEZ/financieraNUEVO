@@ -10,7 +10,16 @@ class PagoPdfController extends Controller
 {
     public function exportar(Request $request)
     {
+        $user = $request->user();
+
         $query = Pago::query();
+
+        if ($user->hasRole('Asesor')) {
+            $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($user) {
+                $q->where('asesor_id', $user->id);
+            });
+        }
+
         if ($request->filled('from')) {
             $query->whereDate('fecha_pago', '>=', $request->input('from'));
         }
@@ -26,6 +35,7 @@ class PagoPdfController extends Controller
                 $q->where('nombre_grupo', 'like', '%' . $request->input('grupo') . '%');
             });
         }
+
         $pagos = $query->with(['cuotaGrupal.prestamo.grupo'])->get();
 
         $pdf = Pdf::loadView('pdf.pagos', compact('pagos'));

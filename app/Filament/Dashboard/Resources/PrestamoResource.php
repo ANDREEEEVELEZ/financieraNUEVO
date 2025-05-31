@@ -13,6 +13,9 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PrestamoResource extends Resource
 {
@@ -25,7 +28,21 @@ class PrestamoResource extends Resource
     {
         return $form->schema([
             Select::make('grupo_id')
-                ->relationship('grupo', 'nombre_grupo')
+                ->label('Grupo')
+                ->options(function () {
+                    $user = request()->user();
+                    if ($user->hasRole('Asesor')) {
+                        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                        if ($asesor) {
+                            return \App\Models\Grupo::where('asesor_id', $asesor->id)
+                                ->pluck('nombre_grupo', 'id');
+                        }
+                    } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+                        return \App\Models\Grupo::pluck('nombre_grupo', 'id');
+                    }
+                    return []; // Retornar vacío si no aplica
+                })
+                ->searchable()
                 ->required()
                 ->reactive()
                 ->afterStateUpdated(function ($state, callable $set) {
@@ -131,6 +148,7 @@ class PrestamoResource extends Resource
             TextInput::make('calificacion')
                 ->numeric()
                 ->required(),
+
         ]);
     }
 
@@ -180,6 +198,30 @@ class PrestamoResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $user = request()->user();
+
+        $query = parent::getEloquentQuery();
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
+            if ($asesor) {
+                $query->whereHas('grupo', function ($subQuery) use ($asesor) {
+                    $subQuery->where('asesor_id', $asesor->id);
+                });
+            }
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+            // No se aplica ningún filtro adicional para estos roles, ya que deben ver todos los grupos
+        } else {
+            // En caso de que el usuario no tenga un rol específico, se puede manejar según sea necesario
+            $query->whereRaw('1 = 0'); // Esto asegura que no se devuelvan resultados
+        }
+
+        return $query;
     }
 
     public static function getPages(): array

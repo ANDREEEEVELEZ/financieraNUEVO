@@ -11,7 +11,16 @@ class ContratoGrupoController extends Controller
 {
     public function imprimirContratos($grupoId)
     {
-        $grupo = Grupo::with(['clientes.persona', 'prestamos'])->findOrFail($grupoId);
+        $user = request()->user();
+
+        $grupo = Grupo::with(['clientes.persona', 'prestamos'])
+            ->where(function ($query) use ($user) {
+                if ($user->hasRole('Asesor')) {
+                    $query->where('asesor_id', $user->id);
+                }
+            })
+            ->findOrFail($grupoId);
+
         $contratosHtml = '';
 
         foreach ($grupo->clientes as $cliente) {

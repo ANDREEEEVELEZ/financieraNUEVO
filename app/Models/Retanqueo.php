@@ -14,7 +14,7 @@ class Retanqueo extends Model
     protected $fillable = [
         'prestamos_id',
         'grupo_id',
-        'asesores_id',
+        'asesor_id',
         'monto_retanqueado',
         'monto_devolver',
         'monto_desembolsar',
@@ -40,6 +40,6 @@ class Retanqueo extends Model
 
     public function asesor()
     {
-        return $this->belongsTo(Asesor::class, 'asesores_id');
+        return $this->belongsTo(Asesor::class, 'asesor_id');
     }
 }

@@ -17,6 +17,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 
 class PagoResource extends Resource
 {
@@ -32,6 +33,24 @@ class PagoResource extends Resource
             Select::make('grupo_id')
                 ->label('Grupo')
                 ->options(function () {
+                    $user = Auth::user();
+                    if ($user->hasRole('Asesor')) {
+                        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                        if ($asesor) {
+                            return CuotasGrupales::with(['mora', 'prestamo.grupo'])
+                                ->whereHas('prestamo.grupo', function ($query) use ($asesor) {
+                                    $query->where('asesor_id', $asesor->id);
+                                })
+                                ->get()
+                                ->mapWithKeys(function ($cuota) {
+                                    $mora = $cuota->mora;
+                                    if ($mora) {
+                                        return [$mora->id => "Mora de Cuota {$cuota->numero_cuota} del Grupo {$cuota->prestamo->grupo->nombre_grupo}"];
+                                    }
+                                    return [];
+                                });
+                        }
+                    }
                     return CuotasGrupales::with('prestamo.grupo')
                         ->get()
                         ->mapWithKeys(function ($cuota) {
@@ -313,7 +332,10 @@ class PagoResource extends Resource
                         ->label('Aprobar')
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && (
+                            Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) ||
+                            $record->grupo && $record->grupo->asesor_id === Auth::id()
+                        ))
                         ->action(function ($record) {
                             $record->aprobar();
                             \Filament\Notifications\Notification::make()
@@ -326,7 +348,10 @@ class PagoResource extends Resource
                         ->label('Rechazar')
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && (
+                            Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) ||
+                            $record->grupo && $record->grupo->asesor_id === Auth::id()
+                        ))
                         ->action(function ($record) {
                             $record->rechazar();
                             \Filament\Notifications\Notification::make()
@@ -336,6 +361,25 @@ class PagoResource extends Resource
                         }),
                 ]),
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $user = request()->user();
+
+        $query = parent::getEloquentQuery();
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
+            if ($asesor) {
+                $query->whereHas('cuotaGrupal.prestamo.grupo', function ($subQuery) use ($asesor) {
+                    $subQuery->where('asesor_id', $asesor->id);
+                });
+            }
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array

@@ -10,8 +10,16 @@ class MoraPdfController extends Controller
 {
     public function exportar(Request $request)
     {
+        $user = $request->user();
+
         $query = CuotasGrupales::with(['mora', 'prestamo.grupo'])
             ->whereHas('mora');
+
+        if ($user->hasRole('Asesor')) {
+            $query->whereHas('prestamo.grupo', function ($q) use ($user) {
+                $q->where('asesor_id', $user->id);
+            });
+        }
 
         // Filtros dinámicos exactos
         if ($request->filled('grupo')) {
@@ -37,6 +45,7 @@ class MoraPdfController extends Controller
                 });
             }
         }
+
         $cuotas_mora = $query->get();
 
         if ($cuotas_mora->isEmpty()) {

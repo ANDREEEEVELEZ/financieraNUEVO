@@ -13,10 +13,37 @@ class CreateCliente extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        $user = request()->user();
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
+            if (!$asesor) {
+                throw new \Illuminate\Validation\ValidationException(
+                    \Illuminate\Support\Facades\Validator::make([], [
+                        'asesor_id' => 'El usuario autenticado no tiene un asesor asociado.',
+                    ])
+                );
+            }
+
+            $data['asesor_id'] = $asesor->id; // Asignar el ID del asesor desde la tabla `asesores`
+        }
+
+        $existingPersona = Persona::where('DNI', $data['persona']['DNI'])->first();
+
+        if ($existingPersona) {
+            throw new \Illuminate\Validation\ValidationException(
+                \Illuminate\Support\Facades\Validator::make([], [
+                    'DNI' => 'El DNI ya está registrado en el sistema.',
+                ])
+            );
+        }
+
         $persona = Persona::create($data['persona']);
         $data['persona_id'] = $persona->id;
         unset($data['persona']);
         $data['estado_cliente'] = 'Activo'; // Forzar siempre Activo
+
         return $data;
     }
 

@@ -23,7 +23,7 @@ class GrupoPolicy
      */
     public function view(User $user, Grupo $grupo): bool
     {
-        return $user->can('view_grupo');
+        return $grupo->asesor_id === $user->id || $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
     }
 
     /**

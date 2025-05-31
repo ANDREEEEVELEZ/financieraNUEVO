@@ -23,7 +23,7 @@ class PagoPolicy
      */
     public function view(User $user, Pago $pago): bool
     {
-        return $user->can('view_pago');
+        return $pago->grupo->asesor_id === $user->id || $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
     }
 
     /**

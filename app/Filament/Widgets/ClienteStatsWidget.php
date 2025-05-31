@@ -10,9 +10,17 @@ class ClienteStatsWidget extends BaseWidget
 {
     protected function getStats(): array
     {
-        $totalClientes = Cliente::count();
-        $clientesActivos = Cliente::where('estado_cliente', 'Activo')->count();
-        $clientesInactivos = Cliente::where('estado_cliente', 'Inactivo')->count();
+        $user = request()->user();
+
+        if ($user->hasRole('Asesor')) {
+            $totalClientes = Cliente::where('asesor_id', $user->id)->count();
+            $clientesActivos = Cliente::where('asesor_id', $user->id)->where('estado_cliente', 'Activo')->count();
+            $clientesInactivos = Cliente::where('asesor_id', $user->id)->where('estado_cliente', 'Inactivo')->count();
+        } else {
+            $totalClientes = Cliente::count();
+            $clientesActivos = Cliente::where('estado_cliente', 'Activo')->count();
+            $clientesInactivos = Cliente::where('estado_cliente', 'Inactivo')->count();
+        }
 
         return [
             Stat::make('Total Clientes', $totalClientes)

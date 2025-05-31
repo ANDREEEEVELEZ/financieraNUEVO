@@ -23,7 +23,7 @@ class ClientePolicy
      */
     public function view(User $user, Cliente $cliente): bool
     {
-        return $user->can('view_cliente');
+        return $cliente->asesor_id === $user->id || $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
     }
 
     /**

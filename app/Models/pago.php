@@ -13,7 +13,7 @@ class Pago extends Model
         'cuota_grupal_id',
         'tipo_pago',
         'monto_pagado',
-        'monto_mora_pagda',
+        'monto_mora_pagada',
         'fecha_pago',
         'estado_pago', 
         'observaciones',
@@ -149,5 +149,9 @@ class Pago extends Model
                     $cuota->save();
                 }
             }
+        }
+        public function grupo()
+        {
+            return $this->hasOneThrough(Grupo::class, Prestamo::class, 'id', 'id', 'cuota_grupal_id', 'grupo_id');
         }
 }

@@ -157,10 +157,21 @@ class ClienteResource extends Resource
     }
 
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->with('persona');
+        $user = request()->user();
+
+        $query = parent::getEloquentQuery();
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
+            if ($asesor) {
+                $query->where('asesor_id', $asesor->id); // Filtrar registros por el ID del asesor correspondiente
+            }
+        }
+
+        return $query;
     }
 
     public static function getGlobalSearchResultTitle(Model $record): string

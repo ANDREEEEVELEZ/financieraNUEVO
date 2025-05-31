@@ -14,4 +14,15 @@ class CreateRetanqueo extends CreateRecord
     {
         return static::getResource()::getUrl('index');
     }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $user = request()->user();
+
+        if ($user->hasRole('Asesor')) {
+            $data['asesor_id'] = $user->id;
+        }
+
+        return $data;
+    }
 }

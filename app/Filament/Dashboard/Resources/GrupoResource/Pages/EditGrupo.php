@@ -39,6 +39,13 @@ class EditGrupo extends EditRecord
         if (!empty($data['clientes']) && !in_array($data['lider_grupal'], $data['clientes'])) {
             throw new \Exception('El líder grupal debe ser uno de los integrantes seleccionados.');
         }
+        $user = request()->user();
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                $data['asesor_id'] = $asesor->id;
+            }
+        }
         return $data;
     }
 

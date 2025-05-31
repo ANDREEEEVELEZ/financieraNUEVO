@@ -29,7 +29,7 @@ class RetanqueoResource extends Resource
                 Forms\Components\TextInput::make('grupo_id')
                     ->required()
                     ->numeric(),
-                Forms\Components\TextInput::make('asesores_id')
+                Forms\Components\TextInput::make('asesor_id')
                     ->required()
                     ->numeric(),
                 Forms\Components\TextInput::make('monto_retanqueado')
@@ -58,7 +58,7 @@ class RetanqueoResource extends Resource
                 Tables\Columns\TextColumn::make('grupo_id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('asesores_id')
+                Tables\Columns\TextColumn::make('asesor_id')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('monto_retanqueado')
@@ -96,6 +96,25 @@ class RetanqueoResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $user = request()->user();
+
+        $query = parent::getEloquentQuery();
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
+            if ($asesor) {
+                $query->whereHas('grupo', function ($subQuery) use ($asesor) {
+                    $subQuery->where('asesor_id', $asesor->id);
+                });
+            }
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array
