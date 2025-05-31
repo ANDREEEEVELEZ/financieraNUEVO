@@ -24,13 +24,6 @@ class CreateGrupo extends CreateRecord
         if (!empty($data['clientes']) && !in_array($data['lider_grupal'], $data['clientes'])) {
             throw new \Exception('El líder grupal debe ser uno de los integrantes seleccionados.');
         }
-        $user = request()->user();
-        if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-            if ($asesor) {
-                $data['asesor_id'] = $asesor->id;
-            }
-        }
         return $data;
     }
 
@@ -38,15 +31,11 @@ class CreateGrupo extends CreateRecord
     {
         $clientes = $this->data['clientes'] ?? [];
         $liderId = $this->data['lider_grupal'] ?? null;
-        $fechaHoy = now()->toDateString();
-        $estadoGrupo = $this->record->estado_grupo;
         if (!empty($clientes)) {
             $syncData = [];
             foreach ($clientes as $clienteId) {
                 $syncData[$clienteId] = [
                     'rol' => ($clienteId == $liderId) ? 'Líder Grupal' : 'Miembro',
-                    'fecha_ingreso' => $fechaHoy,
-                    'estado_grupo_cliente' => $estadoGrupo,
                 ];
             }
             $this->record->clientes()->sync($syncData);

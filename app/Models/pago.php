@@ -150,8 +150,4 @@ class Pago extends Model
                 }
             }
         }
-        public function grupo()
-        {
-            return $this->hasOneThrough(Grupo::class, Prestamo::class, 'id', 'id', 'cuota_grupal_id', 'grupo_id');
-        }
 }

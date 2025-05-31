@@ -17,7 +17,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Builder; 
+use Illuminate\Database\Eloquent\Builder;
 
 class PagoResource extends Resource
 {
@@ -113,7 +113,7 @@ class PagoResource extends Resource
                 ->reactive()
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
                     $cuotaId = $get('cuota_grupal_id');
-                    $cuota = CuotasGrupales::with('mora')->find($cuotaId);
+                    $cuota = \App\Models\CuotasGrupales::with('mora')->find($cuotaId);
                     $saldoPendiente = $cuota ? floatval($cuota->saldo_pendiente) : 0;
                     $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
                     if ($state === 'cuota') {
@@ -314,7 +314,10 @@ class PagoResource extends Resource
                         ->label('Aprobar')
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && (
+                            Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) ||
+                            $record->grupo->asesor_id === Auth::id()
+                        ))
                         ->action(function ($record) {
                             $record->aprobar();
                             \Filament\Notifications\Notification::make()
@@ -327,7 +330,10 @@ class PagoResource extends Resource
                         ->label('Rechazar')
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && (
+                            Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) ||
+                            $record->grupo->asesor_id === Auth::id()
+                        ))
                         ->action(function ($record) {
                             $record->rechazar();
                             \Filament\Notifications\Notification::make()
@@ -339,10 +345,6 @@ class PagoResource extends Resource
             ]);
     }
 
-    public static function getRelations(): array
-    {
-        return [];
-    }
     public static function getEloquentQuery(): Builder
     {
         $user = request()->user();
@@ -362,6 +364,10 @@ class PagoResource extends Resource
         return $query;
     }
 
+    public static function getRelations(): array
+    {
+        return [];
+    }
 
     public static function getPages(): array
     {

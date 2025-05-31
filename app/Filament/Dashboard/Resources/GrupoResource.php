@@ -14,7 +14,6 @@ use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Facades\Log;
 
 class GrupoResource extends Resource
 {
@@ -45,12 +44,11 @@ class GrupoResource extends Resource
                     ->options(function () {
                         $user = request()->user();
 
-                        // Si es asesor, mostrar solo sus clientes
                         if ($user->hasRole('Asesor')) {
                             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
 
                             if ($asesor) {
-                                return Cliente::where('asesor_id', $asesor->id)
+                                return \App\Models\Cliente::where('asesor_id', $asesor->id)
                                     ->with(['persona', 'grupos' => function ($query) {
                                         $query->where('estado_grupo', 'Activo');
                                     }])
@@ -63,11 +61,8 @@ class GrupoResource extends Resource
                                         return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                                     });
                             }
-                        }
-
-                        // Si es admin, jefe de operaciones o jefe de crédito, mostrar todos
-                        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
-                            return Cliente::with(['persona', 'grupos' => function ($query) {
+                        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+                            return \App\Models\Cliente::with(['persona', 'grupos' => function ($query) {
                                 $query->where('estado_grupo', 'Activo');
                             }])->get()->mapWithKeys(function($cliente) {
                                 if ($cliente->tieneGrupoActivo()) {
@@ -76,18 +71,16 @@ class GrupoResource extends Resource
                                 }
                                 return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                             });
-    }
+                        }
 
-    // Si no aplica, retornar vacío
-    return [];
-})
-
+                        return []; // Retornar vacío si no aplica
+                    })
                     ->searchable()
                     ->preload()
                     ->required()
                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                         if (!empty($state)) {
-                            $clientesConGrupo = Cliente::whereIn('id', $state)
+                            $clientesConGrupo = \App\Models\Cliente::whereIn('id', $state)
                                 ->get()
                                 ->filter(function ($cliente) {
                                     return $cliente->tieneGrupoActivo();
@@ -106,7 +99,7 @@ class GrupoResource extends Resource
                                     ->persistent()
                                     ->send();
 
-                                // Remover los clientes que ya tienen grupo ACTIVO
+                                // Remover los clientes que ya tienen grupo
                                 $set('clientes', array_values(array_diff($state, $clientesConGrupo->pluck('id')->toArray())));
                             }
                         }
@@ -153,9 +146,7 @@ class GrupoResource extends Resource
                 Tables\Columns\TextColumn::make('calificacion_grupo')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('estado_grupo')
-                    ->searchable()
-                    ->badge()
-                    ->color(fn($state) => $state === 'Inactivo' ? 'danger' : ($state === 'Activo' ? 'success' : 'warning')),
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -257,14 +248,8 @@ class GrupoResource extends Resource
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
             if ($asesor) {
                 $data['asesor_id'] = $asesor->id;
-                Log::info('Asesor ID asignado:', ['asesor_id' => $asesor->id]);
-            } else {
-                Log::warning('No se encontró un asesor para el usuario:', ['user_id' => $user->id]);
             }
-        } else {
-            Log::info('El usuario no tiene el rol de Asesor:', ['roles' => $user->roles]);
         }
-        // Aseguramos que todas las rutas devuelvan $data
         return $data;
     }
 }
