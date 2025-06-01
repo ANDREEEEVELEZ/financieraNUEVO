@@ -15,14 +15,43 @@ class CheckUserActive
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->check() && !auth()->user()->active) {
-            auth()->logout();
+        if (auth()->check()) {
+            $user = auth()->user();
             
-            if ($request->expectsJson()) {
-                return response()->json(['message' => 'Tu cuenta está inactiva.'], 403);
+            // Verificar si el usuario tiene rol de asesor y está inactivo
+            if ($user->hasRole('Asesor')) {
+                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                if ($asesor && $asesor->estado_asesor === 'Inactivo') {
+                    auth()->logout();
+                    
+                    if ($request->expectsJson()) {
+                        return response()->json(['message' => '¡ASESOR INACTIVO! No tienes permiso para acceder al sistema. Por favor, contacta al administrador.'], 403);
+                    }
+                    
+                    return redirect('/admin/login')
+                        ->with('notification', [
+                            'title' => '¡ASESOR INACTIVO!',
+                            'message' => 'No tienes permiso para acceder al sistema. Por favor, contacta al administrador.',
+                            'status' => 'danger',
+                        ]);
+                }
             }
             
-            return redirect()->route('filament.auth.login')->with('error', 'Tu cuenta está inactiva. Por favor, contacta al administrador.');
+            // Verificar si la cuenta está inactiva en general
+            if (!$user->active) {
+                auth()->logout();
+                
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => 'Tu cuenta está inactiva.'], 403);
+                }
+                
+                return redirect('/admin/login')
+                    ->with('notification', [
+                        'title' => 'Cuenta Inactiva',
+                        'message' => 'Tu cuenta está inactiva. Por favor, contacta al administrador.',
+                        'status' => 'danger',
+                    ]);
+            }
         }
 
         return $next($request);
