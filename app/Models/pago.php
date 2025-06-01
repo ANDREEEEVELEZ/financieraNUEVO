@@ -1,13 +1,17 @@
 <?php
 
+
 namespace App\Models;
+
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+
 class Pago extends Model
 {
     use HasFactory;
+
 
     protected $fillable = [
         'cuota_grupal_id',
@@ -15,9 +19,10 @@ class Pago extends Model
         'monto_pagado',
         'monto_mora_pagada',
         'fecha_pago',
-        'estado_pago', 
+        'estado_pago',
         'observaciones',
     ];
+
 
     protected $casts = [
         'fecha_pago' => 'datetime',
@@ -26,16 +31,19 @@ class Pago extends Model
     'estado_pago' => 'pendiente',
     ];
 
+
     public function cuotaGrupal()
     {
-      
+     
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
     }
+
 
     public function setMontoPagadoAttribute($value)
     {
         $this->attributes['monto_pagado'] = preg_replace('/[^\d.]/', '', $value);
     }
+
 
     public function getFechaPagoFormattedAttribute()
     {
@@ -48,13 +56,16 @@ class Pago extends Model
             return;
         }
 
+
         $this->estado_pago = 'Aprobado';
         $this->save();
+
 
         $cuota = $this->cuotaGrupal;
         $montoCuota = $cuota->monto_cuota_grupal;
         $montoPagado = floatval($this->monto_pagado);
         $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+
 
         // Si la cuota tiene mora pendiente, solo se puede cancelar todo si se paga cuota+mora
         if ($this->tipo_pago === 'cuota_mora' && $cuota->mora) {
@@ -79,6 +90,7 @@ class Pago extends Model
             $cuota->save();
             return;
         }
+
 
         // Si paga solo cuota y hay mora pendiente, la mora sigue pendiente y la cuota no se cancela
         if ($this->tipo_pago === 'cuota') {
@@ -117,18 +129,6 @@ class Pago extends Model
                 $cuota->estado_pago = 'parcial';
             }
             $cuota->save();
-        } elseif ($this->tipo_pago === 'solo_mora' && $cuota->mora) {
-          
-            if ($montoPagado >= $montoMora) {
-                $cuota->mora->estado_mora = 'pagada';
-                $cuota->mora->actualizarDiasAtraso();
-                $cuota->mora->save();
-        
-                if ($cuota->saldo_pendiente == 0) {
-                    $cuota->estado_cuota_grupal = 'cancelada';
-                    $cuota->save();
-                }
-            }
         }
     }
         public function rechazar()
@@ -137,8 +137,10 @@ class Pago extends Model
                 return;
             }
 
+
             $this->estado_pago = 'Rechazado';
             $this->save();
+
 
             $cuota = $this->cuotaGrupal;
             if ($cuota) {
@@ -149,5 +151,9 @@ class Pago extends Model
                     $cuota->save();
                 }
             }
+        }
+        public function grupo()
+        {
+            return $this->hasOneThrough(Grupo::class, Prestamo::class, 'id', 'id', 'cuota_grupal_id', 'grupo_id');
         }
 }

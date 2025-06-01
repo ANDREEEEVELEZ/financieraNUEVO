@@ -24,6 +24,23 @@ class CreateGrupo extends CreateRecord
         if (!empty($data['clientes']) && !in_array($data['lider_grupal'], $data['clientes'])) {
             throw new \Exception('El líder grupal debe ser uno de los integrantes seleccionados.');
         }
+        
+        $user = request()->user();
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
+            if (!$asesor) {
+                throw new \Illuminate\Validation\ValidationException(
+                    \Illuminate\Support\Facades\Validator::make([], [
+                        'asesor_id' => 'El usuario autenticado no tiene un asesor asociado.',
+                    ])
+                );
+            }
+
+            $data['asesor_id'] = $asesor->id; // Asignar el ID del asesor desde la tabla `asesores`
+        }
+
         return $data;
     }
 

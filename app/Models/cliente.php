@@ -1,15 +1,20 @@
 <?php
 
+
 namespace App\Models;
+
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+
 
 class Cliente extends Model
 {
     use HasFactory;
 
+
     protected $table = 'clientes';
+
 
     protected $fillable = [
         'persona_id',
@@ -22,6 +27,7 @@ class Cliente extends Model
         'asesor_id', // Relación con Asesor
     ];
 
+
     /**
      * Relación uno a uno (o uno a muchos) con Persona.
      */
@@ -29,6 +35,7 @@ class Cliente extends Model
     {
         return $this->belongsTo(Persona::class);
     }
+
 
     /**
      * Relación muchos a muchos con Grupo a través de la tabla pivote grupo_cliente.
@@ -43,6 +50,7 @@ class Cliente extends Model
         return $this->belongsTo(Asesor::class);
     }
 
+
     /**
      * Verifica si el cliente ya pertenece a un grupo activo
      */
@@ -52,6 +60,7 @@ class Cliente extends Model
             ->where('estado_grupo', 'Activo')
             ->exists();
     }
+
 
     /**
      * Obtiene el grupo activo del cliente

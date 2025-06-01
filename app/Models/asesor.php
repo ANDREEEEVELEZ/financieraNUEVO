@@ -29,6 +29,7 @@ class Asesor extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    
     public function grupos()
     {
         return $this->hasMany(Grupo::class);

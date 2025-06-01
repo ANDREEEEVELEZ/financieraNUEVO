@@ -1,16 +1,21 @@
 <?php
 
+
 namespace App\Models;
+
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Mora;
 
+
 class CuotasGrupales extends Model
 {
     use HasFactory;
 
+
     protected $table = 'cuotas_grupales';
+
 
     protected $fillable = [
         'prestamo_id',
@@ -22,16 +27,19 @@ class CuotasGrupales extends Model
         'estado_pago',
     ];
 
+
     protected $casts = [
         'fecha_vencimiento' => 'date',
         'monto_cuota_grupal' => 'decimal:2',
         'saldo_pendiente' => 'decimal:2',
     ];
 
+
     public function prestamo()
     {
         return $this->belongsTo(Prestamo::class, 'prestamo_id');
     }
+
 
     // Tu método estadoLegible
         public function mora()
@@ -42,6 +50,7 @@ class CuotasGrupales extends Model
         {
             return $this->hasMany(Pago::class, 'cuota_grupal_id');
         }
+
 
         public function getMontoTotalAPagarAttribute()
         {

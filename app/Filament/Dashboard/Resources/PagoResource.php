@@ -1,6 +1,8 @@
 <?php
 
+
 namespace App\Filament\Dashboard\Resources;
+
 
 use App\Filament\Dashboard\Resources\PagoResource\Pages;
 use App\Models\Pago;
@@ -19,6 +21,7 @@ use Filament\Tables\Actions\ActionGroup;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 
+
 class PagoResource extends Resource
 {
     protected static ?string $model = Pago::class;
@@ -27,22 +30,24 @@ class PagoResource extends Resource
     protected static ?string $modelLabel = 'Pago';
     protected static ?string $pluralModelLabel = 'Pagos';
 
+
     public static function form(Form $form): Form
     {
         return $form->schema([
             Select::make('grupo_id')
                 ->label('Grupo')
                 ->options(function () {
-                    return CuotasGrupales::with('prestamo.grupo')
-                        ->get()
-                        ->mapWithKeys(function ($cuota) {
-                            $grupo = $cuota->prestamo->grupo ?? null;
-                            if ($grupo) {
-                                return [$grupo->id => $grupo->nombre_grupo];
-                            }
-                            return [];
-                        })
-                        ->unique();
+                    $user = request()->user();
+                    if ($user->hasRole('Asesor')) {
+                        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                        if ($asesor) {
+                            return \App\Models\Grupo::where('asesor_id', $asesor->id)
+                                ->pluck('nombre_grupo', 'id');
+                        }
+                    } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+                        return \App\Models\Grupo::pluck('nombre_grupo', 'id');
+                    }
+                    return []; // Retornar vacío si no aplica
                 })
                 ->searchable()
                 ->required()
@@ -64,6 +69,7 @@ class PagoResource extends Resource
                         ->orderBy('numero_cuota', 'asc')
                         ->first();
 
+
                     if ($cuota) {
                         $set('cuota_grupal_id', $cuota->id);
                         $set('numero_cuota', $cuota->numero_cuota);
@@ -75,7 +81,9 @@ class PagoResource extends Resource
                     }
                 }),
 
+
             Hidden::make('cuota_grupal_id')->required(),
+
 
             TextInput::make('numero_cuota')
                 ->label('Número de Cuota')
@@ -89,6 +97,7 @@ class PagoResource extends Resource
                     }
                 }),
 
+
             TextInput::make('monto_cuota')
                 ->label('Monto de la Cuota')
                 ->numeric()
@@ -101,35 +110,35 @@ class PagoResource extends Resource
                     }
                 }),
 
+
             Select::make('tipo_pago')
                 ->label('Tipo de Pago')
                 ->options([
                     'cuota' => 'Pago de Cuota',
                     'cuota_mora' => 'Pago de Cuota + Mora',
-                    'solo_mora' => 'Mora',
                     'pago_parcial' => 'Pago Parcial',
                 ])
                 ->required()
                 ->reactive()
-                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                ->afterStateUpdated(function (
+                    $state, callable $set, callable $get
+                ) {
                     $cuotaId = $get('cuota_grupal_id');
                     $cuota = \App\Models\CuotasGrupales::with('mora')->find($cuotaId);
-                    $saldoPendiente = $cuota ? floatval($cuota->saldo_pendiente) : 0;
+                    $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
                     $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
                     if ($state === 'cuota') {
-                        $set('monto_pagado', $saldoPendiente);
+                        $set('monto_pagado', $montoCuota);
                         $set('monto_mora_aplicada', 0);
                     } elseif ($state === 'cuota_mora') {
                         $set('monto_mora_aplicada', $montoMora);
-                        $set('monto_pagado', $saldoPendiente + $montoMora);
-                    } elseif ($state === 'solo_mora') {
-                        $set('monto_pagado', $montoMora);
-                        $set('monto_mora_aplicada', $montoMora);
+                        $set('monto_pagado', $montoCuota + $montoMora);
                     } else {
                         $set('monto_pagado', null);
                         $set('monto_mora_aplicada', 0);
                     }
                 }),
+
 
             TextInput::make('monto_mora_aplicada')
                 ->label('Monto de Mora Aplicado')
@@ -143,20 +152,24 @@ class PagoResource extends Resource
                     }
                 }),
 
+
             TextInput::make('monto_pagado')
                 ->label('Monto Pagado')
                 ->numeric()
                 ->required()
-                ->disabled(fn (callable $get) => $get('tipo_pago') === 'cuota' || $get('tipo_pago') === 'cuota_mora' || $get('tipo_pago') === 'solo_mora')
+                ->disabled(fn (callable $get) => $get('tipo_pago') === 'cuota' || $get('tipo_pago') === 'cuota_mora')
                 ->dehydrated(),
+
 
             DateTimePicker::make('fecha_pago')
                 ->label('Fecha de Pago')
                 ->required(),
 
+
             TextInput::make('observaciones')
                 ->label('Observaciones')
                 ->maxLength(255),
+
 
             Select::make('estado_pago')
                 ->label('Estado del Pago')
@@ -169,26 +182,37 @@ class PagoResource extends Resource
                 ->disabled()
                 ->dehydrated(),
 
-            TextInput::make('saldo_pendiente')
-                ->label('Saldo Pendiente (Total a Pagar)')
-                ->numeric()
-                ->disabled()
-                ->dehydrated(false)
-                ->visible(fn ($get, $record) => $record !== null)
-                ->afterStateHydrated(function ($component, $state, $record) {
-                    if ($record && $record->cuotaGrupal) {
-                        // Sumar todos los pagos aprobados para esta cuota
-                        $pagosAprobados = $record->cuotaGrupal->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
-                        $saldo = floatval($record->cuotaGrupal->saldo_pendiente);
-                        $mora = $record->cuotaGrupal->mora ? abs($record->cuotaGrupal->mora->monto_mora_calculado) : 0;
+
+                TextInput::make('saldo_pendiente')
+            ->label('Saldo Pendiente (Total a Pagar)')
+            ->numeric()
+            ->disabled()
+            ->dehydrated(false)
+            ->visible(fn ($get, $record) => $record !== null)
+            ->afterStateHydrated(function ($component, $state, $record) {
+                // Siempre mostrar el saldo_pendiente de la cuota relacionada, considerando el estado del pago
+                if ($record && $record->cuotaGrupal) {
+                    $cuota = $record->cuotaGrupal->fresh(); // Refresca para obtener el saldo actualizado
+                    $saldo = floatval($cuota->saldo_pendiente);
+                    $mora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+
+                    if (strtolower($record->estado_pago) === 'pendiente') {
+                        $component->state($saldo + $mora);
+                    } else {
+                        $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
                         $saldoReal = max(($saldo + $mora) - $pagosAprobados, 0);
                         $component->state($saldoReal);
-                    } else {
-                        $component->state(null);
                     }
-                }),
+                } else {
+                    $component->state(null);
+                }
+            })
+
+
+
         ]);
     }
+
 
     public static function table(Table $table): Table
     {
@@ -201,6 +225,7 @@ class PagoResource extends Resource
                     ->searchable()
                     ->width('45px'),
 
+
                 Tables\Columns\TextColumn::make('cuotaGrupal.prestamo.grupo.nombre_grupo')
                     ->label('Grupo')
                     ->sortable()
@@ -208,11 +233,13 @@ class PagoResource extends Resource
                     ->alignCenter()
                     ->width('80px'),
 
+
                 Tables\Columns\TextColumn::make('tipo_pago')
                     ->label('Tipo')
                     ->alignCenter()
                     ->searchable()
                     ->width('65px'),
+
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.fecha_vencimiento')
                     ->label('F.Venc.')
@@ -221,12 +248,14 @@ class PagoResource extends Resource
                     ->alignCenter()
                     ->width('75px'),
 
+
                 Tables\Columns\TextColumn::make('cuotaGrupal.monto_cuota_grupal')
                     ->label('Cuota')
                     ->alignCenter()
                     ->sortable()
                     ->money('PEN')
                     ->width('70px'),
+
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.mora.monto_mora_calculado')
                     ->label('Mora')
@@ -242,6 +271,7 @@ class PagoResource extends Resource
                     })
                     ->width('65px'),
 
+
                 Tables\Columns\TextColumn::make('cuotaGrupal.monto_total_a_pagar')
                     ->label('Total')
                     ->alignCenter()
@@ -255,12 +285,14 @@ class PagoResource extends Resource
                     })
                     ->width('75px'),
 
+
                 Tables\Columns\TextColumn::make('monto_pagado')
                     ->label('Pagado')
                     ->alignCenter()
                     ->searchable()
                     ->money('PEN')
                     ->width('65px'),
+
 
                 Tables\Columns\TextColumn::make('fecha_pago')
                     ->label('F. Pago')
@@ -269,24 +301,35 @@ class PagoResource extends Resource
                     ->alignCenter()
                     ->width('75px'),
 
+
                 Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
                     ->label('Saldo')
                     ->alignCenter()
                     ->sortable()
                     ->formatStateUsing(function ($state, $record) {
-                        $cuota = $record->cuotaGrupal;
+                        $cuota = $record->cuotaGrupal->fresh(); // Refresca el estado de la cuota
                         $saldo = $cuota ? floatval($cuota->saldo_pendiente) : 0;
                         $mora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                        // Si la mora está pagada, no sumarla
-                        if ($cuota && $cuota->mora && isset($cuota->mora->estado_mora) && strtolower($cuota->mora->estado_mora) === 'pagada') {
-                            $mora = 0;
+
+                        // Depuración: Log para verificar valores
+                        \Illuminate\Support\Facades\Log::info('Estado del pago: ' . $record->estado_pago);
+                        \Illuminate\Support\Facades\Log::info('Saldo original: ' . $saldo);
+                        \Illuminate\Support\Facades\Log::info('Mora: ' . $mora);
+
+                        if (strtolower($record->estado_pago) === 'pendiente') {
+                            return number_format($saldo + $mora, 2);
                         }
-                        // Sumar todos los pagos aprobados para esta cuota
+
                         $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
+
+                        // Depuración: Log para verificar pagos aprobados
+                        \Illuminate\Support\Facades\Log::info('Pagos aprobados: ' . $pagosAprobados);
+
                         $saldoReal = max(($saldo + $mora) - $pagosAprobados, 0);
                         return number_format($saldoReal, 2);
                     })
                     ->width('70px'),
+
 
                 Tables\Columns\TextColumn::make('estado_pago')
                     ->label('Estado')
@@ -314,10 +357,7 @@ class PagoResource extends Resource
                         ->label('Aprobar')
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && (
-                            Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) ||
-                            $record->grupo->asesor_id === Auth::id()
-                        ))
+                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
                         ->action(function ($record) {
                             $record->aprobar();
                             \Filament\Notifications\Notification::make()
@@ -326,14 +366,12 @@ class PagoResource extends Resource
                                 ->send();
                         }),
 
+
                     Action::make('rechazar')
                         ->label('Rechazar')
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && (
-                            Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) ||
-                            $record->grupo->asesor_id === Auth::id()
-                        ))
+                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
                         ->action(function ($record) {
                             $record->rechazar();
                             \Filament\Notifications\Notification::make()
@@ -345,14 +383,22 @@ class PagoResource extends Resource
             ]);
     }
 
+
+    public static function getRelations(): array
+    {
+        return [];
+    }
     public static function getEloquentQuery(): Builder
     {
         $user = request()->user();
 
+
         $query = parent::getEloquentQuery();
+
 
         if ($user->hasRole('Asesor')) {
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
 
             if ($asesor) {
                 $query->whereHas('cuotaGrupal.prestamo.grupo', function ($subQuery) use ($asesor) {
@@ -361,13 +407,12 @@ class PagoResource extends Resource
             }
         }
 
+
         return $query;
     }
 
-    public static function getRelations(): array
-    {
-        return [];
-    }
+
+
 
     public static function getPages(): array
     {

@@ -1,6 +1,8 @@
 <?php
 
+
 namespace App\Filament\Dashboard\Resources;
+
 
 use App\Filament\Dashboard\Resources\GrupoResource\Pages;
 use App\Filament\Dashboard\Resources\GrupoResource\RelationManagers;
@@ -14,12 +16,16 @@ use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Log;
+
 
 class GrupoResource extends Resource
 {
     protected static ?string $model = Grupo::class;
 
+
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
 
     public static function form(Form $form): Form
     {
@@ -44,11 +50,14 @@ class GrupoResource extends Resource
                     ->options(function () {
                         $user = request()->user();
 
+
+                        // Si es asesor, mostrar solo sus clientes
                         if ($user->hasRole('Asesor')) {
                             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
 
+
                             if ($asesor) {
-                                return \App\Models\Cliente::where('asesor_id', $asesor->id)
+                                return Cliente::where('asesor_id', $asesor->id)
                                     ->with(['persona', 'grupos' => function ($query) {
                                         $query->where('estado_grupo', 'Activo');
                                     }])
@@ -61,8 +70,12 @@ class GrupoResource extends Resource
                                         return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                                     });
                             }
-                        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
-                            return \App\Models\Cliente::with(['persona', 'grupos' => function ($query) {
+                        }
+
+
+                        // Si es admin, jefe de operaciones o jefe de crédito, mostrar todos
+                        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+                            return Cliente::with(['persona', 'grupos' => function ($query) {
                                 $query->where('estado_grupo', 'Activo');
                             }])->get()->mapWithKeys(function($cliente) {
                                 if ($cliente->tieneGrupoActivo()) {
@@ -71,26 +84,32 @@ class GrupoResource extends Resource
                                 }
                                 return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                             });
-                        }
+    }
 
-                        return []; // Retornar vacío si no aplica
-                    })
+
+    // Si no aplica, retornar vacío
+    return [];
+})
+
+
                     ->searchable()
                     ->preload()
                     ->required()
                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                         if (!empty($state)) {
-                            $clientesConGrupo = \App\Models\Cliente::whereIn('id', $state)
+                            $clientesConGrupo = Cliente::whereIn('id', $state)
                                 ->get()
                                 ->filter(function ($cliente) {
                                     return $cliente->tieneGrupoActivo();
                                 });
+
 
                             if ($clientesConGrupo->isNotEmpty()) {
                                 $mensajesError = $clientesConGrupo->map(function ($cliente) {
                                     $grupoActivo = $cliente->grupoActivo;
                                     return "{$cliente->persona->nombre} {$cliente->persona->apellidos} ya pertenece al grupo {$grupoActivo->nombre_grupo}";
                                 })->join("\n");
+
 
                                 Notification::make()
                                     ->danger()
@@ -99,7 +118,8 @@ class GrupoResource extends Resource
                                     ->persistent()
                                     ->send();
 
-                                // Remover los clientes que ya tienen grupo
+
+                                // Remover los clientes que ya tienen grupo ACTIVO
                                 $set('clientes', array_values(array_diff($state, $clientesConGrupo->pluck('id')->toArray())));
                             }
                         }
@@ -131,6 +151,7 @@ class GrupoResource extends Resource
             ]);
     }
 
+
     public static function table(Table $table): Table
     {
         return $table
@@ -146,7 +167,9 @@ class GrupoResource extends Resource
                 Tables\Columns\TextColumn::make('calificacion_grupo')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('estado_grupo')
-                    ->searchable(),
+                    ->searchable()
+                    ->badge()
+                    ->color(fn($state) => $state === 'Inactivo' ? 'danger' : ($state === 'Activo' ? 'success' : 'warning')),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -204,14 +227,18 @@ class GrupoResource extends Resource
             ]);
     }
 
+
     public static function getEloquentQuery(): Builder
     {
         $user = request()->user();
 
+
         $query = parent::getEloquentQuery();
+
 
         if ($user->hasRole('Asesor')) {
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
 
             if ($asesor) {
                 $query->whereHas('clientes', function ($subQuery) use ($asesor) {
@@ -222,8 +249,10 @@ class GrupoResource extends Resource
             }
         }
 
+
         return $query;
     }
+
 
     public static function getRelations(): array
     {
@@ -231,6 +260,7 @@ class GrupoResource extends Resource
             //
         ];
     }
+
 
     public static function getPages(): array
     {
@@ -241,6 +271,7 @@ class GrupoResource extends Resource
         ];
     }
 
+
     public static function mutateFormDataBeforeSave(array $data): array
     {
         $user = request()->user();
@@ -248,8 +279,14 @@ class GrupoResource extends Resource
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
             if ($asesor) {
                 $data['asesor_id'] = $asesor->id;
+                Log::info('Asesor ID asignado:', ['asesor_id' => $asesor->id]);
+            } else {
+                Log::warning('No se encontró un asesor para el usuario:', ['user_id' => $user->id]);
             }
+        } else {
+            Log::info('El usuario no tiene el rol de Asesor:', ['roles' => $user->roles]);
         }
+        // Aseguramos que todas las rutas devuelvan $data
         return $data;
     }
 }

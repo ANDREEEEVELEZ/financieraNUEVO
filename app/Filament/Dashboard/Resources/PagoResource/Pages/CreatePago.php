@@ -1,14 +1,18 @@
 <?php
 
+
 namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
+
 
 use App\Filament\Dashboard\Resources\PagoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 
+
 class CreatePago extends CreateRecord
 {
     protected static string $resource = PagoResource::class;
+
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
@@ -19,10 +23,12 @@ class CreatePago extends CreateRecord
         return $data;
     }
 
+
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
     }
+
 
     public function mount(): void
     {
@@ -48,8 +54,10 @@ class CreatePago extends CreateRecord
         }
     }
 
+
     protected function getFormSchema(): array
     {
         return parent::getFormSchema();
     }
 }
+
