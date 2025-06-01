@@ -61,4 +61,11 @@ class CuotasGrupales extends Model
             }
             return $saldo + $montoMora;
         }
+            public function getSaldoTotalPendienteAttribute()
+            {
+                $pagos = $this->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
+                $mora = $this->mora ? abs($this->mora->monto_mora_calculado) : 0;
+                return max(($this->monto_cuota_grupal + $mora) - $pagos, 0);
+            }
+
 }

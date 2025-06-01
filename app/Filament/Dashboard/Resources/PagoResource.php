@@ -49,9 +49,6 @@ class PagoResource extends Resource
                     }
                     return []; // Retornar vacío si no aplica
                 })
-                ->searchable()
-                ->required()
-                ->reactive()
                 ->afterStateHydrated(function ($component, $state, $record) {
                     if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
                         $component->state($record->cuotaGrupal->prestamo->grupo->id);
@@ -61,25 +58,34 @@ class PagoResource extends Resource
                     }
                 })
                 ->afterStateUpdated(function ($state, callable $set) {
-                    $cuota = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
-                        $query->where('grupo_id', $state);
-                    })
-                        ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
-                        ->whereIn('estado_pago', ['pendiente', 'parcial'])
-                        ->orderBy('numero_cuota', 'asc')
-                        ->first();
+  $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
+    $query->where('grupo_id', $state);
+})
+->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
+->orderBy('numero_cuota', 'asc')
+->get();
 
+foreach ($cuotas as $cuota) {
+    if ($cuota->saldo_total_pendiente > 0) {
+        $set('cuota_grupal_id', $cuota->id);
+        $set('numero_cuota', $cuota->numero_cuota);
+        $set('monto_cuota', $cuota->monto_cuota_grupal);
+        $set('monto_mora_aplicada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+        return;
+    }
+}
 
-                    if ($cuota) {
-                        $set('cuota_grupal_id', $cuota->id);
-                        $set('numero_cuota', $cuota->numero_cuota);
-                        $set('monto_cuota', $cuota->monto_cuota_grupal);
-                    } else {
-                        $set('cuota_grupal_id', null);
-                        $set('numero_cuota', null);
-                        $set('monto_cuota', null);
-                    }
-                }),
+// Si no hay ninguna cuota pendiente realmente
+$set('cuota_grupal_id', null);
+$set('numero_cuota', null);
+$set('monto_cuota', null);
+$set('monto_mora_aplicada', 0.00);
+
+})
+
+                ->searchable()
+                ->required()
+                ->reactive(),
 
 
             Hidden::make('cuota_grupal_id')->required(),
@@ -114,28 +120,23 @@ class PagoResource extends Resource
             Select::make('tipo_pago')
                 ->label('Tipo de Pago')
                 ->options([
-                    'cuota' => 'Pago de Cuota',
-                    'cuota_mora' => 'Pago de Cuota + Mora',
+                    'pago_completo' => 'Pago Completo',
                     'pago_parcial' => 'Pago Parcial',
                 ])
                 ->required()
                 ->reactive()
-                ->afterStateUpdated(function (
-                    $state, callable $set, callable $get
-                ) {
+                ->afterStateUpdated(function ($state, callable $set, callable $get) {
                     $cuotaId = $get('cuota_grupal_id');
-                    $cuota = \App\Models\CuotasGrupales::with('mora')->find($cuotaId);
+                    $cuota = CuotasGrupales::with('mora')->find($cuotaId);
                     $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
                     $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                    if ($state === 'cuota') {
-                        $set('monto_pagado', $montoCuota);
-                        $set('monto_mora_aplicada', 0);
-                    } elseif ($state === 'cuota_mora') {
-                        $set('monto_mora_aplicada', $montoMora);
+
+                    if ($state === 'pago_completo') {
                         $set('monto_pagado', $montoCuota + $montoMora);
-                    } else {
+                        $set('monto_mora_aplicada', $montoMora);
+                    } elseif ($state === 'pago_parcial') {
                         $set('monto_pagado', null);
-                        $set('monto_mora_aplicada', 0);
+                        $set('monto_mora_aplicada', $montoMora);
                     }
                 }),
 
@@ -145,10 +146,12 @@ class PagoResource extends Resource
                 ->numeric()
                 ->disabled()
                 ->dehydrated(false)
-                ->visible(fn (callable $get) => $get('tipo_pago') === 'cuota_mora')
+                ->default(0.00)
                 ->afterStateHydrated(function ($component, $state, $record) {
-                    if ($record && $record->tipo_pago === 'cuota_mora' && $record->cuotaGrupal && $record->cuotaGrupal->mora) {
+                    if ($record && $record->cuotaGrupal && $record->cuotaGrupal->mora) {
                         $component->state(abs($record->cuotaGrupal->mora->monto_mora_calculado));
+                    } else {
+                        $component->state(0.00);
                     }
                 }),
 
@@ -157,7 +160,7 @@ class PagoResource extends Resource
                 ->label('Monto Pagado')
                 ->numeric()
                 ->required()
-                ->disabled(fn (callable $get) => $get('tipo_pago') === 'cuota' || $get('tipo_pago') === 'cuota_mora')
+                ->disabled(fn (callable $get) => $get('tipo_pago') === 'pago_completo')
                 ->dehydrated(),
 
 
@@ -307,27 +310,30 @@ class PagoResource extends Resource
                     ->alignCenter()
                     ->sortable()
                     ->formatStateUsing(function ($state, $record) {
-                        $cuota = $record->cuotaGrupal->fresh(); // Refresca el estado de la cuota
-                        $saldo = $cuota ? floatval($cuota->saldo_pendiente) : 0;
-                        $mora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                        // Depuración: Log para verificar valores
-                        \Illuminate\Support\Facades\Log::info('Estado del pago: ' . $record->estado_pago);
-                        \Illuminate\Support\Facades\Log::info('Saldo original: ' . $saldo);
-                        \Illuminate\Support\Facades\Log::info('Mora: ' . $mora);
-
-                        if (strtolower($record->estado_pago) === 'pendiente') {
-                            return number_format($saldo + $mora, 2);
+                        // Si el pago está rechazado, no mostrar saldo
+                        if ($record->estado_pago === 'Rechazado') {
+                            return 'N/A';
                         }
 
-                        $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
+                        $cuota = $record->cuotaGrupal?->fresh();
 
-                        // Depuración: Log para verificar pagos aprobados
-                        \Illuminate\Support\Facades\Log::info('Pagos aprobados: ' . $pagosAprobados);
+                        if (!$cuota) {
+                            return '-';
+                        }
 
-                        $saldoReal = max(($saldo + $mora) - $pagosAprobados, 0);
-                        return number_format($saldoReal, 2);
+                        $montoCuota = floatval($cuota->monto_cuota_grupal);
+                        $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+
+                        $pagosAprobados = $cuota->pagos()
+                            ->where('estado_pago', 'Aprobado')
+                            ->sum('monto_pagado');
+
+                        $saldo = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+
+                        return number_format($saldo, 2);
                     })
+
+
                     ->width('70px'),
 
 
@@ -422,4 +428,4 @@ class PagoResource extends Resource
             'edit' => Pages\EditPago::route('/{record}/editar'),
         ];
     }
-}
+} 
