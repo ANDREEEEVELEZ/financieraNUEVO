@@ -103,26 +103,38 @@ class ClienteResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('persona.DNI')->label('DNI')->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre')->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos')->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('persona.celular')->label('Celular'),
-                Tables\Columns\TextColumn::make('infocorp')->label('Infocorp'),
-                Tables\Columns\TextColumn::make('ciclo')->label('Ciclo'),
-                Tables\Columns\TextColumn::make('condicion_vivienda')->label('Condición de Vivienda'),
-                Tables\Columns\TextColumn::make('actividad')->label('Actividad'),
-                Tables\Columns\TextColumn::make('condicion_personal')->label('Condición Personal'),
-                Tables\Columns\TextColumn::make('estado_cliente')
-                    ->label('Estado Cliente')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Activo' => 'success',
-                        'Inactivo' => 'danger',
-                        default => 'gray',
-                    }),
-            ])
+        $columns = [
+            Tables\Columns\TextColumn::make('persona.DNI')->label('DNI')->sortable()->searchable(),
+            Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre')->sortable()->searchable(),
+            Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos')->sortable()->searchable(),
+            Tables\Columns\TextColumn::make('persona.celular')->label('Celular'),
+            Tables\Columns\TextColumn::make('infocorp')->label('Infocorp'),
+            Tables\Columns\TextColumn::make('ciclo')->label('Ciclo'),
+            Tables\Columns\TextColumn::make('condicion_vivienda')->label('Condición de Vivienda'),
+            Tables\Columns\TextColumn::make('actividad')->label('Actividad'),
+            Tables\Columns\TextColumn::make('condicion_personal')->label('Condición Personal'),
+            Tables\Columns\TextColumn::make('estado_cliente')
+                ->label('Estado')
+                ->badge()
+                ->color(fn (string $state): string => match ($state) {
+                    'Activo' => 'success',
+                    'Inactivo' => 'danger',
+                    default => 'warning',
+                })
+        ];
+
+        // Agregar columna de asesor solo para roles administrativos al final
+        if (auth()->user()->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
+            $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
+                ->label('Asesor')
+                ->formatStateUsing(fn ($record) => 
+                    $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-'
+                )
+                ->sortable()
+                ->searchable();
+        }
+
+        return $table->columns($columns)
             ->filters([
                 Tables\Filters\SelectFilter::make('estado_cliente')
                     ->options([

@@ -154,62 +154,44 @@ class GrupoResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('nombre_grupo')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('numero_integrantes_real')
-                    ->label('N° Integrantes')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('fecha_registro')
-                    ->date()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('calificacion_grupo')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('estado_grupo')
-                    ->searchable()
-                    ->badge()
-                    ->color(fn($state) => $state === 'Inactivo' ? 'danger' : ($state === 'Activo' ? 'success' : 'warning')),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('integrantes_nombres')
-                    ->label('Integrantes')
-                    ->limit(50)
-                    ->tooltip(fn($record) => $record->integrantes_nombres),
-                Tables\Columns\TextColumn::make('lider_grupal')
-                    ->label('Líder Grupal')
-                    ->getStateUsing(function($record) {
-                        // Buscar el cliente con rol 'Líder Grupal' en la relación pivote
-                        $lider = $record->clientes()->wherePivot('rol', 'Líder Grupal')->with('persona')->first();
-                        return $lider ? ($lider->persona->nombre . ' ' . $lider->persona->apellidos) : '-';
-                    }),
-                Tables\Columns\TextColumn::make('integrantes_roles')
-                    ->label('Integrantes y Roles')
-                    ->getStateUsing(function($record) {
-                        // Mostrar todos los integrantes con su rol
-                        $integrantes = $record->clientes()->with('persona')->get();
-                        return $integrantes->map(function($cliente) use ($record) {
-                            $rol = $cliente->pivot->rol ?? 'Miembro';
-                            $nombre = $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
-                            return $nombre . ' (' . $rol . ')';
-                        })->implode(', ');
-                    })
-                    ->limit(80)
-                    ->tooltip(fn($record) => $record->clientes()->with('persona')->get()->map(function($cliente) {
-                        $rol = $cliente->pivot->rol ?? 'Miembro';
-                        $nombre = $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
-                        return $nombre . ' (' . $rol . ')';
-                    })->implode(', ')),
-            ])
-            ->filters([
-                //
-            ])
+        $columns = [
+            Tables\Columns\TextColumn::make('nombre_grupo')
+                ->searchable(),
+            Tables\Columns\TextColumn::make('numero_integrantes_real')
+                ->label('N° Integrantes')
+                ->getStateUsing(fn($record) => $record->clientes()->count()),
+            Tables\Columns\TextColumn::make('fecha_registro')
+                ->date()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('estado_grupo')
+                ->searchable()
+                ->badge()
+                ->color(fn($state) => $state === 'Inactivo' ? 'danger' : ($state === 'Activo' ? 'success' : 'warning')),
+            Tables\Columns\TextColumn::make('integrantes_nombres')
+                ->label('Integrantes')
+                ->limit(50)
+                ->tooltip(fn($record) => $record->integrantes_nombres),
+            Tables\Columns\TextColumn::make('lider_grupal')
+                ->label('Líder Grupal')
+                ->getStateUsing(function($record) {
+                    $lider = $record->clientes()->wherePivot('rol', 'Líder Grupal')->with('persona')->first();
+                    return $lider ? ($lider->persona->nombre . ' ' . $lider->persona->apellidos) : '-';
+                })
+        ];
+
+        // Agregar columna de asesor solo para roles administrativos al final
+        if (auth()->user()->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
+            $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
+                ->label('Asesor')
+                ->formatStateUsing(fn ($record) => 
+                    $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-'
+                )
+                ->sortable()
+                ->searchable();
+        }
+
+        return $table->columns($columns)
+            ->filters([])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('imprimir_contratos')
