@@ -85,10 +85,13 @@ class AsesorResource extends Resource
                         ->schema([
                             TextInput::make('codigo_asesor')->nullable(),
                             DatePicker::make('fecha_ingreso')->nullable(),
-                            Select::make('estado_asesor')->options([
-                                'activo' => 'Activo',
-                                'inactivo' => 'Inactivo'
-                            ])->required(),
+                            Select::make('estado_asesor')
+                                ->options([
+                                    'Activo' => 'Activo',
+                                    'Inactivo' => 'Inactivo'
+                                ])
+                                ->default('Activo')
+                                ->required(),
                             ]),
 
                     ]),
@@ -103,18 +106,81 @@ class AsesorResource extends Resource
                 Tables\Columns\TextColumn::make('persona.DNI')->label('DNI'),
                 Tables\Columns\TextColumn::make('persona.correo')->label('Correo'),
                 Tables\Columns\TextColumn::make('codigo_asesor')->label('Código Asesor'),
-                Tables\Columns\TextColumn::make('estado_asesor')->label('Estado'),
+                Tables\Columns\TextColumn::make('estado_asesor')
+                    ->label('Estado')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Activo' => 'success',
+                        'Inactivo' => 'danger',
+                        default => 'warning',
+                    }),
                 Tables\Columns\TextColumn::make('fecha_ingreso')->label('Fecha de Ingreso'),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('estado_asesor')
+                    ->label('Estado')
+                    ->options([
+                        'Activo' => 'Activo',
+                        'Inactivo' => 'Inactivo',
+                    ])
+                    ->default('Activo')
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('activar')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Activar Asesor')
+                    ->modalDescription('¿Estás seguro de que quieres activar este asesor? Se reactivará su acceso al sistema.')
+                    ->modalSubmitActionLabel('Sí, activar')
+                    ->hidden(fn ($record): bool => $record->estado_asesor === 'Activo')
+                    ->after(function ($record) {
+                        $record->update(['estado_asesor' => 'Activo']);
+                        if ($record->user) {
+                            $record->user->update(['active' => true]);
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Asesor Activado')
+                            ->body('El asesor ha sido activado exitosamente.')
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('activarSeleccionados')
+                        ->label('Activar Seleccionados')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Activar Asesores Seleccionados')
+                        ->modalDescription('¿Estás seguro de que quieres activar los asesores seleccionados? Se reactivará su acceso al sistema.')
+                        ->modalSubmitActionLabel('Sí, activar')
+                        ->after(function ($records) {
+                            $count = 0;
+                            $records->each(function ($record) use (&$count) {
+                                if ($record->estado_asesor === 'Inactivo') {
+                                    $record->update(['estado_asesor' => 'Activo']);
+                                    if ($record->user) {
+                                        $record->user->update(['active' => true]);
+                                    }
+                                    $count++;
+                                }
+                            });
+
+                            if ($count > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Asesores Activados')
+                                    ->body("Se han activado $count asesores exitosamente.")
+                                    ->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion()
+                        ->hidden(fn ($records) => !$records || !$records->contains('estado_asesor', 'Inactivo')),
                 ]),
             ]);
     }

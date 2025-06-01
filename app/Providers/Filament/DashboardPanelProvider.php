@@ -55,6 +55,7 @@ class DashboardPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                \App\Http\Middleware\CheckUserActive::class,
             ])
             ->plugins([
                 FilamentShieldPlugin::make()
