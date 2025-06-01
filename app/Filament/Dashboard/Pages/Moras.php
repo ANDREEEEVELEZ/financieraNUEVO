@@ -41,8 +41,13 @@ class Moras extends Page
             );
         }
 
+        $user = request()->user();
         $query = CuotasGrupales::with(['mora', 'prestamo.grupo'])
-            ->whereHas('mora');
+            ->whereHas('mora', function ($moraQuery) use ($user) {
+                $moraQuery->where(function ($subQuery) use ($user) {
+                    $subQuery->visiblePorUsuario($user);
+                });
+            });
 
         $filtro = request('filtro');
         if ($filtro === 'grupo' && request('grupo')) {

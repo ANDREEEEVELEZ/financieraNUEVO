@@ -9,6 +9,7 @@ use App\Models\Pago;
 use App\Models\Cliente;
 use App\Models\Prestamo;
 use App\Models\Retanqueo;
+use App\Models\CuotasGrupales;
 
 class Asesor extends Page
 {
@@ -21,13 +22,35 @@ class Asesor extends Page
         $desde = request('desde');
         $hasta = request('hasta');
 
-        $pagosQuery = Pago::query();
-        $morasQuery = Mora::query();
-        $cuotasQuery = \App\Models\CuotasGrupales::query();
-        $retanqueosQuery = Retanqueo::query();
-        $prestamosQuery = Prestamo::query();
-        $clientesQuery = Cliente::query();
-        $gruposQuery = Grupo::query();
+        $user = request()->user();
+
+        $pagosQuery = Pago::query()->whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($user) {
+            $query->visiblePorUsuario($user);
+        });
+
+        $morasQuery = Mora::query()->whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($user) {
+            $query->visiblePorUsuario($user);
+        });
+
+        $cuotasQuery = CuotasGrupales::query()->whereHas('prestamo.grupo', function ($query) use ($user) {
+            $query->visiblePorUsuario($user);
+        });
+
+        $retanqueosQuery = Retanqueo::query()->whereHas('prestamo.grupo', function ($query) use ($user) {
+            $query->visiblePorUsuario($user);
+        });
+
+        $prestamosQuery = Prestamo::query()->whereHas('grupo', function ($query) use ($user) {
+            $query->visiblePorUsuario($user);
+        });
+
+        $clientesQuery = Cliente::query()->whereHas('grupos', function ($query) use ($user) {
+            $query->visiblePorUsuario($user);
+        });
+
+        $gruposQuery = Grupo::query()->where(function ($query) use ($user) {
+            $query->visiblePorUsuario($user);
+        });
 
         if ($desde) {
             $pagosQuery->whereDate('fecha_pago', '>=', $desde);
@@ -60,10 +83,13 @@ class Asesor extends Page
 
         $totalMorasFiltradas = $morasQuery->count();
 
-        $cuotasEnMora = Mora::query()
-            ->when($desde, fn($q) => $q->whereHas('cuotaGrupal', fn($cq) => $cq->whereDate('fecha_vencimiento', '>=', $desde)))
-            ->when($hasta, fn($q) => $q->whereHas('cuotaGrupal', fn($cq) => $cq->whereDate('fecha_vencimiento', '<=', $hasta)))
-            ->whereIn('estado_mora', ['pendiente', 'parcial'])
+        $cuotasEnMora = CuotasGrupales::query()
+            ->whereHas('prestamo.grupo', function ($query) use ($user) {
+                $query->visiblePorUsuario($user);
+            })
+            ->when($desde, fn($q) => $q->whereDate('fecha_vencimiento', '>=', $desde))
+            ->when($hasta, fn($q) => $q->whereDate('fecha_vencimiento', '<=', $hasta))
+            ->where('estado_cuota_grupal', 'mora')
             ->count();
 
         $montoTotalMora = $morasQuery->where('estado_mora', 'pendiente')->get()->sum(function($mora) {

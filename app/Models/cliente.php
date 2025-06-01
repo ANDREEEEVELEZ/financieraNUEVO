@@ -71,4 +71,22 @@ class Cliente extends Model
             ->where('estado_grupo', 'Activo')
             ->first();
     }
+
+
+    /**
+     * Scope para filtrar clientes visibles según el rol del usuario.
+     */
+    public function scopeVisiblePorUsuario($query, $user)
+    {
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                return $query->where('asesor_id', $asesor->id);
+            }
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+            return $query; // Mostrar todos los clientes
+        }
+
+        return $query->whereRaw('1 = 0'); // No mostrar nada si no aplica
+    }
 }

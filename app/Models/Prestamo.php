@@ -38,4 +38,19 @@ class Prestamo extends Model
     {
         return $this->hasMany(CuotasGrupales::class);
     }
+    public function scopeVisiblePorUsuario($query, $user)
+    {
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                return $query->whereHas('grupo', function ($subQuery) use ($asesor) {
+                    $subQuery->where('asesor_id', $asesor->id);
+                });
+            }
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+            return $query; // Mostrar todos los préstamos
+        }
+
+        return $query->whereRaw('1 = 0'); // No mostrar nada si no aplica
+    }
 }
