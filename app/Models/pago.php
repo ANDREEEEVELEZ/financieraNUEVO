@@ -52,6 +52,12 @@ class Pago extends Model
 
     public function aprobar()
     {
+        // Validar que el préstamo esté aprobado
+        $prestamo = $this->cuotaGrupal?->prestamo;
+        if (!$prestamo || strtolower($prestamo->estado) !== 'aprobado') {
+            throw new \Exception('Solo se pueden aprobar pagos de préstamos aprobados.');
+        }
+
         if (strtolower($this->estado_pago) !== 'pendiente') {
             return;
         }
@@ -105,6 +111,12 @@ class Pago extends Model
     }
         public function rechazar()
         {
+            // Validar que el préstamo esté aprobado
+            $prestamo = $this->cuotaGrupal?->prestamo;
+            if (!$prestamo || strtolower($prestamo->estado) !== 'aprobado') {
+                throw new \Exception('Solo se pueden rechazar pagos de préstamos aprobados.');
+            }
+
             if (strtolower($this->estado_pago) !== 'pendiente') {
                 return;
             }
@@ -160,5 +172,17 @@ class Pago extends Model
         public function grupo()
         {
             return $this->hasOneThrough(Grupo::class, Prestamo::class, 'id', 'id', 'cuota_grupal_id', 'grupo_id');
+        }
+
+        protected static function boot()
+        {
+            parent::boot();
+
+            static::creating(function ($pago) {
+                $prestamo = $pago->cuotaGrupal?->prestamo;
+                if (!$prestamo || strtolower($prestamo->estado) !== 'aprobado') {
+                    throw new \Exception('No se pueden registrar pagos para préstamos que no estén aprobados.');
+                }
+            });
         }
 }

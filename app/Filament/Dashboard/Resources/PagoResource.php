@@ -38,16 +38,22 @@ class PagoResource extends Resource
                 ->label('Grupo')
                 ->options(function () {
                     $user = request()->user();
+                    $query = \App\Models\Grupo::whereHas('prestamos', function($q) {
+                        $q->where('estado', 'Aprobado');
+                    });
+
                     if ($user->hasRole('Asesor')) {
                         $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
                         if ($asesor) {
-                            return \App\Models\Grupo::where('asesor_id', $asesor->id)
-                                ->pluck('nombre_grupo', 'id');
+                            $query->where('asesor_id', $asesor->id);
+                        } else {
+                            return []; // Si el asesor no existe, retornar vacío
                         }
-                    } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
-                        return \App\Models\Grupo::pluck('nombre_grupo', 'id');
+                    } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+                        return []; // Si no tiene roles permitidos, retornar vacío
                     }
-                    return []; // Retornar vacío si no aplica
+
+                    return $query->pluck('nombre_grupo', 'id');
                 })
                 ->afterStateHydrated(function ($component, $state, $record) {
                     if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
