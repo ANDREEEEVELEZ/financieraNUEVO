@@ -428,4 +428,4 @@ $set('monto_mora_aplicada', 0.00);
             'edit' => Pages\EditPago::route('/{record}/editar'),
         ];
     }
-} 
+}

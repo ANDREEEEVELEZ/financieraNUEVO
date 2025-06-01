@@ -5,6 +5,11 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Asesor;
+/**
+ * Middleware para verificar si el usuario está activo.
+ */
 
 class CheckUserActive
 {
@@ -15,14 +20,14 @@ class CheckUserActive
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->check()) {
-            $user = auth()->user();
+            if (Auth::check()) {
+            $user = Auth::user();
             
             // Verificar si el usuario tiene rol de asesor y está inactivo
             if ($user->hasRole('Asesor')) {
-                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                $asesor = Asesor::where('user_id', $user->id)->first();
                 if ($asesor && $asesor->estado_asesor === 'Inactivo') {
-                    auth()->logout();
+                    Auth::logout();
                     
                     if ($request->expectsJson()) {
                         return response()->json(['message' => '¡ASESOR INACTIVO! No tienes permiso para acceder al sistema. Por favor, contacta al administrador.'], 403);
@@ -39,7 +44,7 @@ class CheckUserActive
             
             // Verificar si la cuenta está inactiva en general
             if (!$user->active) {
-                auth()->logout();
+                 Auth::logout();
                 
                 if ($request->expectsJson()) {
                     return response()->json(['message' => 'Tu cuenta está inactiva.'], 403);
