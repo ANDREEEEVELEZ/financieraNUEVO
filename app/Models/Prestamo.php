@@ -47,7 +47,7 @@ class Prestamo extends Model
                     $subQuery->where('asesor_id', $asesor->id);
                 });
             }
-        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
             return $query; // Mostrar todos los préstamos
         }
 

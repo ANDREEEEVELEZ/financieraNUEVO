@@ -29,6 +29,7 @@ class PrestamoResource extends Resource
         return $form->schema([
             Select::make('grupo_id')
                 ->label('Grupo')
+                ->relationship('grupo', 'nombre_grupo')
                 ->options(function () {
                     $user = request()->user();
                     if ($user->hasRole('Asesor')) {
@@ -133,9 +134,9 @@ class PrestamoResource extends Resource
                 ->required(),
             Select::make('estado')
                 ->options([
-                    'pendiente' => 'Pendiente',
-                    'aprobado' => 'Aprobado',
-                    'rechazado' => 'Rechazado',
+                    'Pendiente' => 'Pendiente',
+                    'Aprobado' => 'Aprobado',
+                    'Rechazado' => 'Rechazado',
                 ])
                 ->default('Pendiente')
                 ->required()
@@ -144,7 +145,7 @@ class PrestamoResource extends Resource
                     \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de Operaciones', 'Jefe de Creditos']) &&
                     request()->routeIs('filament.dashboard.resources.prestamos.edit')
                 ))
-                ->dehydrated(true), // <-- Asegura que siempre se envía el valor al backend
+                ->dehydrated(true),
             TextInput::make('calificacion')
                 ->numeric()
                 ->required(),
@@ -166,14 +167,39 @@ class PrestamoResource extends Resource
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table->columns([
-            TextColumn::make('grupo.nombre_grupo')->label('Grupo'),
-            TextColumn::make('tasa_interes')->sortable(),
-            TextColumn::make('monto_prestado_total')->sortable(),
-            TextColumn::make('monto_devolver')->label('Monto a Devolver (Grupal)')->sortable(),
-            TextColumn::make('cantidad_cuotas')->sortable(),
-            TextColumn::make('fecha_prestamo')->dateTime(),
-            TextColumn::make('estado')->sortable(),
-            TextColumn::make('calificacion')->sortable(),
+            TextColumn::make('grupo.nombre_grupo')
+                ->label('Grupo')
+                ->searchable()
+                ->sortable(),
+            TextColumn::make('tasa_interes')
+                ->label('Tasa Interés')
+                ->sortable(),
+            TextColumn::make('monto_prestado_total')
+                ->label('Monto Prestado')
+                ->money('PEN')
+                ->sortable(),
+            TextColumn::make('monto_devolver')
+                ->label('Monto a Devolver')
+                ->money('PEN')
+                ->sortable(),
+            TextColumn::make('cantidad_cuotas')
+                ->label('N° Cuotas')
+                ->sortable(),
+            TextColumn::make('fecha_prestamo')
+                ->label('Fecha')
+                ->date()
+                ->sortable(),
+            TextColumn::make('estado')
+                ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                ->badge()
+                ->color(fn (string $state): string => match (strtolower($state)) {
+                    'aprobado' => 'success',
+                    'rechazado' => 'danger',
+                    default => 'warning',
+                })
+                ->sortable(),
+            TextColumn::make('calificacion')
+                ->sortable(),
             TextColumn::make('detalle_individual')
                 ->label('Detalle Individual')
                 ->html()
@@ -214,7 +240,7 @@ class PrestamoResource extends Resource
                     $subQuery->where('asesor_id', $asesor->id);
                 });
             }
-        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
             // No se aplica ningún filtro adicional para estos roles, ya que deben ver todos los grupos
         } else {
             // En caso de que el usuario no tenga un rol específico, se puede manejar según sea necesario
