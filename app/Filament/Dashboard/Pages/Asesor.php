@@ -10,6 +10,7 @@ use App\Models\Cliente;
 use App\Models\Prestamo;
 use App\Models\Retanqueo;
 use App\Models\CuotasGrupales;
+use App\Models\Asesor as AsesorModel;
 
 class Asesor extends Page
 {
@@ -21,100 +22,74 @@ class Asesor extends Page
     {
         $desde = request('desde');
         $hasta = request('hasta');
-
         $user = request()->user();
 
-        $pagosQuery = Pago::query()->whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($user) {
-            $query->visiblePorUsuario($user);
-        });
+        $query = null;
+        $clientesQuery = Cliente::query();
+        $prestamosQuery = Prestamo::query();
+        $gruposQuery = Grupo::query();
 
-        $morasQuery = Mora::query()->whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($user) {
-            $query->visiblePorUsuario($user);
-        });
+        // Si es un asesor, filtrar por su ID
+        if ($user->hasRole('Asesor')) {
+            $asesor = AsesorModel::where('user_id', $user->id)->first();
+            if ($asesor) {
+                $clientesQuery->where('asesor_id', $asesor->id);
+                $gruposQuery->whereHas('clientes', function ($q) use ($asesor) {
+                    $q->where('asesor_id', $asesor->id);
+                });
+                $prestamosQuery->whereHas('grupo.clientes', function ($q) use ($asesor) {
+                    $q->where('asesor_id', $asesor->id);
+                });
+            }
+        }
 
-        $cuotasQuery = CuotasGrupales::query()->whereHas('prestamo.grupo', function ($query) use ($user) {
-            $query->visiblePorUsuario($user);
-        });
-
-        $retanqueosQuery = Retanqueo::query()->whereHas('prestamo.grupo', function ($query) use ($user) {
-            $query->visiblePorUsuario($user);
-        });
-
-        $prestamosQuery = Prestamo::query()->whereHas('grupo', function ($query) use ($user) {
-            $query->visiblePorUsuario($user);
-        });
-
-        $clientesQuery = Cliente::query()->whereHas('grupos', function ($query) use ($user) {
-            $query->visiblePorUsuario($user);
-        });
-
-        $gruposQuery = Grupo::query()->where(function ($query) use ($user) {
-            $query->visiblePorUsuario($user);
-        });
-
+        // Aplicar filtros de fecha si existen
         if ($desde) {
-            $pagosQuery->whereDate('fecha_pago', '>=', $desde);
-            $morasQuery->whereHas('cuotaGrupal', function($q) use ($desde) {
-                $q->whereDate('fecha_vencimiento', '>=', $desde);
-            });
-            $cuotasQuery->whereDate('fecha_vencimiento', '>=', $desde);
-            $retanqueosQuery->whereDate('created_at', '>=', $desde);
             $prestamosQuery->whereDate('created_at', '>=', $desde);
-            $clientesQuery->whereDate('created_at', '>=', $desde);
-            $gruposQuery->whereDate('created_at', '>=', $desde);
         }
-
         if ($hasta) {
-            $pagosQuery->whereDate('fecha_pago', '<=', $hasta);
-            $morasQuery->whereHas('cuotaGrupal', function($q) use ($hasta) {
-                $q->whereDate('fecha_vencimiento', '<=', $hasta);
-            });
-            $cuotasQuery->whereDate('fecha_vencimiento', '<=', $hasta);
-            $retanqueosQuery->whereDate('created_at', '<=', $hasta);
             $prestamosQuery->whereDate('created_at', '<=', $hasta);
-            $clientesQuery->whereDate('created_at', '<=', $hasta);
-            $gruposQuery->whereDate('created_at', '<=', $hasta);
         }
 
-        $totalGrupos = $gruposQuery->count();
+        // Conteos básicos
         $totalClientes = $clientesQuery->count();
+        $totalGrupos = $gruposQuery->count();
         $totalPrestamos = $prestamosQuery->count();
-        $totalRetanqueos = $retanqueosQuery->count();
+        $totalRetanqueos = Retanqueo::whereIn('prestamo_id', $prestamosQuery->pluck('id'))->count();
 
-        $totalMorasFiltradas = $morasQuery->count();
+        // Estadísticas de moras
+        $cuotasQuery = CuotasGrupales::whereHas('prestamo', function ($q) use ($prestamosQuery) {
+            $q->whereIn('id', $prestamosQuery->pluck('id'));
+        });
+        
+        $cuotasEnMora = $cuotasQuery->whereHas('mora', function ($q) {
+            $q->where('estado_mora', 'pendiente');
+        })->count();
 
-        $cuotasEnMora = CuotasGrupales::query()
-            ->whereHas('prestamo.grupo', function ($query) use ($user) {
-                $query->visiblePorUsuario($user);
-            })
-            ->when($desde, fn($q) => $q->whereDate('fecha_vencimiento', '>=', $desde))
-            ->when($hasta, fn($q) => $q->whereDate('fecha_vencimiento', '<=', $hasta))
-            ->where('estado_cuota_grupal', 'mora')
-            ->count();
-
-        $montoTotalMora = $morasQuery->where('estado_mora', 'pendiente')->get()->sum(function($mora) {
-            return abs($mora->monto_mora_calculado);
+        $montoTotalMora = $cuotasQuery->whereHas('mora', function ($q) {
+            $q->where('estado_mora', 'pendiente');
+        })->get()->sum(function ($cuota) {
+            return $cuota->mora ? $cuota->mora->getMontoMoraCalculadoAttribute() : 0;
         });
 
-        $pagosAprobados = (clone $pagosQuery)->where('estado_pago', 'Aprobado')->count();
-        $pagosPendientes = (clone $pagosQuery)->where('estado_pago', 'Pendiente')->count();
-        $pagosRechazados = (clone $pagosQuery)->where('estado_pago', 'Rechazado')->count();
+        $totalMorasHistoricas = $cuotasQuery->whereHas('mora')->count();
+
+        // Estadísticas de pagos
+        $pagosQuery = Pago::whereHas('cuotaGrupal.prestamo', function ($q) use ($prestamosQuery) {
+            $q->whereIn('id', $prestamosQuery->pluck('id'));
+        });
+
         $totalPagosRegistrados = $pagosQuery->count();
+        $pagosAprobados = $pagosQuery->where('estado_pago', 'Aprobado')->count();
+        $pagosPendientes = $pagosQuery->where('estado_pago', 'Pendiente')->count();
+        $pagosRechazados = $pagosQuery->where('estado_pago', 'Rechazado')->count();
 
-        $listaGrupos = $this->getListaGruposConEstado($gruposQuery);
-
+        // Datos para gráficos
         $cuotasEstadosBar = [
-            'Vigente' => (clone $cuotasQuery)->where('estado_cuota_grupal', 'vigente')->count(),
-            'Mora' => (clone $cuotasQuery)->where('estado_cuota_grupal', 'mora')->count(),
-            'Cancelada' => (clone $cuotasQuery)->where('estado_cuota_grupal', 'cancelada')->count(),
+            'Pendientes' => $pagosPendientes,
+            'En Mora' => $cuotasEnMora,
+            'Pagadas' => $pagosAprobados,
         ];
-
-        $pagosPorFecha = (clone $pagosQuery)
-            ->selectRaw('DATE(fecha_pago) as fecha, SUM(monto_pagado) as total')
-            ->where('estado_pago', 'Aprobado')
-            ->groupBy('fecha')
-            ->orderBy('fecha')
-            ->pluck('total', 'fecha');
 
         $pagosPie = [
             'Aprobados' => $pagosAprobados,
@@ -122,41 +97,13 @@ class Asesor extends Page
             'Rechazados' => $pagosRechazados,
         ];
 
-        $moraPorGrupo = $gruposQuery->with(['prestamos.cuotasGrupales.mora'])->get()->mapWithKeys(function($grupo) {
-            $mora = 0;
-            foreach ($grupo->prestamos as $prestamo) {
-                foreach ($prestamo->cuotasGrupales as $cuota) {
-                    if ($cuota->mora && $cuota->mora->estado_mora === 'pendiente') {
-                        $mora += abs($cuota->mora->monto_mora_calculado);
-                    }
-                }
-            }
-            return [$grupo->nombre_grupo => $mora];
-        })->sortDesc()->take(10);
+        // Obtener pagos por fecha
+        $pagosPorFecha = $pagosQuery->selectRaw('DATE(fecha_pago) as fecha, COUNT(*) as total')
+            ->groupBy('fecha')
+            ->orderBy('fecha')
+            ->pluck('total', 'fecha');
 
-        return [
-            'totalGrupos' => $totalGrupos,
-            'totalClientes' => $totalClientes,
-            'totalPrestamos' => $totalPrestamos,
-            'totalRetanqueos' => $totalRetanqueos,
-            'cuotasEnMora' => $cuotasEnMora,
-            'montoTotalMora' => $montoTotalMora,
-            'pagosAprobados' => $pagosAprobados,
-            'pagosPendientes' => $pagosPendientes,
-            'pagosRechazados' => $pagosRechazados,
-            'totalPagosRegistrados' => $totalPagosRegistrados,
-            'totalMorasHistoricas' => $totalMorasFiltradas,
-            'listaGrupos' => $listaGrupos,
-            'cuotasEstadosBar' => $cuotasEstadosBar,
-            'pagosPorFecha' => $pagosPorFecha,
-            'pagosPie' => $pagosPie,
-            'moraPorGrupo' => $moraPorGrupo,
-        ];
-    }
-
-    public function getListaGruposConEstado($gruposQuery = null)
-    {
-        $grupos = ($gruposQuery ?: Grupo::query())->with(['clientes', 'prestamos.cuotasGrupales.mora'])->get()->map(function($grupo) {
+        $grupos = ($gruposQuery)->with(['clientes', 'prestamos.cuotasGrupales.mora'])->get()->map(function($grupo) {
             $numeroIntegrantes = $grupo->clientes->count();
             $prestamoPrincipal = $grupo->prestamos()->orderByDesc('id')->first();
             $estado = 'Activo';
@@ -172,6 +119,39 @@ class Asesor extends Page
                 'estado' => $estado,
             ];
         });
-        return $grupos;
+
+        // Calcular mora por grupo
+        $moraPorGrupo = $gruposQuery->with(['prestamos.cuotasGrupales.mora'])->get()->mapWithKeys(function($grupo) {
+            $mora = 0;
+            foreach ($grupo->prestamos as $prestamo) {
+                foreach ($prestamo->cuotasGrupales as $cuota) {
+                    if ($cuota->mora && $cuota->mora->estado_mora === 'pendiente') {
+                        $mora += $cuota->mora->getMontoMoraCalculadoAttribute();
+                    }
+                }
+            }
+            return [$grupo->nombre_grupo => $mora];
+        })->sortByDesc(function($value) {
+            return $value;
+        })->take(10);
+
+        return [
+            'totalGrupos' => $totalGrupos,
+            'totalClientes' => $totalClientes,
+            'totalPrestamos' => $totalPrestamos,
+            'totalRetanqueos' => $totalRetanqueos,
+            'totalPagosRegistrados' => $totalPagosRegistrados,
+            'totalMorasHistoricas' => $totalMorasHistoricas,
+            'cuotasEnMora' => $cuotasEnMora,
+            'montoTotalMora' => $montoTotalMora,
+            'pagosAprobados' => $pagosAprobados,
+            'pagosPendientes' => $pagosPendientes,
+            'pagosRechazados' => $pagosRechazados,
+            'cuotasEstadosBar' => $cuotasEstadosBar,
+            'pagosPorFecha' => $pagosPorFecha,
+            'pagosPie' => $pagosPie,
+            'grupos' => $grupos,
+            'moraPorGrupo' => $moraPorGrupo,
+        ];
     }
 }

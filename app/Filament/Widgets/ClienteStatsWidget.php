@@ -5,22 +5,25 @@ namespace App\Filament\Widgets;
 use App\Models\Cliente;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use App\Models\Asesor;
 
 class ClienteStatsWidget extends BaseWidget
 {
     protected function getStats(): array
     {
         $user = request()->user();
+        $query = Cliente::query();
 
         if ($user->hasRole('Asesor')) {
-            $totalClientes = Cliente::where('asesor_id', $user->id)->count();
-            $clientesActivos = Cliente::where('asesor_id', $user->id)->where('estado_cliente', 'Activo')->count();
-            $clientesInactivos = Cliente::where('asesor_id', $user->id)->where('estado_cliente', 'Inactivo')->count();
-        } else {
-            $totalClientes = Cliente::count();
-            $clientesActivos = Cliente::where('estado_cliente', 'Activo')->count();
-            $clientesInactivos = Cliente::where('estado_cliente', 'Inactivo')->count();
+            $asesor = Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                $query->where('asesor_id', $asesor->id);
+            }
         }
+
+        $totalClientes = $query->count();
+        $clientesActivos = (clone $query)->where('estado_cliente', 'Activo')->count();
+        $clientesInactivos = (clone $query)->where('estado_cliente', 'Inactivo')->count();
 
         return [
             Stat::make('Total Clientes', $totalClientes)

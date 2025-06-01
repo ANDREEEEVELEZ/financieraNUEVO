@@ -21,7 +21,7 @@ class Mora extends Model
         'fecha_atraso' => 'date',
     ];
 
-    public function CuotaGrupal()
+    public function cuotaGrupal()
     {
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
     }
@@ -38,17 +38,19 @@ class Mora extends Model
             return 0;
         }
 
-        $fechaAtraso = $this->fecha_atraso ? \Carbon\Carbon::parse($this->fecha_atraso)->startOfDay() : now()->startOfDay();
-        $fechaVencimiento = \Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
+        // Calcular los días de atraso
+        $fechaVencimiento = Carbon::parse($cuota->fecha_vencimiento);
+        $fechaActual = $this->fecha_atraso ?? now();
+        $diasAtraso = $fechaVencimiento->diffInDays($fechaActual);
 
-        $diasAtraso = 0;
-        if ($fechaAtraso->greaterThan($fechaVencimiento)) {
-            $diasAtraso = $fechaAtraso->diffInDays($fechaVencimiento);
-        }
+        // Porcentaje de mora diario (2% mensual convertido a diario)
+        $porcentajeMoraDiario = 0.02 / 30;
 
-        $integrantes = $cuota->prestamo->grupo->clientes()->count();
+        // Calcular el monto de mora basado en el saldo pendiente
+        $montoPendiente = $cuota->saldo_pendiente;
+        $montoMora = $montoPendiente * ($porcentajeMoraDiario * $diasAtraso);
 
-        return $integrantes * $diasAtraso * 1;
+        return round($montoMora, 2);
     }
 
 
