@@ -22,12 +22,14 @@ use App\Models\Retanqueo;
 use App\Models\RetanqueoIndividual;
 use App\Models\CuotasGrupales;
 use App\Models\GrupoCliente;
+use App\Models\Asesor; // Asegúrate de importar el modelo Asesor
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Filament\Forms\Components\View;
 use Illuminate\Support\Facades\Storage;
 use OpenAI\Laravel\Facades\OpenAI;
 use Illuminate\Http\Request;
+
 class AsistenteVirtual extends Page
 {
     use InteractsWithForms;
@@ -38,6 +40,7 @@ class AsistenteVirtual extends Page
     public string $response = '';
     public Collection $consultas;
     public int $activeTab = 0;
+
     public function mount(): void
     {
         $this->loadConsultas();
@@ -47,34 +50,191 @@ class AsistenteVirtual extends Page
             'activeTab' => $this->activeTab,
         ]);
     }
-  protected function loadConsultas(): void
-{
-    $user = Auth::user();
-    $rolesSupervisores = ['super_admin', 'administrador'];
-    $rolesConAccesoCondicional = ['jefe de operaciones', 'jefe de crédito'];
-    if ($user->hasAnyRole($rolesSupervisores)) {
-        // Acceso total
-        $this->consultas = ConsultaAsistente::latest()->take(10)->get();
-    } elseif ($user->hasAnyRole($rolesConAccesoCondicional)) {
-        // Acceso condicional: si no tiene registros, accede a todo
-        if ($this->tieneRegistrosAsignados($user)) {
-            // Tiene registros, solo ve sus consultas
+
+    // Método para obtener el asesor_id del usuario actual
+    protected function getAsesorId($user): ?int
+    {
+        if ($user->hasRole('asesor')) {
+            $asesor = Asesor::where('user_id', $user->id)->first();
+            return $asesor ? $asesor->id : null;
+        }
+        return null;
+    }
+
+    protected function loadConsultas(): void
+    {
+        $user = Auth::user();
+        $rolesSupervisores = ['super_admin', 'administrador'];
+        $rolesConAccesoCondicional = ['jefe de operaciones', 'jefe de crédito'];
+        
+        if ($user->hasAnyRole($rolesSupervisores)) {
+            // Acceso total
+            $this->consultas = ConsultaAsistente::latest()->take(10)->get();
+        } elseif ($user->hasAnyRole($rolesConAccesoCondicional)) {
+            // Acceso condicional: si no tiene registros, accede a todo
+            if ($this->tieneRegistrosAsignados($user)) {
+                // Tiene registros, solo ve sus consultas
+                $this->consultas = ConsultaAsistente::where('user_id', $user->id)
+                    ->latest()
+                    ->take(10)
+                    ->get();
+            } else {
+                // No tiene registros, puede ver todo
+                $this->consultas = ConsultaAsistente::latest()->take(10)->get();
+            }
+        } else {
+            // Asesores y otros roles, solo ven sus consultas
             $this->consultas = ConsultaAsistente::where('user_id', $user->id)
                 ->latest()
                 ->take(10)
                 ->get();
-        } else {
-            // No tiene registros, puede ver todo
-            $this->consultas = ConsultaAsistente::latest()->take(10)->get();
         }
-    } else {
-        // Asesores y otros roles, solo ven sus consultas
-        $this->consultas = ConsultaAsistente::where('user_id', $user->id)
-            ->latest()
-            ->take(10)
-            ->get();
     }
-}
+
+    public function clientesParaUsuario($user)
+    {
+        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'Jefe de creditos'])) {
+            return Cliente::all();
+        }
+        if ($user->hasRole('asesor')) {
+            $asesorId = $this->getAsesorId($user);
+            if ($asesorId) {
+                return Cliente::where('asesor_id', $asesorId)->get();
+            }
+        }
+        return collect();
+    }
+
+    public function gruposParaUsuario($user)
+    {
+        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+            return Grupo::all();
+        }
+        if ($user->hasRole('asesor')) {
+            $asesorId = $this->getAsesorId($user);
+            if ($asesorId) {
+                return Grupo::where('asesor_id', $asesorId)->get();
+            }
+        }
+        return collect();
+    }
+
+    public function prestamosParaUsuario($user)
+    {
+        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+            return Prestamo::all();
+        }
+        if ($user->hasRole('asesor')) {
+            $asesorId = $this->getAsesorId($user);
+            if ($asesorId) {
+                return Prestamo::whereHas('grupo', function ($query) use ($asesorId) {
+                    $query->where('asesor_id', $asesorId);
+                })->get();
+            }
+        }
+        return collect();
+    }
+
+    public function PagosParaUsuario($user)
+    {
+        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+            return Pago::all();
+        }
+        if ($user->hasRole('asesor')) {
+            $asesorId = $this->getAsesorId($user);
+            if ($asesorId) {
+                return Pago::whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($asesorId) {
+                    $query->where('asesor_id', $asesorId);
+                })->get();
+            }
+        }
+        return collect();
+    }
+
+    public function cuotasParaUsuario($user)
+    {
+        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+            return CuotasGrupales::all();
+        }
+        if ($user->hasRole('asesor')) {
+            $asesorId = $this->getAsesorId($user);
+            if ($asesorId) {
+                return CuotasGrupales::whereHas('prestamo.grupo', function ($query) use ($asesorId) {
+                    $query->where('asesor_id', $asesorId);
+                })->get();
+            }
+        }
+        return collect();
+    }
+
+    public function morasParaUsuario($user)
+    {
+        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+            return Mora::all();
+        }
+        if ($user->hasRole('asesor')) {
+            $asesorId = $this->getAsesorId($user);
+            if ($asesorId) {
+                return Mora::whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($asesorId) {
+                    $query->where('asesor_id', $asesorId);
+                })->get();
+            }
+        }
+        return collect();
+    }
+
+    protected function tieneRegistrosAsignados($user): bool
+    {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'jefe de credito'])) {
+            return true; // Acceso total, siempre tiene registros
+        }
+        if ($user->hasRole('asesor')) {
+            $asesorId = $this->getAsesorId($user);
+            if ($asesorId) {
+                return Cliente::where('asesor_id', $asesorId)->exists() ||
+                       Grupo::where('asesor_id', $asesorId)->exists() ||
+                       Prestamo::whereHas('grupo', fn($q) => $q->where('asesor_id', $asesorId))->exists();
+            }
+        }
+        return false; // Otros roles no tienen registros asignados
+    }
+
+    protected function filtrarPorAsesor($modelClass, $user)
+    {
+        if (!$user->hasRole('asesor')) return $modelClass::query();
+        
+        $asesorId = $this->getAsesorId($user);
+        if (!$asesorId) return $modelClass::query()->whereRaw('1 = 0'); // No devolver nada si no hay asesor_id
+        
+        switch ($modelClass) {
+            case Grupo::class:
+                return $modelClass::where('asesor_id', $asesorId);
+            case Cliente::class:
+                return $modelClass::where('asesor_id', $asesorId);
+            case GrupoCliente::class:
+                return $modelClass::whereHas('grupo', fn($q) => $q->where('asesor_id', $asesorId));
+            case Prestamo::class:
+                return $modelClass::whereHas('grupo', fn($q) => $q->where('asesor_id', $asesorId));
+            case PrestamoIndividual::class:
+                return $modelClass::whereHas('cliente', fn($q) => $q->where('asesor_id', $asesorId));
+            case CuotasGrupales::class:
+                return $modelClass::whereHas('prestamo.grupo', fn($q) => $q->where('asesor_id', $asesorId));
+            case Pago::class: // Corregido: era 'pago' en minúscula
+                return $modelClass::whereHas('cuotaGrupal.prestamo.grupo', fn($q) => $q->where('asesor_id', $asesorId));
+            case DetallePago::class:
+                return $modelClass::whereHas('prestamoIndividual.cliente', fn($q) => $q->where('asesor_id', $asesorId));
+            case Mora::class: // Corregido: era 'mora' en minúscula
+                return $modelClass::whereHas('cuotaGrupal.prestamo.grupo', fn($q) => $q->where('asesor_id', $asesorId));
+            case Retanqueo::class:
+                return $modelClass::where('asesor_id', $asesorId);
+            case RetanqueoIndividual::class:
+                return $modelClass::whereHas('cliente', fn($q) => $q->where('asesor_id', $asesorId));
+            default:
+                return $modelClass::query();
+        }
+    }
+
+    // ... resto del código permanece igual ...
 
     protected function getFormSchema(): array
     {
@@ -99,7 +259,7 @@ class AsistenteVirtual extends Page
                                 ->label('Respuesta')
                                 ->disabled()
                                 ->placeholder('Aquí aparecerá la respuesta...')
-                                ->rows(5)
+                                ->rows(15)
                                 ->columnSpan(2)
                                 ->reactive()
                                 ->afterStateUpdated(fn ($state) => $this->response = $state),
@@ -124,6 +284,7 @@ class AsistenteVirtual extends Page
                 }),
         ];
     }
+
     public function submitQuery()
     {
         if (empty(trim($this->query))) {
@@ -144,70 +305,6 @@ class AsistenteVirtual extends Page
             'response' => $this->response,
             'activeTab' => 0]); // regresar a pestaña Asistente
     }
-    public function clientesParaUsuario($user)
-    {
-        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'Jefe de creditos'])) {
-            return Cliente::all();
-        }
-        if ($user->hasRole('asesor')) {
-            return Cliente::where('asesor_id', $user->id)->get();
-        }
-        return collect();
-    }
-    public function PagosParaUsuario($user)
-    {
-        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
-            return Pago::all();
-        }
-        if ($user->hasRole('asesor')) {
-            return Pago::whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($user) {
-                $query->where('asesor_id', $user->id);
-            })->get();
-        }
-        return collect();
-    }
-    protected function tieneRegistrosAsignados($user): bool
-    {
-        if ($user->hasAnyRole(['administrador', 'jefe de operaciones', 'jefe de credito'])) {
-            return true; // Acceso total, siempre tiene registros
-        }
-        if ($user->hasRole('asesor')) {
-            return Cliente::where('asesor_id', $user->id)->exists() ||
-                   Grupo::where('asesor_id', $user->id)->exists() ||
-                   Prestamo::whereHas('grupo', fn($q) => $q->where('asesor_id', $user->id))->exists();
-        }
-        return false; // Otros roles no tienen registros asignados
-    }
-    protected function filtrarPorAsesor($modelClass, $user)
-{
-    if (!$user->hasRole('asesor')) return $modelClass::query();
-    switch ($modelClass) {
-        case Grupo::class:
-            return $modelClass::where('asesor_id', $user->id);
-        case Cliente::class:
-            return $modelClass::where('asesor_id', $user->id);
-        case GrupoCliente::class:
-              return $modelClass::whereHas('grupo', fn($q) => $q->where('asesor_id', $user->id));
-        case Prestamo::class:
-            return $modelClass::whereHas('grupo', fn($q) => $q->where('asesor_id', $user->id));
-        case PrestamoIndividual::class:
-            return $modelClass::whereHas('cliente', fn($q) => $q->where('asesor_id', $user->id));
-        case CuotasGrupales::class:
-            return $modelClass::whereHas('prestamo.grupo', fn($q) => $q->where('asesor_id', $user->id));
-        case pago::class:
-            return $modelClass::whereHas('cuotaGrupal.prestamo.grupo', fn($q) => $q->where('asesor_id', $user->id));
-        case DetallePago::class:
-            return $modelClass::whereHas('prestamoIndividual.cliente', fn($q) => $q->where('asesor_id', $user->id));
-        case mora::class:
-            return $modelClass::whereHas('cuotaGrupal.prestamo.grupo', fn($q) => $q->where('asesor_id', $user->id));
-        case Retanqueo::class:
-            return $modelClass::where('asesor_id', $user->id);
-        case RetanqueoIndividual::class:
-            return $modelClass::whereHas('cliente', fn($q) => $q->where('asesor_id', $user->id));
-        default:
-            return $modelClass::query();
-    }
-}
 
     protected function isSafeSql(string $sql): bool
     {
@@ -221,27 +318,59 @@ class AsistenteVirtual extends Page
         }
         return str_starts_with($sqlUpper, 'SELECT');
     }
+
     protected function processQuery(string $query): string
     {
-   $user = Auth::user();
+        $user = Auth::user();
+        $tipo = 'general';
+        
+        if (str_contains(strtolower($query), 'cliente')) {
+            $tipo = 'cliente';
+        } elseif (str_contains(strtolower($query), 'mora')) {
+            $tipo = 'mora';
+        } elseif (str_contains(strtolower($query), 'grupo')) {
+            $tipo = 'grupo';
+        } elseif (str_contains(strtolower($query), 'pago')) {
+            $tipo = 'pago';
+        } elseif (str_contains(strtolower($query), 'cuota')) {
+            $tipo = 'cuota';
+        } elseif (str_contains(strtolower($query), 'préstamo') || str_contains(strtolower($query), 'prestamo')) {
+            $tipo = 'prestamo';
+        }
 
-    $clientes = $this->clientesParaUsuario($user);
-    $clientesCount = $clientes->count();
-    $nombresClientes = $clientes->pluck('nombre')->take(5)->join(', ');
-    $totalCuotas = CuotasGrupales::sum('monto_cuota_grupal');
-    $grupos = $this->filtrarPorAsesor(Grupo::class, $user)->pluck('nombre_grupo')->take(5)->join(', ');
-    $Pagos = $this->PagosParaUsuario($user);
-    $PagosCount = $Pagos->count();
-    $totalPagos = $this->filtrarPorAsesor(Pago::class, $user)->sum('monto_pagado');
-    $totalCuotas = $this->filtrarPorAsesor(CuotasGrupales::class, $user)->sum('monto_cuota_grupal');
-    $totalPrestamos = $this->filtrarPorAsesor(Prestamo::class, $user)->count();
-    $totalMoras = $this->filtrarPorAsesor(Mora::class, $user)->where('estado_mora', 'activo')->count();
-   $totalGrupos = $this->filtrarPorAsesor(Grupo::class, $user)->count();
+        $comentario = match($tipo) {
+            'cliente' => 'Concéntrate en los datos del cliente, como nombre, asesor, y grupo.',
+            'mora' => 'Busca detalles sobre moras activas, cuotas atrasadas o pagos incompletos.',
+            'grupo' => 'Describe datos agregados por grupo como total de pagos, cuotas o moras.',
+            'pago' => 'Enfócate en los pagos realizados, montos y fechas.',
+            'cuota' => 'Proporciona información sobre cuotas, montos y estados de pago.',
+            'prestamo' => 'Incluye detalles sobre préstamos, montos, tasas de interés y estados.',
+            default => 'Responde la consulta de forma general, usando los datos más relevantes.'
+        };
 
+        $clientes = $this->clientesParaUsuario($user);
+        $clientesCount = $clientes->count();
+        $nombresClientes = $clientes->pluck('nombre')->take(5)->join(', ');
 
-    // Construir el systemPrompt incluyendo el esquema leído desde storage
-   
-   $esquema = <<<EOT
+        $grupos = $this->gruposParaUsuario($user);
+        $gruposCount = $grupos->count();
+        $nombresGrupos = $grupos->pluck('nombre_grupo')->take(5)->join(', ');
+
+        $prestamos = $this->prestamosParaUsuario($user);
+        $totalPrestamos = $prestamos->count();
+
+        $pagos = $this->PagosParaUsuario($user);
+        $pagosCount = $pagos->count();
+        $totalPagos = $pagos->sum('monto_pagado');
+
+        $cuotas = $this->cuotasParaUsuario($user);
+        $totalCuotas = $cuotas->sum('monto_cuota_grupal');
+
+        $moras = $this->morasParaUsuario($user);
+        $totalMoras = $moras->where('estado_mora', 'activo')->count();
+
+        // Construir el systemPrompt incluyendo el esquema leído desde storage
+        $esquema = <<<EOT
 Tablas y columnas relevantes:
 
 - asesores (id, persona_id, user_id, codigo_asesor, fecha_ingreso, estado_asesor, created_at, updated_at)
@@ -258,7 +387,8 @@ Tablas y columnas relevantes:
 
 (Otras tablas existen, pero estas son las principales para consultas financieras y clientes.)
 EOT;
-$relaciones = <<<EOT
+
+        $relaciones = <<<EOT
 Relaciones clave:
 
 - Un grupo (`grupos.id`) tiene muchos préstamos (`prestamos.grupo_id`).
@@ -266,9 +396,11 @@ Relaciones clave:
 - Una cuota grupal (`cuotas_grupales.id`) puede tener muchos pagos (`pagos.cuota_grupal_id`) y puede tener una mora (`moras.cuota_grupal_id`).
 - Un cliente (`clientes.id`) está en muchos grupos a través de `grupo_cliente` (`grupo_cliente.cliente_id` y `grupo_cliente.grupo_id`).
 - Un cliente tiene préstamos individuales (`prestamo_individual.cliente_id`) asociados a un préstamo grupal (`prestamo_individual.prestamo_id`).
-- Un asesor (`users.id`) tiene grupos a su cargo (`grupos.asesor_id`), lo que indirectamente lo vincula a los clientes de esos grupos.
+- Un asesor (`asesores.id`) tiene grupos a su cargo (`grupos.asesor_id`) y clientes (`clientes.asesor_id`).
+- La tabla `users` se relaciona con `asesores` mediante `asesores.user_id = users.id`.
 EOT;
-$ejemplosSQL = <<<EOT
+
+        $ejemplosSQL = <<<EOT
 Ejemplos de consultas correctas:
 
 1. ¿Cuánto se ha pagado en total por grupo?
@@ -293,11 +425,13 @@ GROUP BY g.nombre_grupo;
 </SQL>
 EOT;
    
-    $systemPrompt = <<<EOT
+        $systemPrompt = <<<EOT
 Eres un asistente virtual experto en gestión financiera para una microfinanciera.
-Debes responder preguntas con base en la siguiente base de datos financiera y sus relaciones clave:
+Debes responder preguntas con base en los datos reales del sistema y limitarte solo a operaciones de lectura (consultas SQL seguras).
+A continuación se proporciona el esquema principal de la base de datos, las relaciones clave entre las tablas y algunos ejemplos útiles de consultas:
 {$esquema} {$relaciones} 
 {$ejemplosSQL}
+{$comentario}
 Tu tarea es ayudar a los usuarios a obtener información sobre clientes, pagos, cuotas, préstamos y moras, sin modificar la base de datos.
 
 Reglas de seguridad y uso:
@@ -307,10 +441,11 @@ Reglas de seguridad y uso:
 - Las respuestas deben ser breves, claras y operativas, adecuadas al perfil del usuario consultante.
 - Importante: la tabla users NO tiene columna 'username'. Para filtrar usuarios por nombre, usa la columna 'name'. Para identificar usuarios únicos, usa la columna 'id'. No generes consultas con 'username'.
 - Cuando hagas consultas SQL para identificar usuarios, solo usa 'id' o 'name' en la tabla users, nunca 'username'.
+- IMPORTANTE: Para asesores, usa la tabla 'asesores' que se relaciona con 'users' mediante 'asesores.user_id = users.id'. El asesor_id en otras tablas se refiere a 'asesores.id', no a 'users.id'.
 
 Contexto actual para el usuario: 
-- clientes tienen asesor_id
-- grupos tienen asesor_id y tienen clientes via grupo_cliente
+- clientes tienen asesor_id (que apunta a asesores.id)
+- grupos tienen asesor_id (que apunta a asesores.id)
 - prestamos pertenecen a grupos
 - cuotas_grupales están vinculadas a prestamos
 - pagos están vinculados a cuotas_grupales
@@ -319,24 +454,26 @@ Contexto actual para el usuario:
 - Nombres de algunos clientes: {$nombresClientes}
 - Total de pagos realizados: S/ {$totalPagos}
 - Total de cuotas registradas: S/ {$totalCuotas}
-- Total de grupos: {$totalGrupos}
-- Nombres de algunos grupos: {$grupos}
+- Total de grupos: {$gruposCount}
+- Nombres de algunos grupos: {$nombresGrupos}
 - Total de préstamos: {$totalPrestamos}
 - Total de moras activas: {$totalMoras}
-- Total de pagos registrados: {$PagosCount}
+- Total de pagos registrados: {$pagosCount}
+- Recuerda que los asesores pueden ver solo los clientes y grupos asignados a ellos, mientras que supervisores tienen acceso total.
 
 Cuando generes una consulta SQL, por favor encierra la consulta entre las etiquetas <SQL> y </SQL>.
 No incluyas consultas que modifiquen la base de datos.
 Responde con la consulta SQL y una breve explicación del resultado.
 EOT;
 
-    $userPrompt = <<<EOT
+        $userPrompt = <<<EOT
 Usuario: "{$user->name}" ("{$user->getRoleNames()->implode(', ')}")
 Pregunta: "{$query}"
 EOT;
 
-    $response = $this->callOpenAI($systemPrompt, $userPrompt);
+        $response = $this->callOpenAI($systemPrompt, $userPrompt);
         Log::info("Respuesta OpenAI para usuario {$user->id}: {$response}");
+        
         // Extraer SQL entre etiquetas <SQL>...</SQL>
         if (preg_match('/<SQL>(.*?)<\/SQL>/is', $response, $matches)) {
             $sql = trim($matches[1]);
