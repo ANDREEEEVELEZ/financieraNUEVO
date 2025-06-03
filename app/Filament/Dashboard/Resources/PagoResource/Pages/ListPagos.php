@@ -17,26 +17,28 @@ class ListPagos extends ListRecords
 
         return [
             Actions\CreateAction::make(),
-
             Actions\Action::make('exportar_pdf')
                 ->label('Exportar PDF')
                 ->icon('heroicon-o-document-arrow-down')
-                ->color('primary')
+                ->color('primary') // Mejor contraste en modo claro
                 ->form([
                     \Filament\Forms\Components\Select::make('grupo')
                         ->label('Nombre del grupo')
                         ->options(function () use ($user) {
-                            if ($user && $user->hasRole('Asesor')) {
-                                // Mostrar solo grupos del asesor (id => nombre)
-                                return \App\Models\Grupo::where('asesor_id', $user->id)
-                                    ->orderBy('nombre_grupo')
-                                    ->pluck('nombre_grupo', 'id')
-                                    ->toArray();
+                            $query = \App\Models\Grupo::query();
+
+                            if ($user->hasRole('Asesor')) {
+                                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                                if ($asesor) {
+                                    $query->where('asesor_id', $asesor->id);
+                                } else {
+                                    return []; // Si el asesor no existe, retornar vacío
+                                }
+                            } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
+                                return []; // Si no tiene roles permitidos, retornar vacío
                             }
-                            // Para otros roles, mostrar todos los grupos
-                            return \App\Models\Grupo::orderBy('nombre_grupo')
-                                ->pluck('nombre_grupo', 'id')
-                                ->toArray();
+
+                            return $query->orderBy('nombre_grupo')->pluck('nombre_grupo', 'id')->toArray();
                         })
                         ->searchable()
                         ->placeholder('Todos'),

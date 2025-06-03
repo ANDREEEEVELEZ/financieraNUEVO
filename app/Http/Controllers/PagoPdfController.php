@@ -4,48 +4,35 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Pago;
-use App\Models\Grupo;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class PagoPdfController extends Controller
 {
-    // Mostrar formulario con filtros y grupos según rol
-    public function mostrarFormulario(Request $request)
-    {
-        $user = $request->user();
-
-        if ($user->hasRole('Asesor')) {
-            $grupos = Grupo::where('asesor_id', $user->id)
-                        ->orderBy('nombre_grupo')
-                        ->pluck('nombre_grupo', 'id'); // id como clave
-        } else {
-            $grupos = Grupo::orderBy('nombre_grupo')
-                        ->pluck('nombre_grupo', 'id');
-        }
-
-        return view('pagos.formulario_exportar_pdf', compact('grupos'));
-    }
-
-    // Exportar PDF con filtros y control de acceso
     public function exportar(Request $request)
     {
         $user = $request->user();
-
         $query = Pago::query();
 
+        // Si es un asesor, solo mostrar los pagos de sus grupos
         if ($user->hasRole('Asesor')) {
-            // Limitar pagos a los que pertenecen a los grupos del asesor
-            $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($user) {
-                $q->where('asesor_id', $user->id);
-            });
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($asesor) {
+                    $q->where('asesor_id', $asesor->id);
+                });
+            }
+        }
+        // Si es Jefe de Créditos o Jefe de Operaciones, puede ver todos los pagos
+        elseif (!$user->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
+            return response()->json(['error' => 'No autorizado'], 403);
         }
 
-       if ($request->filled('grupo')) {
-    $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($request) {
-        $q->where('id', $request->input('grupo'));
-    });
-}
-
+        // Aplicar filtros adicionales
+        if ($request->filled('grupo')) {
+            $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($request) {
+                $q->where('id', $request->input('grupo'));
+            });
+        }
 
         if ($request->filled('from')) {
             $query->whereDate('fecha_pago', '>=', $request->input('from'));
