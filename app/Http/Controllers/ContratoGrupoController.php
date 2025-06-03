@@ -13,13 +13,7 @@ class ContratoGrupoController extends Controller
     {
         $user = request()->user();
 
-        $grupo = Grupo::with(['clientes.persona', 'prestamos'])
-            ->where(function ($query) use ($user) {
-                if ($user->hasRole('Asesor')) {
-                    $query->where('asesor_id', $user->id);
-                }
-            })
-            ->findOrFail($grupoId);
+        $grupo = Grupo::with(['clientes.persona', 'prestamos'])->findOrFail($grupoId);
 
         $contratosHtml = '';
 

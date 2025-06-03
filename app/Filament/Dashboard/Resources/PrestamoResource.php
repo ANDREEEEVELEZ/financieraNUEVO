@@ -223,6 +223,12 @@ class PrestamoResource extends Resource
         ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('imprimir_contrato')
+                    ->label('Imprimir Contrato')
+                    ->icon('heroicon-o-printer')
+                    ->color('success')
+                    ->url(fn($record) => route('contratos.grupo.imprimir', $record->grupo_id))
+                    ->visible(fn($record) => $record->grupo_id !== null),
             ]);
     }
 
