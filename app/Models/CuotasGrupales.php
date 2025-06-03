@@ -56,8 +56,8 @@ class CuotasGrupales extends Model
         {
             $saldo = $this->saldo_pendiente ?? 0;
             $montoMora = 0;
-            if ($this->mora && in_array($this->mora->estado_mora, ['pendiente', 'parcial'])) {
-                $montoMora = abs($this->mora->monto_mora_calculado);
+            if ($this->mora && in_array($this->mora->estado_mora, ['pendiente', 'parcialmente_pagada'])) {
+                $montoMora = Mora::calcularMontoMora($this, $this->mora->fecha_atraso); // ✅ Usa el método correcto
             }
             return $saldo + $montoMora;
         }

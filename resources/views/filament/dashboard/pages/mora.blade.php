@@ -32,7 +32,7 @@
                     <option value="">Todos</option>
                     <option value="pendiente" {{ request('estado_mora') == 'pendiente' ? 'selected' : '' }}>Pendiente</option>
                     <option value="pagada" {{ request('estado_mora') == 'pagada' ? 'selected' : '' }}>Pagada</option>
-                    <option value="parcial" {{ request('estado_mora') == 'parcial' ? 'selected' : '' }}>Parcial</option>
+                    <option value="parcial" {{ request('estado_mora') == 'parcialmente_pagada' ? 'selected' : '' }}>Parcial</option>
                 </select>
             </div>
 

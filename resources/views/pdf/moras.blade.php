@@ -49,7 +49,7 @@
                 <td>
                     @php
                         $montoTotal = 0;
-                        if ($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcial'])) {
+                        if ($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcialmente_pagada'])) {
                             $montoTotal = $cuota->saldo_pendiente + abs($cuota->mora->monto_mora_calculado);
                         } elseif ($cuota->saldo_pendiente > 0) {
                             $montoTotal = $cuota->saldo_pendiente;
@@ -61,7 +61,7 @@
                     @if($cuota->mora)
                         @if($cuota->mora->estado_mora === 'pendiente') Pendiente
                         @elseif($cuota->mora->estado_mora === 'pagada') Pagada
-                        @elseif($cuota->mora->estado_mora === 'parcial') Parcial
+                        @elseif($cuota->mora->estado_mora === 'parcialmente_pagada') Parcial
                         @else {{ ucfirst(str_replace('_', ' ', $cuota->mora->estado_mora)) }}
                         @endif
                     @else

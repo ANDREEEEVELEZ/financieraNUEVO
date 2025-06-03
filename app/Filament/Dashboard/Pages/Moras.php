@@ -67,7 +67,7 @@ class Moras extends Page
             });
         } elseif ($filtro === 'estado' && request('estado_mora')) {
             $estado = request('estado_mora');
-            $estadosValidos = ['pendiente', 'pagada', 'parcial'];
+            $estadosValidos = ['pendiente', 'pagada', 'parcialmente_pagada'];
             if (in_array($estado, $estadosValidos)) {
                 $query->whereHas('mora', function($q) use ($estado) {
                     $q->where('estado_mora', $estado);

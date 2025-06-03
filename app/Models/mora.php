@@ -21,47 +21,33 @@ class Mora extends Model
         'fecha_atraso' => 'date',
     ];
 
+    // Relaciones
     public function cuotaGrupal()
     {
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
     }
 
+    // Estado de mora en formato legible
     public function getEstadoMoraFormattedAttribute()
     {
         return ucfirst(str_replace('_', ' ', $this->estado_mora));
     }
 
+    // Calcula el monto de mora dinámicamente
     public function getMontoMoraCalculadoAttribute()
     {
-        $cuota = $this->cuotaGrupal;
-        if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
-            return 0;
-        }
-
-        // Calcular los días de atraso
-        $fechaVencimiento = Carbon::parse($cuota->fecha_vencimiento);
-        $fechaActual = $this->fecha_atraso ?? now();
-        $diasAtraso = $fechaVencimiento->diffInDays($fechaActual);
-
-        // Porcentaje de mora diario (2% mensual convertido a diario)
-        $porcentajeMoraDiario = 0.02 / 30;
-
-        // Calcular el monto de mora basado en el saldo pendiente
-        $montoPendiente = $cuota->saldo_pendiente;
-        $montoMora = $montoPendiente * ($porcentajeMoraDiario * $diasAtraso);
-
-        return round($montoMora, 2);
+        return self::calcularMontoMora($this->cuotaGrupal, $this->fecha_atraso ?? now());
     }
 
-
-        public static function calcularMontoMora($cuota, $fechaAtraso = null)
+    // Método central de cálculo de mora
+    public static function calcularMontoMora($cuota, $fechaAtraso = null)
     {
         if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
             return 0;
         }
 
-        $fechaAtraso = $fechaAtraso ? \Carbon\Carbon::parse($fechaAtraso)->startOfDay() : now()->startOfDay();
-        $fechaVencimiento = \Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
+        $fechaAtraso = Carbon::parse($fechaAtraso)->startOfDay();
+        $fechaVencimiento = Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
 
         $diasAtraso = 0;
         if ($fechaAtraso->greaterThan($fechaVencimiento)) {
@@ -73,20 +59,22 @@ class Mora extends Model
         return $integrantes * $diasAtraso * 1;
     }
 
-    public function actualizarDiasAtraso() {
-        $fechaVencimiento = \Carbon\Carbon::parse($this->cuotaGrupal->fecha_vencimiento)->addDay()->startOfDay();
+    // Actualiza la fecha de atraso si aplica
+    public function actualizarDiasAtraso()
+    {
+        $fechaVencimiento = Carbon::parse($this->cuotaGrupal->fecha_vencimiento)->addDay()->startOfDay();
 
-        if ($this->estado_mora === 'pendiente' || $this->estado_mora === 'parcialmente_pagada') {
-            $fechaAtraso = $this->fecha_atraso ? \Carbon\Carbon::parse($this->fecha_atraso)->startOfDay() : now()->startOfDay();
+        if (in_array($this->estado_mora, ['pendiente', 'parcialmente_pagada'])) {
+            $fechaAtraso = $this->fecha_atraso ? Carbon::parse($this->fecha_atraso)->startOfDay() : now()->startOfDay();
 
             if ($fechaAtraso->greaterThan($fechaVencimiento)) {
                 $this->fecha_atraso = $fechaAtraso;
                 $this->save();
             }
         }
-        // No recalcular días de atraso si la mora está pagada
     }
 
+    // Filtro de visibilidad por usuario
     public function scopeVisiblePorUsuario($query, $user)
     {
         if ($user->hasRole('Asesor')) {

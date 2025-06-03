@@ -142,7 +142,7 @@ class PrestamoResource extends Resource
                 ->required()
                 ->disabled(fn() => !(
                     \Illuminate\Support\Facades\Auth::check() &&
-                    \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de Operaciones', 'Jefe de Creditos']) &&
+                    \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin','Jefe de Operaciones', 'Jefe de Creditos']) &&
                     request()->routeIs('filament.dashboard.resources.prestamos.edit')
                 ))
                 ->dehydrated(true),
