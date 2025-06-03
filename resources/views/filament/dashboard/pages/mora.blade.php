@@ -63,8 +63,21 @@
                         <label class="text-xs font-semibold mb-1 text-blue-700 dark:text-blue-200">Nombre del grupo</label>
                         <select name="grupo" class="rounded-lg border border-blue-200 dark:border-blue-500 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 dark:bg-gray-900 dark:text-white transition">
                             <option value="">Todos</option>
-                            @foreach(\App\Models\Grupo::orderBy('nombre_grupo')->pluck('nombre_grupo') as $nombreGrupo)
-                                <option value="{{ $nombreGrupo }}" {{ request('grupo') == $nombreGrupo ? 'selected' : '' }}>{{ $nombreGrupo }}</option>
+                            @php
+                                $user = auth()->user();
+                                $gruposQuery = \App\Models\Grupo::query();
+                                
+                                if ($user->hasRole('Asesor')) {
+                                    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                                    if ($asesor) {
+                                        $gruposQuery->where('asesor_id', $asesor->id);
+                                    }
+                                }
+                                
+                                $grupos = $gruposQuery->orderBy('nombre_grupo')->get();
+                            @endphp
+                            @foreach($grupos as $grupo)
+                                <option value="{{ $grupo->nombre_grupo }}" {{ request('grupo') == $grupo->nombre_grupo ? 'selected' : '' }}>{{ $grupo->nombre_grupo }}</option>
                             @endforeach
                         </select>
                     </div>
