@@ -69,11 +69,12 @@ class Asesor extends Page
         $montoTotalMora = $cuotasQuery->whereHas('mora', function ($q) {
             $q->where('estado_mora', 'pendiente');
         })->get()->sum(function ($cuota) {
-            return $cuota->mora ? $cuota->mora->getMontoMoraCalculadoAttribute() : 0;
+            return $cuota->mora ? abs($cuota->mora->getMontoMoraCalculadoAttribute()) : 0;
         });
 
-        $totalMorasHistoricas = $cuotasQuery->whereHas('mora')->count();
-
+      $totalMorasHistoricas = Mora::whereHas('cuotaGrupal.prestamo', function ($q) use ($prestamosQuery) {
+    $q->whereIn('id', $prestamosQuery->pluck('id'));
+})->count();
         // Estadísticas de pagos
         $pagosQuery = Pago::whereHas('cuotaGrupal.prestamo', function ($q) use ($prestamosQuery) {
             $q->whereIn('id', $prestamosQuery->pluck('id'));
