@@ -124,7 +124,7 @@ class ClienteResource extends Resource
         ];
 
         // Agregar columna de asesor solo para roles administrativos al final
-        if (auth()->user()->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
+        if (auth()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
                 ->label('Asesor')
                 ->formatStateUsing(fn ($record) => 
