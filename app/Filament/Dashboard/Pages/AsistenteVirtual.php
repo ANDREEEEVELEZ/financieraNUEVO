@@ -54,7 +54,7 @@ class AsistenteVirtual extends Page
     // Método para obtener el asesor_id del usuario actual
     protected function getAsesorId($user): ?int
     {
-        if ($user->hasRole('asesor')) {
+        if ($user->hasRole('Asesor')) {
             $asesor = Asesor::where('user_id', $user->id)->first();
             return $asesor ? $asesor->id : null;
         }
@@ -64,8 +64,8 @@ class AsistenteVirtual extends Page
     protected function loadConsultas(): void
     {
         $user = Auth::user();
-        $rolesSupervisores = ['super_admin', 'administrador'];
-        $rolesConAccesoCondicional = ['jefe de operaciones', 'jefe de crédito'];
+        $rolesSupervisores = ['super_admin'];
+        $rolesConAccesoCondicional = ['Jefe de operaciones', 'Jefe de crédito'];
         
         if ($user->hasAnyRole($rolesSupervisores)) {
             // Acceso total
@@ -93,10 +93,10 @@ class AsistenteVirtual extends Page
 
     public function clientesParaUsuario($user)
     {
-        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'Jefe de creditos'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return Cliente::all();
         }
-        if ($user->hasRole('asesor')) {
+        if ($user->hasRole('Asesor')) {
             $asesorId = $this->getAsesorId($user);
             if ($asesorId) {
                 return Cliente::where('asesor_id', $asesorId)->get();
@@ -107,10 +107,10 @@ class AsistenteVirtual extends Page
 
     public function gruposParaUsuario($user)
     {
-        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return Grupo::all();
         }
-        if ($user->hasRole('asesor')) {
+        if ($user->hasRole('Asesor')) {
             $asesorId = $this->getAsesorId($user);
             if ($asesorId) {
                 return Grupo::where('asesor_id', $asesorId)->get();
@@ -121,10 +121,10 @@ class AsistenteVirtual extends Page
 
     public function prestamosParaUsuario($user)
     {
-        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return Prestamo::all();
         }
-        if ($user->hasRole('asesor')) {
+        if ($user->hasRole('Asesor')) {
             $asesorId = $this->getAsesorId($user);
             if ($asesorId) {
                 return Prestamo::whereHas('grupo', function ($query) use ($asesorId) {
@@ -137,10 +137,10 @@ class AsistenteVirtual extends Page
 
     public function PagosParaUsuario($user)
     {
-        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return Pago::all();
         }
-        if ($user->hasRole('asesor')) {
+        if ($user->hasRole('Asesor')) {
             $asesorId = $this->getAsesorId($user);
             if ($asesorId) {
                 return Pago::whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($asesorId) {
@@ -169,10 +169,10 @@ class AsistenteVirtual extends Page
 
     public function morasParaUsuario($user)
     {
-        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return Mora::all();
         }
-        if ($user->hasRole('asesor')) {
+        if ($user->hasRole('Asesor')) {
             $asesorId = $this->getAsesorId($user);
             if ($asesorId) {
                 return Mora::whereHas('cuotaGrupal.prestamo.grupo', function ($query) use ($asesorId) {
@@ -185,10 +185,10 @@ class AsistenteVirtual extends Page
 
     protected function tieneRegistrosAsignados($user): bool
     {
-        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'jefe de credito'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
             return true; // Acceso total, siempre tiene registros
         }
-        if ($user->hasRole('asesor')) {
+        if ($user->hasRole('Asesor')) {
             $asesorId = $this->getAsesorId($user);
             if ($asesorId) {
                 return Cliente::where('asesor_id', $asesorId)->exists() ||
@@ -201,7 +201,7 @@ class AsistenteVirtual extends Page
 
     protected function filtrarPorAsesor($modelClass, $user)
     {
-        if (!$user->hasRole('asesor')) return $modelClass::query();
+        if (!$user->hasRole('Asesor')) return $modelClass::query();
         
         $asesorId = $this->getAsesorId($user);
         if (!$asesorId) return $modelClass::query()->whereRaw('1 = 0'); // No devolver nada si no hay asesor_id
