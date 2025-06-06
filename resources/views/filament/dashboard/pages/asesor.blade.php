@@ -161,7 +161,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
         <!-- Lista de Grupos -->
         <div class="bg-white rounded-xl shadow p-4">
-            <h2 class="text-lg font-extrabold text-black mb-6">Lista de Grupos</h2>
+            <h2 class="text-lg font-extrabold text-black mb-6">Lista de grupos en mora</h2>
             <div class="overflow-x-auto">
                 <table class="w-full bg-white rounded-lg overflow-hidden shadow text-sm leading-tight">
                     <thead class="bg-gray-200 text-black text-center">
@@ -211,7 +211,7 @@
             </div>
         </div>
     </div>
-    <script>
+   <script>
         // Función para detectar el tema actual
         function getTheme() {
             return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -273,6 +273,11 @@
                         font: {
                             size: 11,
                             weight: 'bold'
+                        },
+                        // CORREGIDO: Forzar números enteros en el eje Y
+                        stepSize: 1,
+                        callback: function(value) {
+                            return Number.isInteger(value) ? value : '';
                         }
                     }
                 }
@@ -322,13 +327,13 @@
             }
         });
 
-        // 2. Gráfico de línea: Evolución de pagos registrados
+        // 2. CORREGIDO: Gráfico de línea con configuración específica para montos
         const lineChart = new Chart(document.getElementById('linePagosEvolucion'), {
             type: 'line',
             data: {
                 labels: @json($pagosPorFechaLabels),
                 datasets: [{
-                    label: 'Monto total pagado',
+                    label: 'Monto total pagado (S/)', // CORREGIDO: Label más claro
                     data: @json($pagosPorFechaVals),
                     fill: false,
                     borderColor: 'rgba(34, 197, 94, 1)',
@@ -343,6 +348,22 @@
             },
             options: {
                 ...chartOptions,
+                scales: {
+                    ...chartOptions.scales,
+                    y: {
+                        ...chartOptions.scales.y,
+                        ticks: {
+                            ...chartOptions.scales.y.ticks,
+                            // CORREGIDO: Configuración específica para montos (permitir decimales pero formatear)
+                            callback: function(value) {
+                                return 'S/ ' + value.toLocaleString('es-PE', {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 2
+                                });
+                            }
+                        }
+                    }
+                },
                 plugins: {
                     ...chartOptions.plugins,
                     legend: {
@@ -354,12 +375,23 @@
                             pointStyle: 'circle',
                             padding: 20
                         }
+                    },
+                    tooltip: {
+                        ...chartOptions.plugins.tooltip,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': S/ ' + context.parsed.y.toLocaleString('es-PE', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                            }
+                        }
                     }
                 }
             }
         });
 
-        // 3. Gráfico circular: Distribución de pagos por estado
+        // 3. CORREGIDO: Gráfico circular con números enteros
         const pieChart = new Chart(document.getElementById('piePagosEstado'), {
             type: 'pie',
             data: {
@@ -386,6 +418,18 @@
                             ...chartOptions.plugins.legend.labels,
                             padding: 15,
                             boxWidth: 12
+                        }
+                    },
+                    tooltip: {
+                        ...chartOptions.plugins.tooltip,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': ' + value + ' (' + percentage + '%)';
+                            }
                         }
                     }
                 }

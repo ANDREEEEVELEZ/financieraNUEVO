@@ -39,7 +39,7 @@ class Mora extends Model
         return self::calcularMontoMora($this->cuotaGrupal, $this->fecha_atraso ?? now());
     }
 
-    // Método central de cálculo de mora
+    // Método central de cálculo de mora - CORREGIDO
     public static function calcularMontoMora($cuota, $fechaAtraso = null)
     {
         if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
@@ -49,14 +49,19 @@ class Mora extends Model
         $fechaAtraso = Carbon::parse($fechaAtraso)->startOfDay();
         $fechaVencimiento = Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
 
+        // Calcular días de atraso correctamente
         $diasAtraso = 0;
         if ($fechaAtraso->greaterThan($fechaVencimiento)) {
-            $diasAtraso = $fechaAtraso->diffInDays($fechaVencimiento);
+            // Usar diffInDays en el orden correcto: fecha_posterior - fecha_anterior
+            $diasAtraso = $fechaVencimiento->diffInDays($fechaAtraso);
         }
 
         $integrantes = $cuota->prestamo->grupo->clientes()->count();
 
-        return $integrantes * $diasAtraso * 1;
+        // El cálculo debería dar un resultado positivo
+        $montoMora = $integrantes * $diasAtraso * 1;
+        
+        return $montoMora;
     }
 
     // Actualiza la fecha de atraso si aplica

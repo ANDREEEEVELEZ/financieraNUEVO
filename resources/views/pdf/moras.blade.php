@@ -4,20 +4,57 @@
     <meta charset="UTF-8">
     <title>Reporte de Moras</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
-        th { background: #e0e7ef; color: #22223b; }
-        tr:nth-child(even) td { background: #f3f4f6; }
-        tr:hover td { background: #dbeafe; }
+        @page {
+            margin: 100px 50px;
+        }
+
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 12px;
+        }
+
+        header {
+            position: fixed;
+            top: -80px;
+            left: 0px;
+            right: 0px;
+            height: 60px;
+            text-align: right;
+            font-size: 12px;
+            color: #555;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table th, table td {
+            border: 1px solid #aaa;
+            padding: 4px;
+            text-align: center;
+        }
+
+        table th {
+            background-color: #f2f2f2;
+        }
     </style>
 </head>
 <body>
-    <h2 style="color:#2563eb;">Reporte de Moras</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Grupo</th>
+    <header>
+        Generado el {{ now()->format('d/m/Y H:i') }}
+    </header>
+
+
+
+    <main>
+        <h2 style="text-align: center; margin-bottom: 10px;">Reporte de Moras</h2>
+
+        <table>
+            <thead>
+                <tr>
+                 <th>Grupo</th>
                 <th>N° Cuota</th>
                 <th>Monto de Cuota</th>
                 <th>Fecha Vencimiento</th>
@@ -26,8 +63,8 @@
                 <th>Monto Mora</th>
                 <th>Monto total a pagar</th>
                 <th>Estado</th>
-            </tr>
-        </thead>
+                </tr>
+            </thead>
         <tbody>
         @foreach($cuotas_mora as $cuota)
             <tr>
@@ -70,7 +107,8 @@
                 </td>
             </tr>
         @endforeach
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    </main>
 </body>
 </html>

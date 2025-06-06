@@ -139,7 +139,7 @@
             </thead>
             <tbody>
                 @forelse ($cuotas_mora as $cuota)
-                    <tr class="transition duration-150 text-center border-b border-blue-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800">
+                    <tr class="transition duration-150 text-left border-b border-blue-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800">
                         <td class="px-4 py-3 text-gray-800 dark:text-white">{{ $cuota->prestamo->grupo->nombre_grupo ?? 'N/A' }}</td>
                         <td class="px-4 py-3 text-gray-800 dark:text-white">{{ $cuota->prestamo->grupo->clientes()->count() ?? 0 }}</td>
                         <td class="px-4 py-3 text-gray-800 dark:text-white">{{ $cuota->numero_cuota }}</td>

@@ -46,7 +46,9 @@ class PagoPdfController extends Controller
 
         $pagos = $query->with(['cuotaGrupal.prestamo.grupo'])->get();
 
-        $pdf = Pdf::loadView('pdf.pagos', compact('pagos'));
-        return $pdf->download('reporte_pagos.pdf');
+        $pdf = Pdf::loadView('pdf.pagos', compact('pagos'))
+          ->setOptions(['isPhpEnabled' => true]);
+
+return $pdf->download('reporte_pagos.pdf');
     }
 }

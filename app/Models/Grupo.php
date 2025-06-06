@@ -31,7 +31,10 @@ class Grupo extends Model
     public function clientes()
     {
         return $this->belongsToMany(Cliente::class, 'grupo_cliente', 'grupo_id', 'cliente_id')
-            ->withTimestamps();
+            ->withTimestamps()
+             ->join('personas', 'clientes.persona_id', '=', 'personas.id')
+                ->orderBy('personas.apellidos')
+                ->orderBy('personas.nombre');
     }
 
     public function prestamos()

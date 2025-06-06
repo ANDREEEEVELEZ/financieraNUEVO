@@ -40,7 +40,7 @@ class PagoResource extends Resource
                     $user = request()->user();
                     $query = \App\Models\Grupo::whereHas('prestamos', function($q) {
                         $q->where('estado', 'Aprobado');
-                    });
+                    })->orderBy('nombre_grupo', 'asc');
 
                     if ($user->hasRole('Asesor')) {
                         $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
@@ -230,7 +230,7 @@ $set('monto_mora_aplicada', 0.00);
                 Tables\Columns\TextColumn::make('cuotaGrupal.numero_cuota')
                     ->label('Cuota')
                     ->sortable()
-                    ->alignCenter()
+                    ->alignLeft()
                     ->searchable()
                     ->width('45px'),
 
@@ -239,13 +239,13 @@ $set('monto_mora_aplicada', 0.00);
                     ->label('Grupo')
                     ->sortable()
                     ->searchable()
-                    ->alignCenter()
+                    ->alignLeft()
                     ->width('80px'),
 
 
                 Tables\Columns\TextColumn::make('tipo_pago')
                     ->label('Tipo')
-                    ->alignCenter()
+                    ->alignLeft()
                     ->searchable()
                     ->width('65px'),
 
@@ -254,13 +254,13 @@ $set('monto_mora_aplicada', 0.00);
                     ->label('F.Venc.')
                     ->dateTime('d/m/Y')
                     ->sortable()
-                    ->alignCenter()
+                    ->alignLeft()
                     ->width('75px'),
 
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.monto_cuota_grupal')
                     ->label('Cuota')
-                    ->alignCenter()
+                    ->alignLeft()
                     ->sortable()
                     ->money('PEN')
                     ->width('70px'),
@@ -268,7 +268,7 @@ $set('monto_mora_aplicada', 0.00);
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.mora.monto_mora_calculado')
                     ->label('Mora')
-                    ->alignCenter()
+                    ->alignLeft()
                     ->money('PEN')
                     ->formatStateUsing(function($state, $record) {
                         $mora = $record->cuotaGrupal && $record->cuotaGrupal->mora ? $record->cuotaGrupal->mora : null;
@@ -283,7 +283,7 @@ $set('monto_mora_aplicada', 0.00);
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.monto_total_a_pagar')
                     ->label('Total')
-                    ->alignCenter()
+                    ->alignLeft()
                     ->money('PEN')
                     ->formatStateUsing(function ($state, $record) {
                         $cuota = $record->cuotaGrupal;
@@ -297,7 +297,7 @@ $set('monto_mora_aplicada', 0.00);
 
                 Tables\Columns\TextColumn::make('monto_pagado')
                     ->label('Pagado')
-                    ->alignCenter()
+                    ->alignLeft()
                     ->searchable()
                     ->money('PEN')
                     ->width('65px'),
@@ -307,13 +307,13 @@ $set('monto_mora_aplicada', 0.00);
                     ->label('F. Pago')
                     ->dateTime('d/m/Y')
                     ->sortable()
-                    ->alignCenter()
+                    ->alignLeft()
                     ->width('75px'),
 
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
                     ->label('Saldo')
-                    ->alignCenter()
+                    ->alignLeft()
                     ->sortable()
                     ->formatStateUsing(function ($state, $record) {
                         // Si el pago está rechazado, no mostrar saldo
@@ -345,7 +345,7 @@ $set('monto_mora_aplicada', 0.00);
 
                 Tables\Columns\TextColumn::make('estado_pago')
                     ->label('Estado')
-                    ->alignCenter()
+                    ->alignLeft()
                     ->searchable()
                     ->width('60px'),
             ])

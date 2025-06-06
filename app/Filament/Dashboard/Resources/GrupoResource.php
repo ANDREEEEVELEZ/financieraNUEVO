@@ -43,52 +43,58 @@ class GrupoResource extends Resource
                     ->maxLength(255)
                     ->disabled()
                     ->dehydrated(),
-                Forms\Components\Select::make('clientes')
-                    ->label('Integrantes')
-                    ->multiple()
-                    ->relationship('clientes', 'id')
-                    ->options(function () {
-                        $user = request()->user();
+Forms\Components\Select::make('clientes')
+    ->label('Integrantes')
+    ->multiple()
+    ->relationship('clientes', 'id')
+    ->options(function () {
+        $user = request()->user();
 
+        // Si es asesor, mostrar solo sus clientes
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
 
-                        // Si es asesor, mostrar solo sus clientes
-                        if ($user->hasRole('Asesor')) {
-                            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-
-
-                            if ($asesor) {
-                                return Cliente::where('asesor_id', $asesor->id)
-                                    ->with(['persona', 'grupos' => function ($query) {
-                                        $query->where('estado_grupo', 'Activo');
-                                    }])
-                                    ->get()
-                                    ->mapWithKeys(function($cliente) {
-                                        if ($cliente->tieneGrupoActivo()) {
-                                            $grupoActivo = $cliente->grupoActivo;
-                                            return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
-                                        }
-                                        return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
-                                    });
-                            }
+            if ($asesor) {
+                return Cliente::where('asesor_id', $asesor->id)
+                    ->with(['persona', 'grupos' => function ($query) {
+                        $query->where('estado_grupo', 'Activo');
+                    }])
+                    ->join('personas', 'clientes.persona_id', '=', 'personas.id')
+                    ->orderBy('personas.nombre') // Ordenar por nombre
+                    ->orderBy('personas.apellidos') // Luego por apellidos
+                    ->select('clientes.*') // Seleccionar solo las columnas de clientes
+                    ->get()
+                    ->mapWithKeys(function($cliente) {
+                        if ($cliente->tieneGrupoActivo()) {
+                            $grupoActivo = $cliente->grupoActivo;
+                            return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
                         }
+                        return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
+                    });
+            }
+        }
 
+        // Si es admin, jefe de operaciones o jefe de crédito, mostrar todos
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+            return Cliente::with(['persona', 'grupos' => function ($query) {
+                    $query->where('estado_grupo', 'Activo');
+                }])
+                ->join('personas', 'clientes.persona_id', '=', 'personas.id')
+                ->orderBy('personas.nombre') // Ordenar por nombre
+                ->orderBy('personas.apellidos') // Luego por apellidos
+                ->select('clientes.*') // Seleccionar solo las columnas de clientes
+                ->get()
+                ->mapWithKeys(function($cliente) {
+                    if ($cliente->tieneGrupoActivo()) {
+                        $grupoActivo = $cliente->grupoActivo;
+                        return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
+                    }
+                    return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
+                });
+        }
 
-                        // Si es admin, jefe de operaciones o jefe de crédito, mostrar todos
-                        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
-                            return Cliente::with(['persona', 'grupos' => function ($query) {
-                                $query->where('estado_grupo', 'Activo');
-                            }])->get()->mapWithKeys(function($cliente) {
-                                if ($cliente->tieneGrupoActivo()) {
-                                    $grupoActivo = $cliente->grupoActivo;
-                                    return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
-                                }
-                                return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
-                            });
-    }
-
-
-    // Si no aplica, retornar vacío
-    return [];
+        // Si no aplica, retornar vacío
+        return [];
 })
 
 
@@ -125,12 +131,20 @@ class GrupoResource extends Resource
                         }
                     }),
                 Forms\Components\Select::make('lider_grupal')
-                    ->label('Líder Grupal')
-                    ->options(function (callable $get) {
-                        $ids = $get('clientes') ?? [];
-                        return Cliente::with('persona')->whereIn('id', $ids)->get()->mapWithKeys(function($cliente) {
-                            return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')'];
-                        })->toArray();
+    ->label('Líder Grupal')
+    ->options(function (callable $get) {
+        $ids = $get('clientes') ?? [];
+        return Cliente::with('persona')
+            ->whereIn('id', $ids)
+            ->join('personas', 'clientes.persona_id', '=', 'personas.id')
+            ->orderBy('personas.nombre')
+            ->orderBy('personas.apellidos')
+            ->select('clientes.*')
+            ->get()
+            ->mapWithKeys(function($cliente) {
+                return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')'];
+            })
+            ->toArray();
                     })
                     ->required()
                     ->searchable()

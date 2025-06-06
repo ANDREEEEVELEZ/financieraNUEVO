@@ -101,11 +101,11 @@ class AsesorResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre'),
-                Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos'),
-                Tables\Columns\TextColumn::make('persona.DNI')->label('DNI'),
-                Tables\Columns\TextColumn::make('persona.correo')->label('Correo'),
-                Tables\Columns\TextColumn::make('codigo_asesor')->label('Código Asesor'),
+                Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre') ->AlignLeft(),
+                Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos') ->AlignLeft(),
+                Tables\Columns\TextColumn::make('persona.DNI')->label('DNI') ->AlignLeft(),
+                Tables\Columns\TextColumn::make('persona.correo')->label('Correo') ->AlignLeft(),
+                Tables\Columns\TextColumn::make('codigo_asesor')->label('Código Asesor') ->AlignLeft(),
                 Tables\Columns\TextColumn::make('estado_asesor')
                     ->label('Estado')
                     ->badge()
@@ -114,7 +114,7 @@ class AsesorResource extends Resource
                         'Inactivo' => 'danger',
                         default => 'warning',
                     }),
-                Tables\Columns\TextColumn::make('fecha_ingreso')->label('Fecha de Ingreso'),
+                Tables\Columns\TextColumn::make('fecha_ingreso')->label('Fecha de Ingreso') ->AlignLeft(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('estado_asesor')

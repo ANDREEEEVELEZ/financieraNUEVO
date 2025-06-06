@@ -32,14 +32,18 @@ class PrestamoResource extends Resource
                 ->relationship('grupo', 'nombre_grupo')
                 ->options(function () {
                     $user = request()->user();
+                
                     if ($user->hasRole('Asesor')) {
                         $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
                         if ($asesor) {
                             return \App\Models\Grupo::where('asesor_id', $asesor->id)
-                                ->pluck('nombre_grupo', 'id');
+                             ->orderBy('nombre_grupo', 'asc')
+                            ->pluck('nombre_grupo', 'id');
                         }
                     } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                        return \App\Models\Grupo::pluck('nombre_grupo', 'id');
+                    
+                         return \App\Models\Grupo::orderBy('nombre_grupo', 'asc') //
+                            ->pluck('nombre_grupo', 'id');
                     }
                     return []; // Retornar vacío si no aplica
                 })
