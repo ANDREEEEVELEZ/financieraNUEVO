@@ -4,7 +4,7 @@ namespace App\Filament\Dashboard\Resources;
 
 use App\Filament\Dashboard\Resources\IngresosResource\Pages;
 use App\Filament\Dashboard\Resources\IngresosResource\RelationManagers;
-use App\Models\Ingresos;
+use App\Models\Ingreso;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class IngresosResource extends Resource
 {
-    protected static ?string $model = Ingresos::class;
+    protected static ?string $model = Ingreso::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 

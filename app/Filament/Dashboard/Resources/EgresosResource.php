@@ -4,7 +4,7 @@ namespace App\Filament\Dashboard\Resources;
 
 use App\Filament\Dashboard\Resources\EgresosResource\Pages;
 use App\Filament\Dashboard\Resources\EgresosResource\RelationManagers;
-use App\Models\Egresos;
+use App\Models\Egreso;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class EgresosResource extends Resource
 {
-    protected static ?string $model = Egresos::class;
+    protected static ?string $model = Egreso::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
