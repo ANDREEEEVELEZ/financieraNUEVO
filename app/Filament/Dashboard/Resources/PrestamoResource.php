@@ -38,7 +38,7 @@ class PrestamoResource extends Resource
                             return \App\Models\Grupo::where('asesor_id', $asesor->id)
                                 ->pluck('nombre_grupo', 'id');
                         }
-                    } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+                    } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
                         return \App\Models\Grupo::pluck('nombre_grupo', 'id');
                     }
                     return []; // Retornar vacío si no aplica
@@ -156,7 +156,7 @@ class PrestamoResource extends Resource
     // Proteger el backend para que solo los roles permitidos puedan modificar el estado
     public static function mutateFormDataBeforeSave(array $data): array
     {
-        if (!\Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de Operaciones', 'Jefe de Creditos'])) {
+        if (!\Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos'])) {
             unset($data['estado']);
         }
         // Eliminar el campo nuevo_rol para que no intente guardarse en la tabla prestamos
@@ -246,7 +246,7 @@ class PrestamoResource extends Resource
                     $subQuery->where('asesor_id', $asesor->id);
                 });
             }
-        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             // No se aplica ningún filtro adicional para estos roles, ya que deben ver todos los grupos
         } else {
             // En caso de que el usuario no tenga un rol específico, se puede manejar según sea necesario
