@@ -29,16 +29,23 @@ class Moras extends Page
                 ? now()->diffInDays($cuota->fecha_vencimiento)
                 : 0;
 
-            $montoMora = Mora::calcularMontoMora($cuota);
+            // Verificar si ya existe una mora para esta cuota
+            $moraExistente = Mora::where('cuota_grupal_id', $cuota->id)->first();
+            
+            // Solo calcular y actualizar si la mora NO está pagada
+            if (!$moraExistente || $moraExistente->estado_mora !== 'pagada') {
+                $montoMora = Mora::calcularMontoMora($cuota, now(), $moraExistente->estado_mora ?? 'pendiente');
 
-            Mora::updateOrCreate(
-                ['cuota_grupal_id' => $cuota->id],
-                [
-                    'fecha_atraso' => now(),
-                    'monto_mora' => $montoMora,
-                    'estado_mora' => 'pendiente',
-                ]
-            );
+                Mora::updateOrCreate(
+                    ['cuota_grupal_id' => $cuota->id],
+                    [
+                        'fecha_atraso' => now(),
+                        'monto_mora' => $montoMora,
+                        'estado_mora' => $moraExistente->estado_mora ?? 'pendiente',
+                    ]
+                );
+            }
+            // Si está pagada, no actualizar nada - mantener los valores congelados
         }
 
         $user = request()->user();

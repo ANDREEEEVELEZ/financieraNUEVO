@@ -3,6 +3,7 @@
 namespace App\Filament\Dashboard\Resources\IngresosResource\Pages;
 
 use App\Filament\Dashboard\Resources\IngresosResource;
+use App\Filament\Dashboard\Resources\IngresosResource\Widgets\IngresosStatsWidget;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
@@ -14,6 +15,13 @@ class ListIngresos extends ListRecords
     {
         return [
             Actions\CreateAction::make(),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            IngresosStatsWidget::class,
         ];
     }
 }

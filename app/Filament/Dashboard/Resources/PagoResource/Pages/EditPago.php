@@ -55,30 +55,20 @@ class EditPago extends EditRecord
         return $data;
     }
 
-    protected function getFormSchema(): array
-    {
-        $canEditEstado = Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de Creditos']);
-
-        return [
-            Forms\Components\Select::make('estado_pago')
-                ->label('Estado del pago')
-                ->options([
-                    'Pendiente' => 'Pendiente',
-                    'Aprobado' => 'Aprobado',
-                    'Rechazado' => 'Rechazado',
-                ])
-                ->disabled(! $canEditEstado),
-            
-            Forms\Components\TextInput::make('monto')
-                ->label('Monto')
-                ->required()
-                ->numeric(),
-            
-        ];
-    }
+    // ELIMINAMOS getFormSchema() para que use el form() del Resource
+    // El problema principal era que estabas sobreescribiendo el schema del formulario
+    // con solo 2 campos, perdiendo toda la información del formulario original
 
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
+    }
+
+    // Agregamos este método para personalizar la carga de datos si es necesario
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Aquí puedes agregar lógica adicional si necesitas manipular los datos
+        // antes de llenar el formulario
+        return $data;
     }
 }

@@ -36,20 +36,39 @@ class Mora extends Model
     // Calcula el monto de mora dinámicamente
     public function getMontoMoraCalculadoAttribute()
     {
-        return self::calcularMontoMora($this->cuotaGrupal, $this->fecha_atraso ?? now());
+        return self::calcularMontoMora($this->cuotaGrupal, $this->fecha_atraso ?? now(), $this->estado_mora);
     }
 
-    // Método central de cálculo de mora - CORREGIDO
-    public static function calcularMontoMora($cuota, $fechaAtraso = null)
+    // Método central de cálculo de mora - CORREGIDO CON VALIDACIÓN DE ESTADO PAGADA
+    public static function calcularMontoMora($cuota, $fechaAtraso = null, $estadoMora = null)
     {
         if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
+            return 0;
+        }
+
+        // Si la mora está pagada, no calcular días adicionales
+        if ($estadoMora === 'pagada') {
+            // Obtener la mora existente para usar sus días de atraso congelados
+            $moraExistente = self::where('cuota_grupal_id', $cuota->id)->first();
+            if ($moraExistente && $moraExistente->fecha_atraso) {
+                $fechaVencimiento = Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
+                $fechaAtrasoCongelada = Carbon::parse($moraExistente->fecha_atraso)->startOfDay();
+                
+                $diasAtraso = 0;
+                if ($fechaAtrasoCongelada->greaterThan($fechaVencimiento)) {
+                    $diasAtraso = $fechaVencimiento->diffInDays($fechaAtrasoCongelada);
+                }
+                
+                $integrantes = $cuota->prestamo->grupo->clientes()->count();
+                return $integrantes * $diasAtraso * 1;
+            }
             return 0;
         }
 
         $fechaAtraso = Carbon::parse($fechaAtraso)->startOfDay();
         $fechaVencimiento = Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
 
-        // Calcular días de atraso correctamente
+        // Calcular días de atraso correctamente solo si no está pagada
         $diasAtraso = 0;
         if ($fechaAtraso->greaterThan($fechaVencimiento)) {
             // Usar diffInDays en el orden correcto: fecha_posterior - fecha_anterior
@@ -60,13 +79,18 @@ class Mora extends Model
 
         // El cálculo debería dar un resultado positivo
         $montoMora = $integrantes * $diasAtraso * 1;
-        
+                
         return $montoMora;
     }
 
-    // Actualiza la fecha de atraso si aplica
+    // Actualiza la fecha de atraso si aplica - MODIFICADO
     public function actualizarDiasAtraso()
     {
+        // Solo actualizar si NO está pagada
+        if ($this->estado_mora === 'pagada') {
+            return; // No hacer nada si ya está pagada
+        }
+
         $fechaVencimiento = Carbon::parse($this->cuotaGrupal->fecha_vencimiento)->addDay()->startOfDay();
 
         if (in_array($this->estado_mora, ['pendiente', 'parcialmente_pagada'])) {

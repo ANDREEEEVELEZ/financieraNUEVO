@@ -16,6 +16,7 @@ class Pago extends Model
     protected $fillable = [
         'cuota_grupal_id',
         'tipo_pago',
+        'codigo_operacion',
         'monto_pagado',
         'monto_mora_pagada',
         'fecha_pago',
@@ -36,6 +37,29 @@ class Pago extends Model
     {
      
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
+    }
+    /**
+     * Relación con el modelo Ingreso
+     */
+    public function ingreso(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Ingreso::class);
+    }
+
+    /**
+     * Verificar si el pago ya tiene un ingreso asociado
+     */
+    public function tieneIngreso(): bool
+    {
+        return $this->ingreso()->exists();
+    }
+
+    /**
+     * Scope para pagos sin ingreso asociado
+     */
+    public function scopeSinIngreso($query)
+    {
+        return $query->whereDoesntHave('ingreso');
     }
 
 
@@ -185,4 +209,5 @@ class Pago extends Model
                 }
             });
         }
+
 }

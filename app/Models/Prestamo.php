@@ -53,4 +53,18 @@ class Prestamo extends Model
 
         return $query->whereRaw('1 = 0'); // No mostrar nada si no aplica
     }
+      public function prestamoIndividual()
+    {
+        return $this->hasMany(PrestamoIndividual::class);
+    }
+
+    public function egresos()
+    {
+        return $this->hasMany(Egreso::class);
+    }
+
+    public function retanqueos()
+    {
+        return $this->hasMany(Retanqueo::class);
+    }
 }

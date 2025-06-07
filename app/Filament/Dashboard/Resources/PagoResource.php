@@ -123,30 +123,32 @@ $set('monto_mora_aplicada', 0.00);
                 }),
 
 
-            Select::make('tipo_pago')
-                ->label('Tipo de Pago')
-                ->options([
-                    'pago_completo' => 'Pago Completo',
-                    'pago_parcial' => 'Pago Parcial',
-                ])
-                ->required()
-                ->reactive()
-                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                    $cuotaId = $get('cuota_grupal_id');
-                    $cuota = CuotasGrupales::with('mora')->find($cuotaId);
-                    $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
-                    $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                Select::make('tipo_pago')
+                    ->label('Tipo de Pago')
+                    ->options([
+                        'pago_completo' => 'Pago Completo',
+                        'pago_parcial' => 'Pago Parcial',
+                    ])
+                    ->required()
+                    ->reactive()
+                    ->dehydrated(true)
+                    // ELIMINAR afterStateHydrated y default - están causando conflictos
+                    ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                        $cuotaId = $get('cuota_grupal_id');
+                        if (!$cuotaId) return;
+                        
+                        $cuota = CuotasGrupales::with('mora')->find($cuotaId);
+                        $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
+                        $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
-                    if ($state === 'pago_completo') {
-                        $set('monto_pagado', $montoCuota + $montoMora);
-                        $set('monto_mora_aplicada', $montoMora);
-                    } elseif ($state === 'pago_parcial') {
-                        $set('monto_pagado', null);
-                        $set('monto_mora_aplicada', $montoMora);
-                    }
-                }),
-
-
+                        if ($state === 'pago_completo') {
+                            $set('monto_pagado', $montoCuota + $montoMora);
+                            $set('monto_mora_aplicada', $montoMora);
+                        } elseif ($state === 'pago_parcial') {
+                            // En pago parcial no cambiar el monto_pagado automáticamente
+                            $set('monto_mora_aplicada', $montoMora);
+                        }
+                    }),
             TextInput::make('monto_mora_aplicada')
                 ->label('Monto de Mora Aplicado')
                 ->numeric()
@@ -169,6 +171,16 @@ $set('monto_mora_aplicada', 0.00);
                 ->disabled(fn (callable $get) => $get('tipo_pago') === 'pago_completo')
                 ->dehydrated(),
 
+            TextInput::make('codigo_operacion')
+                ->label('Código de Operación')
+                ->required()
+                ->maxLength(255)
+                ->afterStateHydrated(function ($component, $state, $record) {
+                    // Asegurarse de que el código de operación se cargue correctamente en edición
+                    if ($record && $record->codigo_operacion) {
+                        $component->state($record->codigo_operacion);
+                    }
+                }),
 
             DateTimePicker::make('fecha_pago')
                 ->label('Fecha de Pago')

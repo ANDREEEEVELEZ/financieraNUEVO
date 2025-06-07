@@ -3,6 +3,7 @@
 namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
 
 use App\Filament\Dashboard\Resources\PagoResource;
+use App\Filament\Dashboard\Resources\PagoResource\Widgets\PagosStatsWidget;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Auth;
@@ -34,7 +35,7 @@ class ListPagos extends ListRecords
                                 } else {
                                     return []; // Si el asesor no existe, retornar vacío
                                 }
-                            } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
+                            } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
                                 return []; // Si no tiene roles permitidos, retornar vacío
                             }
 
@@ -63,6 +64,13 @@ class ListPagos extends ListRecords
                     $url = route('pagos.exportar.pdf', $params);
                     return redirect($url);
                 }),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            PagosStatsWidget::class,
         ];
     }
 }
