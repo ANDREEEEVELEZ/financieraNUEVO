@@ -1,35 +1,28 @@
 <?php
 
-
 namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
-
 
 use App\Filament\Dashboard\Resources\PagoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 
-
 class CreatePago extends CreateRecord
 {
     protected static string $resource = PagoResource::class;
 
-
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Solo establecer 'Pendiente' si no viene del formulario
-      
+        // Solo establecer 'Pendiente' si no viene del formulario        
         if (empty($data['estado_pago'])) {
             $data['estado_pago'] = 'Pendiente';
         }
         return $data;
     }
 
-
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
     }
-
 
     public function mount(): void
     {
@@ -38,12 +31,19 @@ class CreatePago extends CreateRecord
         if ($cuotaGrupalId) {
             $cuota = \App\Models\CuotasGrupales::with('mora', 'prestamo.grupo')->find($cuotaGrupalId);
             if ($cuota) {
+                // Calcular el saldo pendiente actual
+                $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
+                $montoCuota = floatval($cuota->monto_cuota_grupal);
+                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+
                 $this->form->fill([
                     'cuota_grupal_id' => $cuota->id,
                     'grupo_id' => $cuota->prestamo->grupo->id ?? null,
                     'numero_cuota' => $cuota->numero_cuota,
                     'monto_cuota' => $cuota->monto_cuota_grupal,
-                    // No prellenar monto_pagado ni tipo_pago ni monto_mora_aplicada
+                    'monto_mora_aplicada' => $montoMora,
+                    'saldo_pendiente_actual' => $saldoPendiente,
                     'estado_pago' => 'Pendiente',
                 ]);
             }
@@ -55,10 +55,8 @@ class CreatePago extends CreateRecord
         }
     }
 
-
     protected function getFormSchema(): array
     {
         return parent::getFormSchema();
     }
 }
-

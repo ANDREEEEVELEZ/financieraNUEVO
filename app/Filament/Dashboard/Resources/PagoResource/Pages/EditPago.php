@@ -13,10 +13,20 @@ class EditPago extends EditRecord
 {
     protected static string $resource = PagoResource::class;
 
+    protected function isFormDisabled(): bool
+    {
+        return true; // Siempre deshabilita para evitar edición
+    }
+
+    protected function getFormActions(): array
+    {
+        return []; // Oculta botones (guardar, cancelar)
+    }
+
     protected function getHeaderActions(): array
     {
+        // Aquí puedes mantener las acciones aprobar/rechazar para roles específicos
         return [
-            Actions\DeleteAction::make(),
             Actions\Action::make('aprobar')
                 ->label('Aprobar')
                 ->icon('heroicon-m-check-circle')
@@ -48,27 +58,5 @@ class EditPago extends EditRecord
                         ->send();
                 }),
         ];
-    }
-
-    protected function mutateFormDataBeforeSave(array $data): array
-    {
-        return $data;
-    }
-
-    // ELIMINAMOS getFormSchema() para que use el form() del Resource
-    // El problema principal era que estabas sobreescribiendo el schema del formulario
-    // con solo 2 campos, perdiendo toda la información del formulario original
-
-    protected function getRedirectUrl(): string
-    {
-        return static::getResource()::getUrl('index');
-    }
-
-    // Agregamos este método para personalizar la carga de datos si es necesario
-    protected function mutateFormDataBeforeFill(array $data): array
-    {
-        // Aquí puedes agregar lógica adicional si necesitas manipular los datos
-        // antes de llenar el formulario
-        return $data;
     }
 }

@@ -21,28 +21,28 @@ class PagosStatsWidget extends BaseWidget
             if (!$asesor) {
                 return []; // Si el asesor no existe, retornar vacío
             }
-        } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+        } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return []; // Si no tiene roles permitidos, retornar vacío
         }
 
         return [
-            Stat::make('Total Pagos', $this->getFilteredQuery()->count())
+            Stat::make('Total Pagos Registrados', $this->getFilteredQuery()->count())
                 ->description('Número total de pagos')
                 ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color('success'),
+            Stat::make('Monto Total Registrado', 'S/' . number_format($this->getFilteredQuery()->where('estado_pago', 'aprobado')->sum('monto_pagado'), 2))
+                ->description('Monto total de pagos aprobados')
+                ->descriptionIcon('heroicon-m-banknotes')
+                ->color('warning'),
             
-            Stat::make('Pagos del Mes', $this->getCurrentMonthQuery()->count())
+            Stat::make('Pagos del Mes Registrados', $this->getCurrentMonthQuery()->count())
                 ->description('Pagos realizados este mes')
                 ->descriptionIcon('heroicon-m-calendar')
                 ->color('info'),
             
-            Stat::make('Monto Total', 'S/' . number_format($this->getFilteredQuery()->sum('monto_pagado'), 2))
-                ->description('Monto total de todos los pagos')
-                ->descriptionIcon('heroicon-m-banknotes')
-                ->color('warning'),
 
-            Stat::make('Monto del Mes', 'S/' . number_format($this->getCurrentMonthQuery()->sum('monto_pagado'), 2))
-                ->description('Monto total del mes actual')
+            Stat::make('Monto del Mes Registrado', 'S/' . number_format($this->getCurrentMonthQuery()->where('estado_pago', 'aprobado')->sum('monto_pagado'), 2))
+                ->description('Monto aprobado del mes actual')
                 ->descriptionIcon('heroicon-m-credit-card')
                 ->color('primary'),
         ];

@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('monto_devolver_individual')->nullable();
             $table->decimal('seguro')->nullable();
             $table->decimal('interes')->nullable();
-            $table->string('estado')->nullable();
+            $table->decimal('estado')->nullable();
 
 
             $table->timestamps();

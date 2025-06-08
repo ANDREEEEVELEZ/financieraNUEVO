@@ -173,22 +173,23 @@ class Pago extends Model
                 } else {
                     // Hay pagos válidos, actualizar según el total pagado
                     if ($totalPagado >= ($totalAPagar + $montoMora)) {
-                        $cuota->saldo_pendiente = 0;
-                        $cuota->estado_pago = 'Aprobado';
-                        $cuota->estado_cuota_grupal = 'cancelada';
-                        if ($cuota->mora) {
-                            $cuota->mora->estado_mora = 'pagada';
-                            $cuota->mora->save();
-                        }
-                    } else {
-                        $cuota->saldo_pendiente = $totalAPagar - $totalPagado;
-                        $cuota->estado_pago = 'Aprobado';
-                        $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
-                        if ($cuota->mora) {
-                            $cuota->mora->estado_mora = $totalPagado > 0 ? 'parcial' : 'pendiente';
-                            $cuota->mora->save();
-                        }
+                    $cuota->saldo_pendiente = 0;
+                    $cuota->estado_pago = 'pagado'; // ✅ permitido
+                    $cuota->estado_cuota_grupal = 'cancelada';
+                    if ($cuota->mora) {
+                        $cuota->mora->estado_mora = 'pagada';
+                        $cuota->mora->save();
                     }
+                } else {
+                    $cuota->saldo_pendiente = $totalAPagar - $totalPagado;
+                    $cuota->estado_pago = $totalPagado > 0 ? 'parcial' : 'pendiente'; // ✅ permitido
+                    $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
+                    if ($cuota->mora) {
+                        $cuota->mora->estado_mora = $totalPagado > 0 ? 'parcial' : 'pendiente';
+                        $cuota->mora->save();
+                    }
+                }
+
                 }
                 $cuota->save();
             }

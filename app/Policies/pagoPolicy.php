@@ -21,10 +21,14 @@ class PagoPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Pago $pago): bool
-    {
-        return $pago->grupo->asesor_id === $user->id || $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
-    }
+public function view(User $user, Pago $pago): bool
+{
+    $grupo = optional($pago->cuotaGrupal?->prestamo?->grupo);
+    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+
+    return $grupo && $asesor && $grupo->asesor_id === $asesor->id
+        || $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
+}
 
     /**
      * Determine whether the user can create models.
@@ -36,10 +40,11 @@ class PagoPolicy
 
     /**
      * Determine whether the user can update the model.
+     * Solo permitirá acceder a la vista de edición, pero no guardar cambios.
      */
     public function update(User $user, Pago $pago): bool
     {
-        return $user->can('update_pago');
+        return $this->view($user, $pago);
     }
 
     /**
