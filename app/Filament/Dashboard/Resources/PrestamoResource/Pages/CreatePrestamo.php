@@ -15,8 +15,22 @@ class CreatePrestamo extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['estado'] = 'Pendiente';
-        // Forzar frecuencia semanal
         $data['frecuencia'] = 'semanal';
+        // Ajuste: sumar todos los seguros al monto a devolver
+        $clientesGrupo = $data['clientes_grupo'] ?? [];
+        $ciclos = [
+            1 => ['max' => 400, 'seguro' => 6],
+            2 => ['max' => 600, 'seguro' => 7],
+            3 => ['max' => 800, 'seguro' => 8],
+            4 => ['max' => 1000, 'seguro' => 9],
+        ];
+        $totalSeguro = 0;
+        foreach ($clientesGrupo as $cli) {
+            $ciclo = (int)($cli['ciclo'] ?? 1);
+            $ciclo = $ciclo > 4 ? 4 : ($ciclo < 1 ? 1 : $ciclo);
+            $totalSeguro += $ciclos[$ciclo]['seguro'];
+        }
+        $data['monto_devolver'] = isset($data['monto_devolver']) ? floatval($data['monto_devolver']) + $totalSeguro : $totalSeguro;
         return $data;
     }
 
@@ -53,7 +67,7 @@ class CreatePrestamo extends CreateRecord
                 'monto_cuota_prestamo_individual' => round($cuotaSemanal, 2),
                 'monto_devolver_individual' => round($montoDevolver, 2),
                 'seguro' => $seguro,
-                'interes' => $tasaInteres,
+                'interes' => $interes, // Mostrar el interés calculado
                 'estado' => 'Pendiente',
             ]);
         }

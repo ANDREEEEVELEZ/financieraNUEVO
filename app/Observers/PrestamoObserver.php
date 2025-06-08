@@ -14,26 +14,25 @@ class PrestamoObserver
     public function created(Prestamo $prestamo): void
     {
         Log::info('PrestamoObserver: Préstamo creado', ['prestamo_id' => $prestamo->id]);
-        
-        // Crear cuotas grupales
+        // Ajuste: sumar seguros a las cuotas grupales
+        $totalSeguro = $prestamo->prestamoIndividual()->sum('seguro');
         $montoTotal = $prestamo->monto_devolver;
         $cantidadCuotas = $prestamo->cantidad_cuotas;
-        $montoPorCuota = $montoTotal / $cantidadCuotas;
+        $montoPorCuota = ($montoTotal) / $cantidadCuotas;
+        $seguroPorCuota = $totalSeguro / $cantidadCuotas;
         $fechaInicio = Carbon::parse($prestamo->fecha_prestamo);
-
         $dias = match($prestamo->frecuencia) {
             'mensual' => 30,
             'quincenal' => 15,
             'semanal' => 7,
             default => 30,
         };
-
         for ($i = 1; $i <= $cantidadCuotas; $i++) {
             CuotasGrupales::create([
                 'prestamo_id' => $prestamo->id,
                 'numero_cuota' => $i,
-                'monto_cuota_grupal' => round($montoPorCuota, 2),
-                'saldo_pendiente' => round($montoPorCuota, 2),
+                'monto_cuota_grupal' => round($montoPorCuota + $seguroPorCuota, 2),
+                'saldo_pendiente' => round($montoPorCuota + $seguroPorCuota, 2),
                 'fecha_vencimiento' => $fechaInicio->copy()->addDays($dias * $i),
                 'estado_cuota_grupal' => 'vigente',
                 'estado_pago' => 'pendiente',
