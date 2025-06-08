@@ -135,7 +135,18 @@ class PrestamoResource extends Resource
                     'semanal' => 'Semanal',
                     'quincenal' => 'Quincenal',
                 ])
-                ->required(),
+                ->required()
+                ->default('semanal')
+                ->disabled(fn() => false)
+                ->reactive()
+                ->afterStateHydrated(function ($component, $state) {
+                    // Solo permitir seleccionar semanal
+                    $component->options([
+                        'semanal' => 'Semanal',
+                        'mensual' => 'Mensual (bloqueado)',
+                        'quincenal' => 'Quincenal (bloqueado)'
+                    ]);
+                }),
             Select::make('estado')
                 ->options([
                     'Pendiente' => 'Pendiente',

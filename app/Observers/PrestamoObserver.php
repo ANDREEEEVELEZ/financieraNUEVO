@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Prestamo;
 use App\Models\CuotasGrupales;
 use App\Models\Egreso;
+use App\Models\PrestamoIndividual;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -37,6 +38,52 @@ class PrestamoObserver
                 'estado_cuota_grupal' => 'vigente',
                 'estado_pago' => 'pendiente',
             ]);
+        }
+
+        // CREAR PRESTAMOS INDIVIDUALES
+        $grupo = $prestamo->grupo;
+        if ($grupo) {
+            $clientes = $grupo->clientes()->get();
+            $tasaInteres = $prestamo->tasa_interes ?? 17;
+            $numCuotas = $prestamo->cantidad_cuotas;
+            // Definir los montos máximos y seguros por ciclo
+            $ciclos = [
+                1 => ['max' => 400, 'seguro' => 6],
+                2 => ['max' => 600, 'seguro' => 7],
+                3 => ['max' => 800, 'seguro' => 8],
+                4 => ['max' => 1000, 'seguro' => 9],
+            ];
+            foreach ($clientes as $cliente) {
+                $ciclo = (int)($cliente->ciclo ?? 1);
+                $ciclo = $ciclo > 4 ? 4 : ($ciclo < 1 ? 1 : $ciclo);
+                $maxPrestamo = $ciclos[$ciclo]['max'];
+                $seguro = $ciclos[$ciclo]['seguro'];
+                // Buscar el monto solicitado por el cliente (debe venir del formulario)
+                $montoSolicitado = 0;
+                if (isset($prestamo->clientes_grupo) && is_array($prestamo->clientes_grupo)) {
+                    foreach ($prestamo->clientes_grupo as $cli) {
+                        if ((int)$cli['id'] === (int)$cliente->id) {
+                            $montoSolicitado = min(floatval($cli['monto']), $maxPrestamo);
+                            break;
+                        }
+                    }
+                }
+                // Si no se encuentra, usar 0
+                if ($montoSolicitado <= 0) continue;
+                $interes = $montoSolicitado * ($tasaInteres / 100);
+                $montoDevolver = $montoSolicitado + $interes + $seguro;
+                $cuotaSemanal = $montoDevolver / $numCuotas;
+                PrestamoIndividual::create([
+                    'prestamo_id' => $prestamo->id,
+                    'cliente_id' => $cliente->id,
+                    'monto_prestado_individual' => $montoSolicitado,
+                    'monto_cuota_prestamo_individual' => round($cuotaSemanal, 2),
+                    'monto_devolver_individual' => round($montoDevolver, 2),
+                    'seguro' => $seguro,
+                    'interes' => $tasaInteres,
+                    'estado' => 'Pendiente',
+                ]);
+            }
         }
     }
 
