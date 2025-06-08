@@ -59,6 +59,7 @@ class PrestamoResource extends Resource
                                 'nombre' => $cliente->persona->nombre,
                                 'apellidos' => $cliente->persona->apellidos,
                                 'dni' => $cliente->persona->DNI,
+                                'ciclo' => $cliente->ciclo ?? 1,
                                 'monto' => null,
                             ];
                         })->toArray();
@@ -82,12 +83,42 @@ class PrestamoResource extends Resource
                     \Filament\Forms\Components\TextInput::make('dni')
                         ->label('DNI')
                         ->disabled(),
+                    \Filament\Forms\Components\TextInput::make('ciclo')
+                        ->label('Ciclo')
+                        ->disabled(),
                     \Filament\Forms\Components\TextInput::make('monto')
-                        ->label('Monto a Prestar')
+                        ->label(function(callable $get) {
+                            $ciclo = (int)($get('ciclo') ?? 1);
+                            $ciclos = [
+                                1 => ['max' => 400],
+                                2 => ['max' => 600],
+                                3 => ['max' => 800],
+                                4 => ['max' => 1000],
+                            ];
+                            $ciclo = $ciclo > 4 ? 4 : ($ciclo < 1 ? 1 : $ciclo);
+                            $max = $ciclos[$ciclo]['max'];
+                            return 'Monto a Prestar (MAX: S/ ' . $max . ')';
+                        })
                         ->numeric()
                         ->required()
                         ->live()
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            $ciclo = (int)($get('ciclo') ?? 1);
+                            $ciclos = [
+                                1 => ['max' => 400],
+                                2 => ['max' => 600],
+                                3 => ['max' => 800],
+                                4 => ['max' => 1000],
+                            ];
+                            $ciclo = $ciclo > 4 ? 4 : ($ciclo < 1 ? 1 : $ciclo);
+                            $max = $ciclos[$ciclo]['max'];
+                            if ($state > $max) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('El monto máximo permitido para este cliente es S/ ' . $max)
+                                    ->danger()
+                                    ->send();
+                                $set('monto', $max);
+                            }
                             $clientes = $get('../../clientes_grupo') ?? [];
                             $total = array_sum(array_map(fn($c) => floatval($c['monto'] ?? 0), $clientes));
                             $set('../../monto_prestado_total', $total);
