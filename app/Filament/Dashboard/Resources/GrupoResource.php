@@ -103,7 +103,7 @@ Forms\Components\Select::make('clientes')
                     ->required()
                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                         if (!empty($state)) {
-                            $clientesConGrupo = Cliente::whereIn('id', $state)
+                            $clientesConGrupo = Cliente::whereIn('clientes.id', $state)
                                 ->get()
                                 ->filter(function ($cliente) {
                                     return $cliente->tieneGrupoActivo();
@@ -135,7 +135,7 @@ Forms\Components\Select::make('clientes')
     ->options(function (callable $get) {
         $ids = $get('clientes') ?? [];
         return Cliente::with('persona')
-            ->whereIn('id', $ids)
+            ->whereIn('clientes.id', $ids)
             ->join('personas', 'clientes.persona_id', '=', 'personas.id')
             ->orderBy('personas.nombre')
             ->orderBy('personas.apellidos')
