@@ -35,7 +35,7 @@ class Pago extends Model
 
     public function cuotaGrupal()
     {
-     
+
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
     }
     /**
@@ -160,7 +160,7 @@ class Pago extends Model
                 $totalPagado = $pagosValidos->sum('monto_pagado');
                 $totalAPagar = $cuota->monto_cuota_grupal;
                 $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                
+
                 if ($pagosValidos->isEmpty()) {
                     // No hay otros pagos válidos, restaurar al estado original
                     $cuota->estado_pago = 'Pendiente';
@@ -174,7 +174,7 @@ class Pago extends Model
                     // Hay pagos válidos, actualizar según el total pagado
                     if ($totalPagado >= ($totalAPagar + $montoMora)) {
                     $cuota->saldo_pendiente = 0;
-                    $cuota->estado_pago = 'pagado'; // ✅ permitido
+                    $cuota->estado_pago = 'pagado';
                     $cuota->estado_cuota_grupal = 'cancelada';
                     if ($cuota->mora) {
                         $cuota->mora->estado_mora = 'pagada';
@@ -182,7 +182,7 @@ class Pago extends Model
                     }
                 } else {
                     $cuota->saldo_pendiente = $totalAPagar - $totalPagado;
-                    $cuota->estado_pago = $totalPagado > 0 ? 'parcial' : 'pendiente'; // ✅ permitido
+                    $cuota->estado_pago = $totalPagado > 0 ? 'parcial' : 'pendiente';
                     $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
                     if ($cuota->mora) {
                         $cuota->mora->estado_mora = $totalPagado > 0 ? 'parcial' : 'pendiente';

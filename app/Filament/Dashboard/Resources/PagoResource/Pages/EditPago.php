@@ -20,7 +20,7 @@ class EditPago extends EditRecord
 
     protected function getFormActions(): array
     {
-        return []; // Oculta botones (guardar, cancelar)
+        return []; 
     }
 
     protected function getHeaderActions(): array

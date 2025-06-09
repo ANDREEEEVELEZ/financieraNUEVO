@@ -30,10 +30,13 @@ class IngresosResource extends Resource
     protected static ?string $modelLabel = 'Ingreso';
     protected static ?string $pluralModelLabel = 'Ingresos';
 
-    public static function form(Form $form): Form
-    {
-        return $form
-            ->schema([
+public static function form(Form $form): Form
+{
+    return $form
+        ->schema(function (Forms\Get $get, ?Ingreso $record) {
+            $isEditing = filled($record);
+
+            return [
                 Select::make('tipo_ingreso')
                     ->label('Tipo de Ingreso')
                     ->options([
@@ -42,37 +45,38 @@ class IngresosResource extends Resource
                     ])
                     ->required()
                     ->reactive()
-                    ->default('transferencia'),
+                    ->default('transferencia')
+                    ->disabled($isEditing),
 
-Select::make('pago_id')
-    ->label('Pago de Grupo')
-    ->options(function (callable $get) {
-        $currentPagoId = $get('pago_id');
+                Select::make('pago_id')
+                    ->label('Pago de Grupo')
+                    ->options(function (callable $get) {
+                        $currentPagoId = $get('pago_id');
 
-        $pagosQuery = Pago::with(['cuotaGrupal.prestamo.grupo'])
-            ->where('estado_pago', 'aprobado')
-            ->whereDoesntHave('ingreso');
+                        $pagosQuery = Pago::with(['cuotaGrupal.prestamo.grupo'])
+                            ->where('estado_pago', 'aprobado')
+                            ->whereDoesntHave('ingreso');
 
-        if ($currentPagoId) {
-            $pagos = $pagosQuery->orWhere('id', $currentPagoId)->get();
-        } else {
-            $pagos = $pagosQuery->get();
-        }
+                        if ($currentPagoId) {
+                            $pagos = $pagosQuery->orWhere('id', $currentPagoId)->get();
+                        } else {
+                            $pagos = $pagosQuery->get();
+                        }
 
-        return $pagos->mapWithKeys(function ($pago) {
-            $nombreGrupo = 'Sin Grupo';
-            if ($pago->cuotaGrupal && 
-                $pago->cuotaGrupal->prestamo && 
-                $pago->cuotaGrupal->prestamo->grupo) {
-                $nombreGrupo = $pago->cuotaGrupal->prestamo->grupo->nombre_grupo;
-            }
-            return [
-                $pago->id => $nombreGrupo  // Solo el nombre del grupo, sin monto ni fecha
-            ];
-        });
-    })
-    ->searchable()
-    ->reactive()
+                        return $pagos->mapWithKeys(function ($pago) {
+                            $nombreGrupo = 'Sin Grupo';
+                            if ($pago->cuotaGrupal &&
+                                $pago->cuotaGrupal->prestamo &&
+                                $pago->cuotaGrupal->prestamo->grupo) {
+                                $nombreGrupo = $pago->cuotaGrupal->prestamo->grupo->nombre_grupo;
+                            }
+                            return [
+                                $pago->id => $nombreGrupo,
+                            ];
+                        });
+                    })
+                    ->searchable()
+                    ->reactive()
                     ->visible(fn (Forms\Get $get) => $get('tipo_ingreso') === 'pago de cuota de grupo')
                     ->afterStateUpdated(function ($state, Forms\Set $set) {
                         if ($state) {
@@ -80,8 +84,8 @@ Select::make('pago_id')
                             if ($pago) {
                                 $set('monto', $pago->monto_pagado);
                                 $set('fecha_hora', $pago->fecha_pago);
-                                $set('codigo_operacion', $pago->codigo_operacion); // Cargar el código
-                                
+                                $set('codigo_operacion', $pago->codigo_operacion);
+
                                 if ($pago->cuotaGrupal && $pago->cuotaGrupal->prestamo) {
                                     $set('grupo_id', $pago->cuotaGrupal->prestamo->grupo_id);
                                 }
@@ -89,20 +93,20 @@ Select::make('pago_id')
                         } else {
                             $set('monto', null);
                             $set('fecha_hora', now());
-                            $set('codigo_operacion', null); // Limpiar el código
+                            $set('codigo_operacion', null);
                             $set('grupo_id', null);
                         }
-                    }),
+                    })
+                    ->disabled($isEditing),
 
                 Hidden::make('grupo_id'),
 
                 TextInput::make('codigo_operacion')
                     ->label('Código de Operación')
                     ->visible(fn (Forms\Get $get) => $get('tipo_ingreso') === 'pago de cuota de grupo' && $get('pago_id'))
-                    ->disabled()
-                    ->dehydrated(false) // No guardar este campo en la BD
+                    ->disabled() // Este siempre está deshabilitado
+                    ->dehydrated(false)
                     ->afterStateHydrated(function (TextInput $component, $state, $record) {
-                        // Si es un registro existente y es pago de cuota de grupo, cargar el código de la relación
                         if ($record && $record->tipo_ingreso === 'pago de cuota de grupo' && $record->pago) {
                             $component->state($record->pago->codigo_operacion);
                         }
@@ -114,20 +118,23 @@ Select::make('pago_id')
                     ->step(0.01)
                     ->prefix('S/')
                     ->required()
-                    ->disabled(fn (Forms\Get $get) => $get('tipo_ingreso') === 'pago de cuota de grupo' && $get('pago_id')),
+                    ->disabled(true), // Siempre deshabilitado porque depende del tipo_ingreso + pago
 
                 DateTimePicker::make('fecha_hora')
                     ->label('Fecha y Hora')
                     ->required()
-                    ->disabled(fn (Forms\Get $get) => $get('tipo_ingreso') === 'pago de cuota de grupo' && $get('pago_id'))
-                    ->default(now()),
+                    ->default(now())
+                    ->disabled(true), // Siempre deshabilitado como monto
 
                 Textarea::make('descripcion')
                     ->label('Descripción')
                     ->rows(3)
-                    ->columnSpanFull(),
-            ]);
-    }
+                    ->columnSpanFull()
+                    ->disabled($isEditing),
+            ];
+        });
+}
+
 
     public static function table(Table $table): Table
     {
@@ -136,6 +143,12 @@ Select::make('pago_id')
                 //TextColumn::make('id')
                   //  ->label('ID')
                     //->sortable(),
+
+                    TextColumn::make('fecha_hora')
+                    ->label('Fecha y Hora')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
+
 
                 BadgeColumn::make('tipo_ingreso')
                     ->label('Tipo')
@@ -154,6 +167,16 @@ Select::make('pago_id')
                     ->getStateUsing(fn ($record) => $record->pago?->cuotaGrupal?->prestamo?->grupo?->nombre_grupo ?? 'Sin grupo')
                     ->sortable()
                     ->searchable(),
+                TextColumn::make('descripcion')
+                    ->label('Descripción')
+                    ->limit(50)
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+                        if (strlen($state) <= 50) {
+                            return null;
+                        }
+                        return $state;
+                    }),
 
                /* TextColumn::make('codigo_operacion')
                    ->label('Código de Operación')
@@ -172,21 +195,6 @@ Select::make('pago_id')
                     ->money('PEN')
                     ->sortable(),
 
-                TextColumn::make('fecha_hora')
-                    ->label('Fecha y Hora')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable(),
-
-                TextColumn::make('descripcion')
-                    ->label('Descripción')
-                    ->limit(50)
-                    ->tooltip(function (TextColumn $column): ?string {
-                        $state = $column->getState();
-                        if (strlen($state) <= 50) {
-                            return null;
-                        }
-                        return $state;
-                    }),
 
 
             ])
@@ -222,7 +230,7 @@ Select::make('pago_id')
                             );
                     }),
             ])
-            ->actions([
+           /* ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
@@ -230,7 +238,7 @@ Select::make('pago_id')
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ])
+            ])*/
             ->defaultSort('fecha_hora', 'desc')
             ->striped();
     }
