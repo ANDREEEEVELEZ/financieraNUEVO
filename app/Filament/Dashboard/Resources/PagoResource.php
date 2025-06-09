@@ -45,7 +45,7 @@ class PagoResource extends Resource
                         } else {
                             return []; // Si el asesor no existe, retornar vacío
                         }
-                    } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+                    } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
                         return []; // Si no tiene roles permitidos, retornar vacío
                     }
 

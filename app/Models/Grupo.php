@@ -78,7 +78,7 @@ class Grupo extends Model
             if ($asesor) {
                 return $query->where('asesor_id', $asesor->id);
             }
-        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return $query; // Mostrar todos los grupos
         }
 

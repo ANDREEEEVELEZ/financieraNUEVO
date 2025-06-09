@@ -65,11 +65,11 @@ class PagosStatsWidget extends BaseWidget
                 // Si el asesor no existe, no mostrar registros
                 $query->whereRaw('1 = 0');
             }
-        } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+        } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             // Si no tiene roles permitidos, no mostrar registros
             $query->whereRaw('1 = 0');
         }
-        // Para super_admin, Jefe de operaciones y Jefe de credito, mostrar todos los registros
+        // Para super_admin, Jefe de operaciones y Jefe de creditos, mostrar todos los registros
 
         return $query;
     }

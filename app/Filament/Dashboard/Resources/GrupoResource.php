@@ -75,7 +75,7 @@ Forms\Components\Select::make('clientes')
         }
 
         // Si es admin, jefe de operaciones o jefe de crédito, mostrar todos
-        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return Cliente::with(['persona', 'grupos' => function ($query) {
                     $query->where('estado_grupo', 'Activo');
                 }])

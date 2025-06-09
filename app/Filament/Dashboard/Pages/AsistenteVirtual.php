@@ -65,7 +65,7 @@ class AsistenteVirtual extends Page
     {
         $user = Auth::user();
         $rolesSupervisores = ['super_admin'];
-        $rolesConAccesoCondicional = ['Jefe de operaciones', 'Jefe de crédito'];
+        $rolesConAccesoCondicional = ['Jefe de operaciones', 'Jefe de creditos'];
         
         if ($user->hasAnyRole($rolesSupervisores)) {
             // Acceso total
@@ -153,7 +153,7 @@ class AsistenteVirtual extends Page
 
     public function cuotasParaUsuario($user)
     {
-        if ($user->hasAnyRole(['super_admin', 'jefe de operaciones', 'jefe de creditos'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return CuotasGrupales::all();
         }
         if ($user->hasRole('asesor')) {
@@ -185,7 +185,7 @@ class AsistenteVirtual extends Page
 
     protected function tieneRegistrosAsignados($user): bool
     {
-        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return true; // Acceso total, siempre tiene registros
         }
         if ($user->hasRole('Asesor')) {

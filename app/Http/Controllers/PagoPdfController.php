@@ -23,7 +23,7 @@ class PagoPdfController extends Controller
             }
         }
         // Si es Jefe de Créditos o Jefe de Operaciones, puede ver todos los pagos
-        elseif (!$user->hasAnyRole(['super_admin', 'Jefe de Operaciones', 'Jefe de Creditos'])) {
+        elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return response()->json(['error' => 'No autorizado'], 403);
         }
 

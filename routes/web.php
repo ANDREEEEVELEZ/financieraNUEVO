@@ -13,7 +13,7 @@ Route::get('/', function ()
  Route::get('/generar-esquema', [AsistenteController::class, 'guardarEsquemaEnArchivo']);
 
 Route::get('/contratos/grupo/{grupoId}', [ContratoGrupoController::class, 'imprimirContratos'])->name('contratos.grupo.imprimir');
-Route::middleware(['auth', \App\Http\Middleware\CheckUserActive::class, 'role:super_admin|Jefe de operaciones|Jefe de créditos|Asesor'])->group(function () 
+Route::middleware(['auth', \App\Http\Middleware\CheckUserActive::class, 'role:super_admin|Jefe de operaciones|Jefe de creditos|Asesor'])->group(function () 
 {
     Route::get('/pagos/exportar/pdf', [PagoPdfController::class, 'exportar'])->name('pagos.exportar.pdf');
     Route::get('/moras/exportar-pdf', [MoraPdfController::class, 'exportar'])->name('moras.exportar.pdf');

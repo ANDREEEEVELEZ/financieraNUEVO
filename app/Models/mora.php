@@ -113,7 +113,7 @@ class Mora extends Model
                     $subQuery->where('asesor_id', $asesor->id);
                 });
             }
-        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de credito'])) {
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             return $query; // Mostrar todas las moras
         }
 
