@@ -150,6 +150,7 @@ class ClienteResource extends Resource
 
         return $table->columns($columns)
             ->filters([
+                // Filtro de estado existente
                 Tables\Filters\SelectFilter::make('estado_cliente')
                     ->options([
                         'Activo' => 'Activos',
@@ -161,7 +162,45 @@ class ClienteResource extends Resource
                         return $query->when($data['value'], function (Builder $query, string $value): Builder {
                             return $query->where('estado_cliente', $value);
                         });
+                    }),
+                // Filtro de asesor solo para super_admin y jefes
+                Tables\Filters\SelectFilter::make('asesor_id')
+                    ->label('Nombre de Asesor')
+                    ->options(function () {
+                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                            ->with('persona')
+                            ->get()
+                            ->mapWithKeys(function ($asesor) {
+                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                            });
                     })
+                    ->visible(fn () => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when($data['value'], function (Builder $query, $value) {
+                            return $query->where('asesor_id', $value);
+                        });
+                    }),
+                // Filtro de grupo (con grupo/sin grupo) visible para todos
+                Tables\Filters\SelectFilter::make('grupo')
+                    ->label('Grupo')
+                    ->options([
+                        'con_grupo' => 'Con grupo',
+                        'sin_grupo' => 'Sin grupo',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if ($data['value'] === 'con_grupo') {
+                            // Clientes que tienen al menos un grupo activo
+                            return $query->whereHas('grupos', function ($q) {
+                                $q->where('estado_grupo', 'Activo');
+                            });
+                        } elseif ($data['value'] === 'sin_grupo') {
+                            // Clientes que no tienen ningún grupo activo
+                            return $query->whereDoesntHave('grupos', function ($q) {
+                                $q->where('estado_grupo', 'Activo');
+                            });
+                        }
+                        return $query;
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
