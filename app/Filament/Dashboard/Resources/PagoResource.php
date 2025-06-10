@@ -160,11 +160,11 @@ class PagoResource extends Resource
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
                     $cuotaId = $get('cuota_grupal_id');
                     if (!$cuotaId) return;
-                    
+
                     $cuota = CuotasGrupales::with('mora')->find($cuotaId);
                     $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
                     $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                    
+
                     // Calcular saldo pendiente actual
                     $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
                     $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
@@ -198,10 +198,10 @@ class PagoResource extends Resource
                     // Validar que el monto pagado no exceda el saldo pendiente
                     $saldoPendiente = floatval($get('saldo_pendiente_actual') ?? 0);
                     $montoPagado = floatval($state ?? 0);
-                    
+
                     if ($montoPagado > $saldoPendiente && $saldoPendiente > 0) {
                         $set('monto_pagado', $saldoPendiente);
-                        
+
                     }
                 })
                 ->helperText(function (callable $get) {
@@ -225,11 +225,14 @@ class PagoResource extends Resource
                 // Deshabilitar en modo edición
                 ->disabled(fn ($record) => $record !== null),
 
-            DateTimePicker::make('fecha_pago')
-                ->label('Fecha de Pago')
-                ->required()
-                // Deshabilitar en modo edición
-                ->disabled(fn ($record) => $record !== null),
+DateTimePicker::make('fecha_pago')
+    ->label('Fecha de Pago')
+    ->required()
+    ->dehydrated(true)
+    ->disabled(fn ($record) => $record !== null)
+    ->default(function () {
+        return now()->format('Y-m-d H:i:s');
+    }),
 
             TextInput::make('observaciones')
                 ->label('Observaciones')
@@ -353,6 +356,7 @@ class PagoResource extends Resource
                     ->dateTime('d/m/Y')
                     ->sortable()
                     ->alignLeft()
+                    ->default(now())
                     ->width('75px'),
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')

@@ -24,8 +24,9 @@ class PagoObserver
                   'monto' => $pago->monto_pagado,
                 'fecha_hora' => $pago->fecha_pago,
                 'grupo_id' => $grupo->id,
-                'descripcion' => 'PAGO A CTA DE CUOTA GRUPO ' . $grupo->nombre_grupo,
-                
+                'descripcion' => 'PAGO A CTA DE CUOTA GRUPO ' . $grupo->nombre_grupo . ($pago->observaciones ? ' (' . $pago->observaciones . ')' : ''),
+
+
             ]);
         }
     }

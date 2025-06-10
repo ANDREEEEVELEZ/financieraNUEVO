@@ -39,4 +39,8 @@ class Egreso extends Model
     {
         return $this->belongsTo(Subcategoria::class);
     }
+    public function grupo()
+    {
+        return $this->belongsTo(Grupo::class);
+    }
 }

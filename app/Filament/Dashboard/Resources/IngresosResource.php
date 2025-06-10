@@ -37,16 +37,12 @@ public static function form(Form $form): Form
             $isEditing = filled($record);
 
             return [
-                Select::make('tipo_ingreso')
-                    ->label('Tipo de Ingreso')
-                    ->options([
-                        'transferencia' => 'Transferencia',
-                        'pago de cuota de grupo' => 'Pago de Cuota de Grupo',
-                    ])
-                    ->required()
-                    ->reactive()
-                    ->default('transferencia')
-                    ->disabled($isEditing),
+            TextInput::make('tipo_ingreso')
+                ->label('Tipo de Ingreso')
+                ->default('transferencia')
+                ->disabled() // Siempre deshabilitado
+                ->dehydrated() // Asegura que sí se guarde en la BD
+                ->required(),
 
                 Select::make('pago_id')
                     ->label('Pago de Grupo')
@@ -112,27 +108,32 @@ public static function form(Form $form): Form
                         }
                     }),
 
-                TextInput::make('monto')
-                    ->label('Monto')
-                    ->numeric()
-                    ->step(0.01)
-                    ->prefix('S/')
-                    ->required()
-                    ->disabled(true), // Siempre deshabilitado porque depende del tipo_ingreso + pago
+               TextInput::make('monto')
+            ->label('Monto')
+            ->numeric()
+            ->step(0.01)
+            ->prefix('S/')
+            ->required()
+          ->disabled(fn (Forms\Get $get) => $isEditing && in_array($get('tipo_ingreso'), ['transferencia', 'pago de cuota de grupo'])),
 
-                DateTimePicker::make('fecha_hora')
-                    ->label('Fecha y Hora')
-                    ->required()
-                    ->default(now())
-                    ->disabled(true), // Siempre deshabilitado como monto
 
-                Textarea::make('descripcion')
-                    ->label('Descripción')
-                    ->rows(3)
-                    ->columnSpanFull()
-                    ->disabled($isEditing),
-            ];
-        });
+
+            DateTimePicker::make('fecha_hora')
+                ->label('Fecha y Hora')
+                ->required()
+                ->default(now())
+            ->disabled(fn (Forms\Get $get) => $isEditing && in_array($get('tipo_ingreso'), ['transferencia', 'pago de cuota de grupo'])),
+
+
+        Textarea::make('descripcion')
+            ->label('Descripción')
+            ->rows(3)
+            ->columnSpanFull()
+            ->required()
+            ->disabled(fn (Forms\Get $get) => $isEditing && in_array($get('tipo_ingreso'), ['transferencia', 'pago de cuota de grupo'])),
+
+                    ];
+                });
 }
 
 

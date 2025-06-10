@@ -158,11 +158,13 @@
             </div>
         </div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-        <!-- Lista de Grupos -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+    <!-- Columna 1: Lista de grupos y gráficos -->
+    <div class="grid grid-cols-1 gap-4">
+        <!-- Lista de grupos en mora -->
         <div class="bg-white rounded-xl shadow p-4">
             <h2 class="text-lg font-extrabold text-black mb-6">Lista de grupos en mora</h2>
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto tabla-con-scroll">
                 <table class="w-full bg-white rounded-lg overflow-hidden shadow text-sm leading-tight">
                     <thead class="bg-gray-200 text-black text-center">
                         <tr>
@@ -183,34 +185,44 @@
                 </table>
             </div>
         </div>
-        <!-- Fin de la columna de grupos -->
-    </div>
 
-
-    <!-- Gráficos estadísticos - Ahora con tamaño controlado -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        <!-- Gráfico de barras: Estado de cuotas -->
+        <!-- Estado de Cuotas -->
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
             <h2 class="text-lg font-extrabold text-black mb-6">Estado de Cuotas</h2>
-            <div class="h-64"> <!-- Contenedor con altura fija -->
+            <div class="h-64">
                 <canvas id="barCuotasEstados" height="250"></canvas>
             </div>
         </div>
-        <!-- Gráfico de línea: Evolución de pagos registrados -->
+    </div>
+
+    <!-- Columna 2: Evolución de Pagos Registrados y Distribución de Pagos -->
+    <div class="grid grid-cols-1 gap-4">
+        <!-- Evolución de Pagos Registrados -->
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
             <h2 class="text-lg font-extrabold text-black mb-6">Evolución de Pagos Registrados</h2>
-            <div class="h-64"> <!-- Contenedor con altura fija -->
+            <div class="h-64">
                 <canvas id="linePagosEvolucion" height="250"></canvas>
             </div>
         </div>
-        <!-- Gráfico circular: Distribución de pagos por estado -->
+
+        <!-- Distribución de Pagos por Estado -->
         <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
             <h2 class="text-lg font-extrabold text-black mb-6">Distribución de Pagos por Estado</h2>
-            <div class="h-64"> <!-- Contenedor con altura fija -->
+            <div class="h-64">
                 <canvas id="piePagosEstado" height="250"></canvas>
             </div>
         </div>
     </div>
+</div>
+
+<style>
+    .tabla-con-scroll {
+        max-height: 400px; /* Ajusta la altura máxima según sea necesario */
+        overflow-y: auto;
+    }
+</style>
+
+
    <script>
         // Función para detectar el tema actual
         function getTheme() {
@@ -293,15 +305,15 @@
                     label: 'Cantidad',
                     data: @json(array_values($cuotasEstadosBarArr)),
                         backgroundColor: [
-                            'rgba(253, 224, 71, 0.8)', 
-                             'rgba(239, 68, 68, 0.8)',  
-                            'rgba(34, 197, 94, 0.8)',     
+                            'rgba(253, 224, 71, 0.8)',
+                             'rgba(239, 68, 68, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
                         ],
                         borderColor: [
                             'rgba(253, 224, 71, 1)',
-                             'rgba(239, 68, 68, 1)',      
-                            'rgba(34, 197, 94, 1)'     
-                        
+                             'rgba(239, 68, 68, 1)',
+                            'rgba(34, 197, 94, 1)'
+
                         ],
 
 
@@ -312,8 +324,8 @@
                 ...chartOptions,
                 plugins: {
                     ...chartOptions.plugins,
-                    legend: { 
-                        display: false 
+                    legend: {
+                        display: false
                     },
                     title: {
                         display: true,
@@ -441,7 +453,7 @@
             const theme = getTheme();
             const textColor = theme === 'dark' ? '#f3f4f6' : '#111827';
             const gridColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
-            
+
             // Actualizar opciones de todos los gráficos
             [barChart, lineChart, pieChart].forEach(chart => {
                 if (chart.options.scales) {

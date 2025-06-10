@@ -12,12 +12,18 @@ class CreatePago extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Solo establecer 'Pendiente' si no viene del formulario        
         if (empty($data['estado_pago'])) {
             $data['estado_pago'] = 'Pendiente';
         }
+
+
+        if (empty($data['fecha_pago'])) {
+            $data['fecha_pago'] = now();
+        }
+
         return $data;
     }
+
 
     protected function getRedirectUrl(): string
     {
@@ -45,12 +51,14 @@ class CreatePago extends CreateRecord
                     'monto_mora_aplicada' => $montoMora,
                     'saldo_pendiente_actual' => $saldoPendiente,
                     'estado_pago' => 'Pendiente',
+                    'fecha_pago' => now(),
                 ]);
             }
         } else {
-            // Si no viene de moras, asegurar que el estado sea pendiente por defecto
+
             $this->form->fill([
                 'estado_pago' => 'Pendiente',
+                'fecha_pago' => now(),
             ]);
         }
     }

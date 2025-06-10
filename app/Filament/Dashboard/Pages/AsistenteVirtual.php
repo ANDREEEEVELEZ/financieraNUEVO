@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Http;
 use App\Models\Cliente;
 use App\Models\Pago;
 use App\Models\Grupo;
-use App\Models\Prestamo;    
+use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
 use App\Models\DetallePago;
 use App\Models\Mora;
@@ -60,13 +60,29 @@ class AsistenteVirtual extends Page
         }
         return null;
     }
+    protected function replacePlaceholders(string $sql, $user): string
+{
+    // Solo si es asesor reemplazamos
+    if ($user->hasRole('Asesor')) {
+        $asesorId = $this->getAsesorId($user);
+        if (!$asesorId) {
+            throw new \Exception('No se encontró el ID del asesor.');
+        }
+
+        // Reemplazo seguro (puedes agregar más placeholders si necesitas)
+        $sql = str_replace('{asesor.id}', (string)$asesorId, $sql);
+    }
+
+    return $sql;
+}
+
 
     protected function loadConsultas(): void
     {
         $user = Auth::user();
         $rolesSupervisores = ['super_admin'];
         $rolesConAccesoCondicional = ['Jefe de operaciones', 'Jefe de creditos'];
-        
+
         if ($user->hasAnyRole($rolesSupervisores)) {
             // Acceso total
             $this->consultas = ConsultaAsistente::latest()->take(10)->get();
@@ -202,10 +218,10 @@ class AsistenteVirtual extends Page
     protected function filtrarPorAsesor($modelClass, $user)
     {
         if (!$user->hasRole('Asesor')) return $modelClass::query();
-        
+
         $asesorId = $this->getAsesorId($user);
         if (!$asesorId) return $modelClass::query()->whereRaw('1 = 0'); // No devolver nada si no hay asesor_id
-        
+
         switch ($modelClass) {
             case Grupo::class:
                 return $modelClass::where('asesor_id', $asesorId);
@@ -298,7 +314,7 @@ class AsistenteVirtual extends Page
             'respuesta' => $this->response,
         ]);
         $this->loadConsultas();
-     
+
        // $this->query = '';
         $this->form->fill([
             //'query' => '',
@@ -323,7 +339,7 @@ class AsistenteVirtual extends Page
     {
         $user = Auth::user();
         $tipo = 'general';
-        
+
         if (str_contains(strtolower($query), 'cliente')) {
             $tipo = 'cliente';
         } elseif (str_contains(strtolower($query), 'mora')) {
@@ -369,41 +385,31 @@ class AsistenteVirtual extends Page
         $moras = $this->morasParaUsuario($user);
         $totalMoras = $moras->where('estado_mora', 'activo')->count();
 
-        // Construir el systemPrompt incluyendo el esquema leído desde storage
-        $esquema = <<<EOT
-Tablas y columnas relevantes:
-
-- asesores (id, persona_id, user_id, codigo_asesor, fecha_ingreso, estado_asesor, created_at, updated_at)
-- clientes (id, persona_id, infocorp, ciclo, condicion_vivienda, actividad, condicion_personal, estado_cliente, created_at, updated_at, asesor_id)
-- cuotas_grupales (id, prestamo_id, numero_cuota, monto_cuota_grupal, fecha_vencimiento, saldo_pendiente, estado_cuota_grupal, estado_pago, created_at, updated_at)
-- grupo_cliente (id, grupo_id, cliente_id, fecha_ingreso, rol, estado_grupo_cliente, created_at, updated_at)
-- grupos (id, nombre_grupo, numero_integrantes, fecha_registro, calificacion_grupo, estado_grupo, created_at, updated_at, asesor_id)
-- moras (id, cuota_grupal_id, estado_mora, created_at, updated_at, fecha_atraso)
-- pagos (id, cuota_grupal_id, tipo_pago, monto_pagado, monto_mora_pagada, fecha_pago, estado_pago, observaciones, created_at, updated_at)
-- personas (id, DNI, nombre, apellidos, sexo, fecha_nacimiento, celular, correo, direccion, distrito, estado_civil, created_at, updated_at)
-- prestamos (id, grupo_id, tasa_interes, monto_prestado_total, monto_devolver, cantidad_cuotas, fecha_prestamo, frecuencia, estado, calificacion, created_at, updated_at)
-- prestamo_individual (id, prestamo_id, cliente_id, monto_prestado_individual, monto_cuota_prestamo_individual, monto_devolver_individual, seguro, interes, estado, created_at, updated_at)
-- users (id, name, email, active)
-
-(Otras tablas existen, pero estas son las principales para consultas financieras y clientes.)
+$esquema = Storage::get('esquema_bd.txt');
+ $relaciones = <<<EOT
+(Relaciones clave entre tablas)
+- Un cliente pertenece a un asesor (`clientes.asesor_id = asesores.id`)
+- Un grupo tiene un asesor (`grupos.asesor_id = asesores.id`)
+- Un grupo tiene muchos clientes a través de `grupo_cliente`
+- Un grupo tiene préstamos (`prestamos.grupo_id = grupos.id`)
+- Un préstamo tiene cuotas (`cuotas_grupales.prestamo_id = prestamos.id`)
+- Una cuota tiene pagos y moras (`pagos.cuota_grupal_id`, `moras.cuota_grupal_id`)
+- Un préstamo tiene préstamos individuales por cliente (`prestamo_individual`)
+Definición de cuotas en mora:
+- Una cuota se considera en mora si tiene un registro en la tabla `moras` donde:
+  - `estado_mora` es 'pendiente' o 'parcialmente_pagada'.
+  - Se puede acceder a la cuota mediante `cuota_grupal_id`.
+- El campo `cuotas_grupales.estado_cuota_grupal` también puede marcar estado de mora, pero la tabla `moras` contiene los detalles reales del atraso.
+Manejo de preguntas no válidas o irrelevantes:
+- Si la pregunta del usuario no tiene sentido, no está relacionada con datos financieros o no se puede responder con una consulta SELECT, responde amablemente diciendo que no se puede procesar esa solicitud.
+- No inventes consultas si no estás seguro de cómo estructurarlas correctamente.
+- Si la pregunta es ambigua, responde brevemente y solicita más detalles antes de generar la consulta.
+Nota: El monto total de mora no está almacenado; se estima multiplicando los días de atraso (calculados desde el día siguiente a la fecha_vencimiento hasta la fecha_atraso) por el número de integrantes del grupo, considerando 1 sol por persona por día.
 EOT;
+ $ejemplosSQL = <<<EOT
+Ejemplos de consultas SQL:
 
-        $relaciones = <<<EOT
-Relaciones clave:
-
-- Un grupo (`grupos.id`) tiene muchos préstamos (`prestamos.grupo_id`).
-- Un préstamo (`prestamos.id`) tiene muchas cuotas grupales (`cuotas_grupales.prestamo_id`).
-- Una cuota grupal (`cuotas_grupales.id`) puede tener muchos pagos (`pagos.cuota_grupal_id`) y puede tener una mora (`moras.cuota_grupal_id`).
-- Un cliente (`clientes.id`) está en muchos grupos a través de `grupo_cliente` (`grupo_cliente.cliente_id` y `grupo_cliente.grupo_id`).
-- Un cliente tiene préstamos individuales (`prestamo_individual.cliente_id`) asociados a un préstamo grupal (`prestamo_individual.prestamo_id`).
-- Un asesor (`asesores.id`) tiene grupos a su cargo (`grupos.asesor_id`) y clientes (`clientes.asesor_id`).
-- La tabla `users` se relaciona con `asesores` mediante `asesores.user_id = users.id`.
-EOT;
-
-        $ejemplosSQL = <<<EOT
-Ejemplos de consultas correctas:
-
-1. ¿Cuánto se ha pagado en total por grupo?
+1. Total de pagos por grupo:
 <SQL>
 SELECT g.nombre_grupo, SUM(p.monto_pagado) AS total_pagado
 FROM grupos g
@@ -413,57 +419,88 @@ JOIN pagos p ON p.cuota_grupal_id = cg.id
 GROUP BY g.nombre_grupo;
 </SQL>
 
-2. ¿Cuántas moras activas hay por grupo?
+2. Clientes con moras activas:
 <SQL>
-SELECT g.nombre_grupo, COUNT(m.id) AS moras_activas
-FROM grupos g
+SELECT c.id, pe.nombre, pe.apellidos, m.fecha_atraso
+FROM clientes c
+JOIN personas pe ON pe.id = c.persona_id
+JOIN grupo_cliente gc ON gc.cliente_id = c.id
+JOIN grupos g ON g.id = gc.grupo_id
 JOIN prestamos pr ON pr.grupo_id = g.id
 JOIN cuotas_grupales cg ON cg.prestamo_id = pr.id
 JOIN moras m ON m.cuota_grupal_id = cg.id
-WHERE m.estado_mora = 'activo'
-GROUP BY g.nombre_grupo;
+WHERE m.estado_mora = 'activo';
 </SQL>
+
+-- Ejemplo para asesores:
+<SQL>
+SELECT cg.id, cg.numero_cuota, cg.fecha_vencimiento, m.estado_mora
+FROM moras m
+JOIN cuotas_grupales cg ON cg.id = m.cuota_grupal_id
+JOIN prestamos p ON p.id = cg.prestamo_id
+JOIN grupos g ON g.id = p.grupo_id
+WHERE m.estado_mora IN ('pendiente', 'parcialmente_pagada')
+AND g.asesor_id = {asesor.id};
+</SQL>
+
+<SQL>
+SELECT
+    SUM(
+        DATEDIFF(m.fecha_atraso, DATE_ADD(cg.fecha_vencimiento, INTERVAL 1 DAY)) * (
+            SELECT COUNT(*)
+            FROM grupo_cliente gc
+            WHERE gc.grupo_id = g.id
+        )
+    ) AS monto_total_estimado_mora
+FROM moras m
+JOIN cuotas_grupales cg ON cg.id = m.cuota_grupal_id
+JOIN prestamos p ON p.id = cg.prestamo_id
+JOIN grupos g ON g.id = p.grupo_id
+WHERE m.estado_mora IN ('pendiente', 'parcialmente_pagada');
+</SQL>
+
 EOT;
-   
-        $systemPrompt = <<<EOT
-Eres un asistente virtual experto en gestión financiera para una microfinanciera.
-Debes responder preguntas con base en los datos reales del sistema y limitarte solo a operaciones de lectura (consultas SQL seguras).
-A continuación se proporciona el esquema principal de la base de datos, las relaciones clave entre las tablas y algunos ejemplos útiles de consultas:
-{$esquema} {$relaciones} 
+$guiaRoles = <<<EOT
+Guía de acceso según rol:
+- Asesores: solo ven datos de sus clientes, grupos y pagos asignados.
+- Jefes de operaciones y créditos: acceso total a toda la información.
+- El usuario actual puede consultar solo datos dentro de su alcance.
+
+Filtra adecuadamente si es asesor, usando:
+- clientes.asesor_id = {asesor.id}
+- grupos.asesor_id = {asesor.id}
+EOT;
+
+       $systemPrompt = <<<EOT
+Eres un asistente virtual experto en finanzas, encargado de responder consultas SQL seguras (solo SELECT) sobre una base de datos financiera real.
+Tu función es ayudar a los usuarios a obtener información útil sobre clientes, cuotas, préstamos, pagos, moras, grupos y asesores.
+
+Esquema de base de datos:
+{$esquema}
+
+Relaciones clave:
+{$relaciones}
+
+Ejemplos de consultas:
 {$ejemplosSQL}
+
+Reglas de uso:
+- Solo consultas SELECT, nada que modifique la base de datos.
+- Responde brevemente con explicación + consulta SQL entre <SQL>...</SQL>.
+- Considera los roles: asesores solo ven su información; jefes pueden ver todo.
+- Usa campos reales (por ejemplo, 'name' en users, no 'username').
+- Usa JOINs adecuados según las relaciones.
+- Las respuestas deben ser breves, claras y enfocadas en el objetivo del usuario.
+
+{$guiaRoles}
+
 {$comentario}
-Tu tarea es ayudar a los usuarios a obtener información sobre clientes, pagos, cuotas, préstamos y moras, sin modificar la base de datos.
 
-Reglas de seguridad y uso:
-- Solo se permiten consultas SELECT para evitar modificaciones o riesgos de seguridad.
-- La API debe responder con información real y precisa sobre clientes, pagos, cuotas, préstamos y moras.
-- Debe entender relaciones entre clientes, sus asesores, grupos y sus préstamos.
-- Las respuestas deben ser breves, claras y operativas, adecuadas al perfil del usuario consultante.
-- Importante: la tabla users NO tiene columna 'username'. Para filtrar usuarios por nombre, usa la columna 'name'. Para identificar usuarios únicos, usa la columna 'id'. No generes consultas con 'username'.
-- Cuando hagas consultas SQL para identificar usuarios, solo usa 'id' o 'name' en la tabla users, nunca 'username'.
-- IMPORTANTE: Para asesores, usa la tabla 'asesores' que se relaciona con 'users' mediante 'asesores.user_id = users.id'. El asesor_id en otras tablas se refiere a 'asesores.id', no a 'users.id'.
-
-Contexto actual para el usuario: 
-- clientes tienen asesor_id (que apunta a asesores.id)
-- grupos tienen asesor_id (que apunta a asesores.id)
-- prestamos pertenecen a grupos
-- cuotas_grupales están vinculadas a prestamos
-- pagos están vinculados a cuotas_grupales
-- moras están vinculadas a cuotas_grupales
-- Clientes asignados: {$clientesCount}
-- Nombres de algunos clientes: {$nombresClientes}
-- Total de pagos realizados: S/ {$totalPagos}
-- Total de cuotas registradas: S/ {$totalCuotas}
-- Total de grupos: {$gruposCount}
-- Nombres de algunos grupos: {$nombresGrupos}
-- Total de préstamos: {$totalPrestamos}
-- Total de moras activas: {$totalMoras}
-- Total de pagos registrados: {$pagosCount}
-- Recuerda que los asesores pueden ver solo los clientes y grupos asignados a ellos, mientras que supervisores tienen acceso total.
-
-Cuando generes una consulta SQL, por favor encierra la consulta entre las etiquetas <SQL> y </SQL>.
-No incluyas consultas que modifiquen la base de datos.
-Responde con la consulta SQL y una breve explicación del resultado.
+Resumen de contexto del usuario actual:
+- Clientes asignados: {$clientesCount} (Ej: {$nombresClientes})
+- Grupos asignados: {$gruposCount} (Ej: {$nombresGrupos})
+- Pagos totales: S/ {$totalPagos}, Cuotas totales: S/ {$totalCuotas}
+- Moras activas: {$totalMoras}, Total préstamos: {$totalPrestamos}
 EOT;
 
         $userPrompt = <<<EOT
@@ -473,45 +510,49 @@ EOT;
 
         $response = $this->callOpenAI($systemPrompt, $userPrompt);
         Log::info("Respuesta OpenAI para usuario {$user->id}: {$response}");
-        
+
         // Extraer SQL entre etiquetas <SQL>...</SQL>
-        if (preg_match('/<SQL>(.*?)<\/SQL>/is', $response, $matches)) {
-            $sql = trim($matches[1]);
-            if (!$this->isSafeSql($sql)) {
-                return 'Consulta rechazada por motivos de seguridad.';
-            }
-            try {
-                $result = DB::select($sql);
-                if (empty($result)) {
-                    return 'Consulta ejecutada correctamente. No se encontraron resultados.';
-                }
-                // Suponemos que el resultado es un array de stdClass con un solo campo
-                $firstRow = $result[0];
-                $fields = array_keys((array)$firstRow);
-                if (count($result) === 1 && count($fields) === 1) {
-                    $fieldName = $fields[0];
-                    $value = $firstRow->$fieldName;
-                    // Personaliza mensajes según el campo devuelto (ejemplo para total_grupos)
-                    switch ($fieldName) {
-                        case 'total_grupos':
-                            return "Tienes {$value} grupos";
-                        case 'total_clientes':
-                            return "Tienes {$value} clientes";
-                        case 'total_pagos':
-                            return "Hay un total de {$value} pagos registrados";
-                        // Agrega más casos según campos que uses
-                        default:
-                            return "{$fieldName}: {$value}";
-                    }
-                }
-                // Si es un resultado más complejo, deja la respuesta en JSON formateado
-                $jsonResult = json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-                return "Resultado de la consulta:\n{$jsonResult}";
-            } catch (\Exception $e) {
-                Log::error("Error al ejecutar consulta SQL: {$e->getMessage()}");
-                return 'Error al ejecutar la consulta SQL: ' . $e->getMessage();
+if (preg_match('/<SQL>(.*?)<\/SQL>/is', $response, $matches)) {
+    $sql = trim($matches[1]);
+
+    try {
+        $sql = $this->replacePlaceholders($sql, $user);
+        Log::info("SQL ejecutado: {$sql}");
+        if (!$this->isSafeSql($sql)) {
+            return 'Consulta rechazada por motivos de seguridad.';
+        }
+
+        $result = DB::select($sql);
+
+        if (empty($result)) {
+            return 'Consulta ejecutada correctamente. No se encontraron resultados.';
+        }
+
+        $firstRow = $result[0];
+        $fields = array_keys((array)$firstRow);
+        if (count($result) === 1 && count($fields) === 1) {
+            $fieldName = $fields[0];
+            $value = $firstRow->$fieldName;
+            switch ($fieldName) {
+                case 'total_grupos':
+                    return "Tienes {$value} grupos";
+                case 'total_clientes':
+                    return "Tienes {$value} clientes";
+                case 'total_pagos':
+                    return "Hay un total de {$value} pagos registrados";
+                default:
+                    return "{$fieldName}: {$value}";
             }
         }
+
+        $jsonResult = json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        return "Resultado de la consulta:\n{$jsonResult}";
+    } catch (\Exception $e) {
+        Log::error("Error al ejecutar consulta SQL: {$e->getMessage()}");
+        return 'Error al ejecutar la consulta SQL: ' . $e->getMessage();
+    }
+}
+
         return $response;
     }
 
