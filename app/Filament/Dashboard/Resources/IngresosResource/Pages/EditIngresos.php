@@ -10,10 +10,20 @@ class EditIngresos extends EditRecord
 {
     protected static string $resource = IngresosResource::class;
 
-    protected function getHeaderActions(): array
+        protected function isFormDisabled(): bool
+    {
+        return true;
+    }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
+
+   /* protected function getHeaderActions(): array
     {
         return [
             Actions\DeleteAction::make(),
         ];
-    }
+    }*/
 }

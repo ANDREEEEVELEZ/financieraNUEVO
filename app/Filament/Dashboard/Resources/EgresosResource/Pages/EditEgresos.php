@@ -19,6 +19,15 @@ class EditEgresos extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+            protected function isFormDisabled(): bool
+    {
+        return true;
+    }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
 
     /**
      * Mutar los datos del formulario antes de guardar el registro
@@ -31,14 +40,14 @@ class EditEgresos extends EditRecord
                 if (!empty($data['categoria_id']) && !empty($data['subcategoria_id'])) {
                     $categoria = Categoria::find($data['categoria_id']);
                     $subcategoria = Subcategoria::find($data['subcategoria_id']);
-                    
+
                     if ($categoria && $subcategoria) {
                         $data['descripcion'] = $categoria->nombre_categoria . ' de ' . $subcategoria->nombre_subcategoria;
                     }
                 }
             }
         }
-        
+
         // Para desembolsos
         if ($data['tipo_egreso'] === 'desembolso') {
             if (empty(trim($data['descripcion'] ?? ''))) {
