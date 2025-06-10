@@ -95,7 +95,21 @@ class ClienteResource extends Resource
                                     ->default('Activo')
                                     ->disabled()
                                     ->label('Estado Cliente')
-                                    ->required()
+                                    ->required(),
+                                Forms\Components\Select::make('asesor_id')
+                                    ->label('Asesor responsable')
+                                    ->options(function () {
+                                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                                            ->with('persona')
+                                            ->get()
+                                            ->mapWithKeys(function ($asesor) {
+                                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                                            });
+                                    })
+                                    ->searchable()
+                                    ->required(fn () => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                                    ->visible(fn () => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                                    ->helperText('Seleccione el asesor responsable para este cliente.'),
                             ])->columns(2),
                     ])
             ]);
@@ -124,7 +138,7 @@ class ClienteResource extends Resource
         ];
 
         // Agregar columna de asesor solo para roles administrativos al final
-        if (auth()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+        if (\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
                 ->label('Asesor')
                 ->formatStateUsing(fn ($record) => 

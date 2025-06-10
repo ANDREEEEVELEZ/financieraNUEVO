@@ -27,6 +27,16 @@ class CreateCliente extends CreateRecord
             }
 
             $data['asesor_id'] = $asesor->id; // Asignar el ID del asesor desde la tabla `asesores`
+        } else if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones'])) {
+            // Validar que el asesor seleccionado exista y esté activo
+            $asesor = isset($data['asesor_id']) ? \App\Models\Asesor::where('id', $data['asesor_id'])->where('estado_asesor', 'Activo')->first() : null;
+            if (!$asesor) {
+                throw new \Illuminate\Validation\ValidationException(
+                    \Illuminate\Support\Facades\Validator::make([], [
+                        'asesor_id' => 'Debe seleccionar un asesor válido y activo.',
+                    ])
+                );
+            }
         }
 
         $existingPersona = Persona::where('DNI', $data['persona']['DNI'])->first();
