@@ -89,7 +89,7 @@
                             <svg class="w-7 h-7 text-gray-600 dark:text-gray-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </div>
                         <div class="text-3xl font-black text-yellow-900 dark:text-yellow-200">{{ $totalPagosRegistrados ?? '0' }}</div>
-                        <div class="text-sm text-gray-700 dark:text-gray-300 font-semibold mt-1">Total de Pagos Registrados</div>
+                        <div class="text-sm text-amber-700 dark:text-amber-300 font-semibold mt-1">Total de Pagos Registrados</div>
                     </div>
                     <!-- Total de Moras Históricas -->
                     <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-lg p-4 flex flex-col items-center group transition-transform hover:-translate-y-1 hover:shadow-2xl duration-200">
@@ -158,62 +158,66 @@
             </div>
         </div>
     </div>
+<div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
     <!-- Columna 1: Lista de grupos y gráficos -->
     <div class="grid grid-cols-1 gap-4">
         <!-- Lista de grupos en mora -->
-        <div class="bg-white rounded-xl shadow p-4">
-            <h2 class="text-lg font-extrabold text-black mb-6">Lista de grupos en mora</h2>
-            <div class="overflow-x-auto tabla-con-scroll">
-                <table class="w-full bg-white rounded-lg overflow-hidden shadow text-sm leading-tight">
-                    <thead class="bg-gray-200 text-black text-center">
+        <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
+            <h2 class="text-lg font-extrabold text-black dark:text-white mb-6">Lista de grupos en mora</h2>
+            <div class="overflow-x-auto tabla-con-scroll no-select">
+                <table class="w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow text-sm leading-tight">
+                    <thead class="bg-gray-200 dark:bg-gray-700 text-black dark:text-white text-center">
                         <tr>
-                            <th class="px-4 py-3 font-semibold border-b border-gray-300">Grupo</th>
-                            <th class="px-4 py-3 font-semibold border-b border-gray-300">Integrantes</th>
-                            <th class="px-4 py-3 font-semibold border-b border-gray-300">Estado</th>
+                            <th class="px-4 py-3 font-semibold border-b border-gray-300 dark:border-gray-600">Grupo</th>
+                            <th class="px-4 py-3 font-semibold border-b border-gray-300 dark:border-gray-600">Integrantes</th>
+                            <th class="px-4 py-3 font-semibold border-b border-gray-300 dark:border-gray-600">Estado</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($grupos as $grupo)
-                            <tr class="text-center border-b border-gray-200 hover:bg-gray-100">
-                                <td class="px-4 py-3 text-black">{{ $grupo['nombre'] }}</td>
-                                <td class="px-4 py-3 text-black">{{ $grupo['numero_integrantes'] }}</td>
-                                <td class="px-4 py-3 text-black">{{ $grupo['estado'] }}</td>
-                            </tr>
+                           <tr class="text-center border-b border-gray-200 dark:border-gray-700">
+                            <td class="px-4 py-3 text-black dark:text-white">{{ $grupo['nombre'] }}</td>
+                            <td class="px-4 py-3 text-black dark:text-white">{{ $grupo['numero_integrantes'] }}</td>
+                            <td class="px-4 py-3 text-black dark:text-white">{{ $grupo['estado'] }}</td>
+                        </tr>
                         @endforeach
                     </tbody>
-                </table>
+
+                    </table>
+                </div>
+            </div>
+
+            <!-- Estado de Cuotas -->
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
+                <h2 class="text-lg font-extrabold text-black mb-6">Estado de Cuotas</h2>
+                <div class="h-64">
+                    <canvas id="barCuotasEstados" height="250"></canvas>
+                </div>
             </div>
         </div>
 
-        <!-- Estado de Cuotas -->
-        <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
-            <h2 class="text-lg font-extrabold text-black mb-6">Estado de Cuotas</h2>
-            <div class="h-64">
-                <canvas id="barCuotasEstados" height="250"></canvas>
+        <!-- Columna 2: Gráficos -->
+        <div class="grid grid-cols-1 gap-4">
+            <!-- Evolución de Pagos Registrados -->
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
+                <h2 class="text-lg font-extrabold text-black mb-6">Evolución de Pagos Registrados</h2>
+                <div class="h-64">
+                    <canvas id="linePagosEvolucion" height="250"></canvas>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Columna 2: Evolución de Pagos Registrados y Distribución de Pagos -->
-    <div class="grid grid-cols-1 gap-4">
-        <!-- Evolución de Pagos Registrados -->
-        <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
-            <h2 class="text-lg font-extrabold text-black mb-6">Evolución de Pagos Registrados</h2>
-            <div class="h-64">
-                <canvas id="linePagosEvolucion" height="250"></canvas>
-            </div>
-        </div>
-
-        <!-- Distribución de Pagos por Estado -->
-        <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
-            <h2 class="text-lg font-extrabold text-black mb-6">Distribución de Pagos por Estado</h2>
-            <div class="h-64">
-                <canvas id="piePagosEstado" height="250"></canvas>
+            <!-- Distribución de Pagos por Estado -->
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
+                <h2 class="text-lg font-extrabold text-black mb-6">Distribución de Pagos por Estado</h2>
+                <div class="h-64">
+                    <canvas id="piePagosEstado" height="250"></canvas>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
 
 <style>
     .tabla-con-scroll {
