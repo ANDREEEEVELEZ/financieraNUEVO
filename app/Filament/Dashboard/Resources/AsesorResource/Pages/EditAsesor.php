@@ -14,24 +14,38 @@ class EditAsesor extends EditRecord
         return [
             Actions\DeleteAction::make()
                 ->action(function () {
-                    // En lugar de eliminar, cambiar el estado a inactivo
+                    // Buscar grupos asignados a este asesor
+                    $grupos = $this->record->grupos()->get();
+                    if ($grupos->count() > 0) {
+                        $cantidad = $grupos->count();
+                        $nombreAsesor = $this->record->persona ? $this->record->persona->nombre . ' ' . $this->record->persona->apellidos : '';
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('¡Atención!')
+                            ->body('No puedes eliminar al asesor hasta reasignar sus ' . $cantidad . ' grupo(s). Por favor, reasigna todos los grupos a otro asesor antes de continuar.')
+                            ->persistent()
+                            ->send();
+                        // Redirigir a la lista de grupos filtrando por nombre de asesor
+                        return redirect()->to(route('filament.dashboard.resources.grupos.index', ['tableFilters[asesor][value]' => $nombreAsesor]));
+                    }
+
+                    // Si no tiene grupos, proceder a inactivar
                     $this->record->update([
                         'estado_asesor' => 'inactivo'
                     ]);
-
                     // Desactivar el usuario asociado si existe
                     if ($this->record->user) {
                         $this->record->user->update([
                             'active' => false
                         ]);
                     }
-
-                    Notification::make()
+                    $nombreAsesor = $this->record->persona ? $this->record->persona->nombre . ' ' . $this->record->persona->apellidos : '';
+                    \Filament\Notifications\Notification::make()
                         ->success()
-                        ->title('Asesor desactivado')
-                        ->body('El asesor ha sido desactivado correctamente.')
+                        ->title('Asesor eliminado')
+                        ->body('El asesor ' . $nombreAsesor . ' ha sido eliminado correctamente.')
                         ->send();
-
                     return redirect()->to(static::getResource()::getUrl('index'));
                 })
                 ->requiresConfirmation()

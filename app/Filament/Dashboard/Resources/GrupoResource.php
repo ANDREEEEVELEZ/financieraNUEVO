@@ -194,18 +194,37 @@ Forms\Components\Select::make('clientes')
         ];
 
         // Agregar columna de asesor solo para roles administrativos al final
-        if (auth()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+        $user = request()->user();
+        if ($user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
                 ->label('Asesor')
                 ->formatStateUsing(fn ($record) => 
-                    $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-'
-                )
+                    $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-')
                 ->sortable()
                 ->searchable();
         }
 
         return $table->columns($columns)
-            ->filters([])
+            ->filters([
+                Tables\Filters\SelectFilter::make('asesor')
+                    ->label('Asesor')
+                    ->options(function () {
+                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                            ->with('persona')
+                            ->get()
+                            ->mapWithKeys(function ($asesor) {
+                                return [$asesor->persona->nombre . ' ' . $asesor->persona->apellidos => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                            });
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            $query->whereHas('asesor.persona', function ($q) use ($data) {
+                                $q->whereRaw("CONCAT(nombre, ' ', apellidos) = ?", [$data['value']]);
+                            });
+                        }
+                        return $query;
+                    }),
+            ])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\Action::make('imprimir_contratos')
@@ -219,6 +238,40 @@ Forms\Components\Select::make('clientes')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('cambiar_asesor')
+                        ->label('Cambiar Asesor')
+                        ->icon('heroicon-o-user')
+                        ->visible(fn () => (request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones'])))
+                        ->form([
+                            Forms\Components\Select::make('asesor_id')
+                                ->label('Nuevo Asesor')
+                                ->options(function () {
+                                    return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                                        ->with('persona')
+                                        ->get()
+                                        ->mapWithKeys(function ($asesor) {
+                                            return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                                        });
+                                })
+                                ->required(),
+                        ])
+                        ->action(function ($records, $data) {
+                            foreach ($records as $grupo) {
+                                $grupo->asesor_id = $data['asesor_id'];
+                                $grupo->save();
+                                // Actualizar asesor_id de todos los clientes activos en el grupo
+                                $clientes = $grupo->clientes()->get();
+                                foreach ($clientes as $cliente) {
+                                    $cliente->asesor_id = $data['asesor_id'];
+                                    $cliente->save();
+                                }
+                            }
+                            Notification::make()
+                                ->success()
+                                ->title('Asesor actualizado')
+                                ->body('El asesor de los grupos seleccionados y de sus clientes ha sido cambiado correctamente.')
+                                ->send();
+                        }),
                 ]),
             ]);
     }
