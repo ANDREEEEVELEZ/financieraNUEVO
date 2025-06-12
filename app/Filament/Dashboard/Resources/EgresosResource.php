@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class EgresosResource extends Resource
 {
@@ -286,6 +287,17 @@ class EgresosResource extends Resource
     {
         return [];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return Auth::check() && Auth::user()->hasRole(['super_admin', 'Jefe de operaciones']);
+    }
+
+    public static function canAccess(): bool
+    {
+        return Auth::check() && Auth::user()->hasRole(['super_admin', 'Jefe de operaciones']);
+    }
+
 
     public static function getPages(): array
     {
