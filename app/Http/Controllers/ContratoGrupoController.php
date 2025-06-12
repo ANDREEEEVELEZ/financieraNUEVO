@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Grupo;
 use App\Models\PrestamoIndividual;
+use App\Models\CuotasGrupales;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\View;
 
@@ -30,6 +31,18 @@ class ContratoGrupoController extends Controller
             $total = $prestamoIndividual->monto_devolver_individual ?? 0;
             $seguro = $prestamoIndividual->seguro ?? 0;
 
+            // Generar cronograma desde cuotas_grupales
+            $cuotas = CuotasGrupales::where('prestamo_id', $prestamoGrupal->id ?? null)
+                ->orderBy('numero_cuota')
+                ->get();
+            $cronograma = [];
+            foreach ($cuotas as $c) {
+                $cronograma[] = [
+                    'fecha' => $c->fecha_vencimiento,
+                    'monto' => $c->monto_cuota_grupal,
+                ];
+            }
+
             $contratosHtml .= View::make('contratos.contrato', [
                 'cliente' => $persona,
                 'monto' => $monto,
@@ -38,6 +51,7 @@ class ContratoGrupoController extends Controller
                 'total' => $total,
                 'seguro' => $seguro,
                 'ciclo' => $cliente->ciclo ?? '',
+                'cronograma' => $cronograma,
             ])->render();
             $contratosHtml .= '<div style="page-break-after: always;"></div>';
         }

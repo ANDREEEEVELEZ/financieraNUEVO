@@ -2,51 +2,73 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Contrato de Préstamo</title>
+    <title>CONTRATO – PAGARE POR MUTUO DINERARIO</title>
     <style>
         body { font-family: Arial, sans-serif; font-size: 12px; }
         h2, h3 { color: #2F5496; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #333; padding: 4px; }
+        th, td { border: 1px solid #333; padding: 4px; text-align: center; }
         .section-title { background: #D9E1F2; font-weight: bold; }
         .datos { margin-top: 10px; }
+        .resaltado { color: #2F5496; font-weight: bold; }
+        .advertencia { color: #0070C0; font-weight: bold; }
+        .cuadro { border: 1px solid #333; padding: 8px; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h2>CONTRATO DE PRÉSTAMO Y PAGARÉ POR MUTUO DINERARIO</h2>
+    <h2 style="text-align:center;">CONTRATO – PAGARE POR MUTUO DINERARIO</h2>
     <p>
-        Conste por el presente contrato privado de préstamo de dinero que celebran, de una parte, la empresa <b>"EMPRENDE CONMIGO SAC"</b>, identificada con RUC N° ________, con domicilio en __________, a quien en adelante se le denominará <b>"EL PRESTAMISTA"</b>; y de la otra parte, <b>{{ $cliente->nombre ?? '' }} {{ $cliente->apellidos ?? '' }}</b>, identificado con DNI N° {{ $cliente->DNI ?? '' }}, con domicilio en {{ $cliente->direccion ?? '' }}, a quien en adelante se le denominará <b>"EL PRESTATARIO"</b>.
+        Consta por el presente contrato Privado de una parte <b>"EMPRENDE CONMIGO SAC"</b> que en adelante se le denominará <b>PRESTAMISTA</b> y de otra parte la Sra. <b>{{ $cliente->nombre ?? '' }} {{ $cliente->apellidos ?? '' }}</b>, identificada con DNI: <b>{{ $cliente->DNI ?? '' }}</b> y domiciliado en <b>{{ $cliente->direccion ?? '' }}</b> a quien en adelante se le denominará <b>PRESTATARIO</b>.
     </p>
-    <h3>PRIMERO: OBJETO DEL CONTRATO</h3>
-    <p>
-        EL PRESTAMISTA otorga en calidad de préstamo la cantidad de <b>S/. {{ number_format($monto, 2) }}</b> a EL PRESTATARIO, quien se compromete a devolver dicho monto conforme a las condiciones establecidas en el presente contrato.
-    </p>
-    <h3>SEGUNDO: PLAZO Y MODALIDAD DE PAGO</h3>
-    <p>
-        EL PRESTATARIO se compromete a devolver el préstamo en un plazo de <b>{{ $plazo }}</b> semanas a partir de la fecha de firma del contrato. El pago se realizará en cuotas semanales de <b>S/. {{ number_format($cuota, 2) }}</b> cada una, sumando un monto total a devolver de <b>S/. {{ number_format($total, 2) }}</b>.
-    </p>
-    <h3>TERCERO: INTERESES Y SEGURO</h3>
-    <p>
-        El préstamo incluye un Seguro Desgravamen de <b>S/. {{ number_format($seguro, 2) }}</b> que deberá ser asumido por EL PRESTATARIO junto con sus pagos. En caso de mora, se aplicará un recargo de <b>S/. 1.00</b> por día de atraso.
-    </p>
-    <h3>CUARTO: GARANTÍA</h3>
-    <p>
-        EL PRESTATARIO deja como garantía personal sus bienes muebles y se compromete a cumplir con los pagos dentro del plazo establecido. En caso de incumplimiento, EL PRESTAMISTA podrá tomar acciones legales correspondientes.
-    </p>
-    <h3>QUINTO: JURISDICCIÓN</h3>
-    <p>
-        Las partes acuerdan que cualquier controversia derivada del presente contrato será resuelta en los tribunales de la jurisdicción de ____________.
-    </p>
-    <div class="datos">
-        <span class="section-title">DATOS DEL PRESTATARIO</span>
+    <p><b>Ambas partes llegan a los siguientes acuerdos:</b></p>
+    <p><b>PRIMERO.</b> EL PRESTAMISTA cederá en calidad de préstamo al PRESTATARIO la suma S/. <b>{{ number_format($monto, 2) }}</b> ({{ $monto_letras ?? '________' }}). Este monto será pagado por el PRESTATARIO una vez culminado el plazo pactado.</p>
+    <p><b>SEGUNDO.</b> Con la firma del siguiente documento, el PRESTATARIO se compromete a devolver el préstamo en el lapso de <b>{{ $plazo * 7 }}</b> días como máximo a partir de la firma del presente contrato y el pago será de manera semanal generando un interés del <b>{{ $interes ?? '17' }}%</b> mensual. Por tanto, el PRESTATARIO está en el deber de devolver la cantidad de S/. <b>{{ number_format($total, 2) }}</b> una vez culminado el presente contrato.</p>
+    <p><b>TERCERO.</b> En caso de incumplimiento de pago por parte del PRESTATARIO, el PRESTAMISTA tomará las medidas de cobranza necesarias para la recuperación del crédito.</p>
+    <p><b>CUARTO.</b> El presente contrato incluye un Seguro Desgravamen, el cual se hace efectivo, en caso de fallecimiento del titular, cancelando la deuda total.</p>
+    <p><b>QUINTO.</b> Ambas PARTES señalan y aseguran que en la celebración del presente contrato no ha mediado error, dolo o nulidad que pudiera invalidar el contenido del mismo, por lo que proceden a firmar en el lugar y fecha correspondiente.</p>
+
+    <div class="cuadro">
+        <span class="section-title">CRÉDITO/DESEMBOLSO</span>
         <table>
-            <tr><th>Nombre Completo:</th><td>{{ $cliente->nombre ?? '' }} {{ $cliente->apellidos ?? '' }}</td></tr>
-            <tr><th>DNI:</th><td>{{ $cliente->DNI ?? '' }}</td></tr>
-            <tr><th>Dirección:</th><td>{{ $cliente->direccion ?? '' }}</td></tr>
-            <tr><th>Teléfono:</th><td>{{ $cliente->celular ?? '' }}</td></tr>
-            <tr><th>Monto Prestado:</th><td>S/. {{ number_format($monto, 2) }}</td></tr>
-            <tr><th>Ciclo de Crédito:</th><td>{{ $ciclo ?? '' }}</td></tr>
+            <tr>
+                <th>MONTO</th>
+                <th>SEGURO</th>
+                <th>INTERES</th>
+                <th>CUOTAS</th>
+                <th>CAPITAL+SEGURO+INTERES</th>
+            </tr>
+            <tr>
+                <td>S/. {{ number_format($monto, 2) }}</td>
+                <td>S/. {{ number_format($seguro, 2) }}</td>
+                <td>{{ $interes ?? '17' }}%</td>
+                <td>{{ $plazo }}</td>
+                <td>S/. {{ number_format($total, 2) }}</td>
+            </tr>
         </table>
+        <br>
+        <span class="section-title">CRONOGRAMA DE PAGOS</span>
+        <table>
+            <tr>
+                <th>CUOTA</th>
+                <th>FECHA</th>
+                <th>TOTAL A PAGAR</th>
+            </tr>
+            @foreach($cronograma as $i => $cuota)
+            <tr>
+                <td>{{ $i+1 }}</td>
+                <td>{{ \Carbon\Carbon::parse($cuota['fecha'])->format('d/m/Y') }}</td>
+                <td>S/. {{ number_format($cuota['monto'], 2) }}</td>
+            </tr>
+            @endforeach
+        </table>
+    </div>
+    <br>
+    <p class="advertencia">*Estimado cliente EVITE EL PAGO DE INTERÉS MORATORIO, a partir del primer día de atraso UD. CANCELARÁ S/. 1.00 POR DÍA EN MORA.</p>
+    <div class="cuadro">
+        <b>CUENTA BCP:</b> 535026353940327<br>
+        <b>CCI:</b> 00253510263539403237<br>
+        <span style="color:#C00000; font-weight:bold;">IMPORTANTE: TODO PAGO DEBE SER REALIZADO A LA CUENTA BRINDADA. EL ASESOR NO ESTÁ AUTORIZADO A RECIBIR DINERO FÍSICO NI VIRTUAL (YAPE/TRANSFERENCIAS)</span><br>
+        <b>NRO PARA CONSULTAS:</b> 922 185 917
     </div>
 </body>
 </html>
