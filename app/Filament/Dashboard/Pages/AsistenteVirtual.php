@@ -22,7 +22,7 @@ use App\Models\Retanqueo;
 use App\Models\RetanqueoIndividual;
 use App\Models\CuotasGrupales;
 use App\Models\GrupoCliente;
-use App\Models\Asesor; // Asegúrate de importar el modelo Asesor
+use App\Models\Asesor; 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Filament\Forms\Components\View;
@@ -270,7 +270,8 @@ class AsistenteVirtual extends Page
                                 ->rows(3)
                                 ->columnSpan(2)
                                 ->reactive()
-                                ->afterStateUpdated(fn ($state) => $this->query = $state),
+                                ->afterStateUpdated(fn ($state) => $this->query = $state ?? ''),
+
                             Textarea::make('response')
                                 ->label('Respuesta')
                                 ->disabled()
@@ -405,7 +406,19 @@ Manejo de preguntas no válidas o irrelevantes:
 - No inventes consultas si no estás seguro de cómo estructurarlas correctamente.
 - Si la pregunta es ambigua, responde brevemente y solicita más detalles antes de generar la consulta.
 Nota: El monto total de mora no está almacenado; se estima multiplicando los días de atraso (calculados desde el día siguiente a la fecha_vencimiento hasta la fecha_atraso) por el número de integrantes del grupo, considerando 1 sol por persona por día.
+
 EOT;
+$reglasPagos = <<<EOT
+Reglas clave para responder sobre pagos:
+- Solo se deben sumar los pagos que tengan `estado_pago = 'aprobado'`.
+- Si el usuario menciona un mes (ej. junio), usa `MONTH(fecha_pago) = 6`.
+- Si el usuario tiene el rol de **asesor**, filtra solo pagos de sus grupos: `g.asesor_id = {asesor.id}`.
+- Ignora pagos con estado `'rechazado'`, `'pendiente'` u otros diferentes a `'aprobado'`.
+- Siempre responde en lenguaje natural. No muestres código SQL.
+- Si no hay pagos aprobados en el mes consultado, responde “Tus grupos no registran pagos aprobados en ese mes.”
+EOT;
+
+
  $ejemplosSQL = <<<EOT
 Ejemplos de consultas SQL:
 
@@ -459,6 +472,41 @@ JOIN grupos g ON g.id = p.grupo_id
 WHERE m.estado_mora IN ('pendiente', 'parcialmente_pagada');
 </SQL>
 
+
+4. Cuotas en mora con nombre del grupo (asesor):
+<SQL>
+SELECT
+    cg.id,
+    cg.numero_cuota,
+    cg.fecha_vencimiento,
+    m.estado_mora,
+    g.nombre_grupo
+FROM moras m
+JOIN cuotas_grupales cg ON cg.id = m.cuota_grupal_id
+JOIN prestamos p ON p.id = cg.prestamo_id
+JOIN grupos g ON g.id = p.grupo_id
+WHERE m.estado_mora = 'pendiente'
+AND g.asesor_id = {asesor.id};
+</SQL>
+
+5. Monto estimado de mora por grupo (asesor):
+<SQL>
+SELECT
+    g.nombre_grupo,
+    SUM(
+        DATEDIFF(m.fecha_atraso, DATE_ADD(cg.fecha_vencimiento, INTERVAL 1 DAY)) *
+        (SELECT COUNT(*) FROM grupo_cliente gc WHERE gc.grupo_id = g.id)
+    ) AS monto_estimado_mora
+FROM moras m
+JOIN cuotas_grupales cg ON cg.id = m.cuota_grupal_id
+JOIN prestamos p ON p.id = cg.prestamo_id
+JOIN grupos g ON g.id = p.grupo_id
+WHERE m.estado_mora IN ('pendiente', 'parcialmente_pagada')
+AND g.asesor_id = {asesor.id}
+GROUP BY g.nombre_grupo;
+</SQL>
+
+
 EOT;
 $guiaRoles = <<<EOT
 Guía de acceso según rol:
@@ -480,6 +528,9 @@ Esquema de base de datos:
 
 Relaciones clave:
 {$relaciones}
+
+Reglas pagos:
+{$reglasPagos}
 
 Ejemplos de consultas:
 {$ejemplosSQL}

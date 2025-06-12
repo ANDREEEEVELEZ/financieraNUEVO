@@ -42,8 +42,8 @@ class AsesorResource extends Resource
             TextInput::make('nombre')->label('Nombre')->required(),
             TextInput::make('apellidos')->label('Apellidos')->required(),
             Select::make('sexo')->label('Sexo')->required()->options([
-                'Hombre' => 'Hombre',
-                'Mujer' => 'Mujer',
+                'Femenino' => 'Femenino',
+                'Masculino' => 'Masculino',
             ])->native(false),
             DatePicker::make('fecha_nacimiento')->label('Fecha de Nacimiento')->required(),
             TextInput::make('celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required(),
@@ -66,7 +66,7 @@ class AsesorResource extends Resource
                 'Viudo' => 'Viudo',
             ])->native(false)->required(),
         ])->columns(2)->relationship('persona'),
-                            
+
             ]),
                     Tabs\Tab::make('Datos de Usuario')
                         ->schema([
@@ -137,22 +137,22 @@ class AsesorResource extends Resource
                     ->hidden(fn ($record): bool => $record->estado_asesor === 'Activo')
                     ->after(function ($record) {                        // Activar el asesor y su cuenta de usuario
                         $record->update(['estado_asesor' => 'Activo']);
-                        
+
                         if ($record->user) {
                             $record->user->update(['active' => true]);
-                            
+
                             // Asegurar que tenga el rol de Asesor
                             $role = \Spatie\Permission\Models\Role::findByName('Asesor');
                             if ($role) {
                                 // Limpiar caché de permisos
                                 app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-                                
+
                                 // Asignar rol y permisos
                                 $record->user->syncRoles([$role]);
                                 $record->user->syncPermissions($role->permissions);
                             }
                         }
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->success()
                             ->title('Asesor Activado')
@@ -177,16 +177,16 @@ class AsesorResource extends Resource
                                 if ($record->estado_asesor === 'Inactivo') {
                                     // Activar el asesor y su cuenta de usuario
                                     $record->update(['estado_asesor' => 'Activo']);
-                                    
+
                                     if ($record->user) {
                                         $record->user->update(['active' => true]);
-                                        
+
                                         // Asegurar que tenga el rol de Asesor
                                         $role = \Spatie\Permission\Models\Role::findByName('Asesor');
                                         if ($role) {
                                             // Limpiar caché de permisos
                                             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-                                            
+
                                             // Asignar rol y permisos
                                             $record->user->syncRoles([$role]);
                                             $record->user->syncPermissions($role->permissions);

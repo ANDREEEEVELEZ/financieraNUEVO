@@ -35,8 +35,8 @@ class ClienteResource extends Resource
                                 TextInput::make('persona.nombre')->label('Nombre')->required(),
                                 TextInput::make('persona.apellidos')->label('Apellidos')->required(),
                                 Select::make('persona.sexo')->label('Sexo')->required()->options([
-                                    'Hombre' => 'Hombre',
-                                    'Mujer' => 'Mujer',
+                                      'Femenino' => 'Femenino',
+                                    'Masculino' => 'Masculino',
                                 ])->native(false),
                                 DatePicker::make('persona.fecha_nacimiento')->label('Fecha de Nacimiento')->required(),
                                 TextInput::make('persona.celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required(),
@@ -52,7 +52,7 @@ class ClienteResource extends Resource
                                     'Salitral' => 'Salitral',
                                     'Lancones' => 'Lancones',
                                     'Miguel Checa' => 'Miguel Checa',
-                                   
+
                                 ])->native(false)->required(),
                                 Select::make('persona.estado_civil')->label('Estado Civil')->options([
                                     'Soltero' => 'Soltero',
@@ -141,7 +141,7 @@ class ClienteResource extends Resource
         if (\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
                 ->label('Asesor')
-                ->formatStateUsing(fn ($record) => 
+                ->formatStateUsing(fn ($record) =>
                     $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-'
                 )
                 ->sortable()

@@ -9,40 +9,41 @@ uses(RefreshDatabase::class);
 it('verifica que un pago esté asociado a una cuota', function () {
     $cuota = CuotasGrupales::factory()->create();
     $pago = Pago::factory()->create([
-        'cuota_id' => $cuota->id,
-        'monto' => 100,
+        'cuota_grupal_id' => $cuota->id,
+        'monto_pagado' => 100,
     ]);
 
-    expect($pago->cuota)->toBeInstanceOf(CuotasGrupales::class);
-    expect($pago->cuota->id)->toBe($cuota->id);
+    expect($pago->cuotaGrupal)->toBeInstanceOf(CuotasGrupales::class);
+    expect($pago->cuotaGrupal->id)->toBe($cuota->id);
 });
 
 it('verifica si un pago cubre totalmente la cuota', function () {
     $cuota = CuotasGrupales::factory()->create([
-        'monto' => 150,
+        'monto_cuota_grupal' => 150,
     ]);
 
     $pago = Pago::factory()->create([
-        'cuota_id' => $cuota->id,
-        'monto' => 150,
+        'cuota_grupal_id' => $cuota->id,
+        'monto_pagado' => 150,
     ]);
 
-    $estaPagado = $pago->monto >= $cuota->monto;
+    $estaPagado = $pago->monto_pagado >= $cuota->monto_cuota_grupal;
 
     expect($estaPagado)->toBeTrue();
 });
 
 it('detecta que el pago no cubre totalmente la cuota', function () {
     $cuota = CuotasGrupales::factory()->create([
-        'monto' => 200,
+        'monto_cuota_grupal' => 200,
     ]);
 
     $pago = Pago::factory()->create([
-        'cuota_id' => $cuota->id,
-        'monto' => 150,
+        'cuota_grupal_id' => $cuota->id,
+        'monto_pagado' => 150,
     ]);
 
-    $estaPagado = $pago->monto >= $cuota->monto;
+    $estaPagado = $pago->monto_pagado >= $cuota->monto_cuota_grupal;
 
     expect($estaPagado)->toBeFalse();
 });
+

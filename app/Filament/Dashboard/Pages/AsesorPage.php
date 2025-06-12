@@ -12,7 +12,7 @@ use App\Models\Retanqueo;
 use App\Models\CuotasGrupales;
 use App\Models\Asesor as AsesorModel;
 
-class Asesor extends Page
+class AsesorPage extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static string $view = 'filament.dashboard.pages.asesor';
@@ -61,7 +61,7 @@ class Asesor extends Page
 
         // Estadísticas de moras - optimizado
         $cuotasQuery = CuotasGrupales::whereIn('prestamo_id', $prestamoIds);
-        
+
         $cuotasEnMora = (clone $cuotasQuery)->whereHas('mora', function ($q) {
             $q->where('estado_mora', 'pendiente');
         })->count();
@@ -116,25 +116,25 @@ class Asesor extends Page
 
         // Optimizar consulta de grupos con eager loading - SOLO GRUPOS EN MORA
         $gruposEnMora = $gruposQuery->with([
-            'clientes', 
+            'clientes',
             'prestamos' => function($query) {
                 $query->orderByDesc('id');
             },
             'prestamos.cuotasGrupales.mora'
         ])->get()->filter(function($grupo) {
             $prestamoPrincipal = $grupo->prestamos->first();
-            
+
             if ($prestamoPrincipal) {
                 return $prestamoPrincipal->cuotasGrupales->contains(function($cuota) {
                     return $cuota->mora && $cuota->mora->estado_mora === 'pendiente';
                 });
             }
-            
+
             return false;
         })->map(function($grupo) {
             $numeroIntegrantes = $grupo->clientes->count();
             $prestamoPrincipal = $grupo->prestamos->first();
-            
+
             // Calcular el monto total de mora para este grupo
             $montoMoraGrupo = 0;
             if ($prestamoPrincipal) {
@@ -144,7 +144,7 @@ class Asesor extends Page
                     }
                 }
             }
-            
+
             return [
                 'nombre' => $grupo->nombre_grupo,
                 'numero_integrantes' => $numeroIntegrantes,
