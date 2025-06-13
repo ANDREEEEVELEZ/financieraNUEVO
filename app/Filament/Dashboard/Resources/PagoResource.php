@@ -72,7 +72,7 @@ class PagoResource extends Resource
                             $set('cuota_grupal_id', $cuota->id);
                             $set('numero_cuota', $cuota->numero_cuota);
                             $set('monto_cuota', $cuota->monto_cuota_grupal);
-                            $set('monto_mora_aplicada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+                            $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
                             $set('saldo_pendiente_actual', $cuota->saldoPendiente());
                             return;
                         }
@@ -81,7 +81,7 @@ class PagoResource extends Resource
                     $set('cuota_grupal_id', null);
                     $set('numero_cuota', null);
                     $set('monto_cuota', null);
-                    $set('monto_mora_aplicada', 0.00);
+                    $set('monto_mora_pagada', 0.00);
                     $set('saldo_pendiente_actual', 0.00);
                 })
 
@@ -117,11 +117,11 @@ class PagoResource extends Resource
                     }
                 }),
 
-            TextInput::make('monto_mora_aplicada')
+            TextInput::make('monto_mora_pagada')
                 ->label('Monto de Mora Aplicado')
                 ->numeric()
                 ->disabled() // Ya estaba deshabilitado
-                ->dehydrated(false)
+                ->dehydrated(true)
                 ->default(0.00)
                 ->afterStateHydrated(function ($component, $state, $record) {
                     if ($record && $record->cuotaGrupal && $record->cuotaGrupal->mora) {
@@ -171,10 +171,10 @@ class PagoResource extends Resource
 
                     if ($state === 'pago_completo') {
                         $set('monto_pagado', $saldoPendiente);
-                        $set('monto_mora_aplicada', $montoMora);
+                        $set('monto_mora_pagada', $montoMora);
                     } elseif ($state === 'pago_parcial') {
                         // En pago parcial no cambiar el monto_pagado automáticamente
-                        $set('monto_mora_aplicada', $montoMora);
+                        $set('monto_mora_pagada', $montoMora);
                     }
                 })
                 // Deshabilitar en modo edición

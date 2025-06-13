@@ -76,12 +76,14 @@
                 <td>
                     @php
                         $diasAtraso = 0;
-                        if ($cuota->fecha_vencimiento) {
-                            $diasAtraso = max(0, floor(\Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->diffInDays(now(), false)));
+                        if ($cuota->fecha_vencimiento && $cuota->estado_pago !== 'pagado' && $cuota->estado_cuota_grupal !== 'cancelada') {
+                            $fechaVencimiento = \Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
+                            $diasAtraso = max(0, $fechaVencimiento->diffInDays(now()));
                         }
                     @endphp
                     {{ $diasAtraso }}
                 </td>
+
                 <td>S/ {{ $cuota->mora ? number_format(abs($cuota->mora->monto_mora_calculado), 2) : '0.00' }}</td>
                 <td>
                     @php

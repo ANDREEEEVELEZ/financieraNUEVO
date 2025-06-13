@@ -20,6 +20,7 @@ class CreatePago extends CreateRecord
         if (empty($data['fecha_pago'])) {
             $data['fecha_pago'] = now();
         }
+          $data['monto_mora_pagada'] = $data['monto_mora_pagada'] ?? 0;
 
         return $data;
     }
@@ -48,7 +49,7 @@ class CreatePago extends CreateRecord
                     'grupo_id' => $cuota->prestamo->grupo->id ?? null,
                     'numero_cuota' => $cuota->numero_cuota,
                     'monto_cuota' => $cuota->monto_cuota_grupal,
-                    'monto_mora_aplicada' => $montoMora,
+                    'monto_mora_pagada' => $montoMora,
                     'saldo_pendiente_actual' => $saldoPendiente,
                     'estado_pago' => 'Pendiente',
                     'fecha_pago' => now(),
