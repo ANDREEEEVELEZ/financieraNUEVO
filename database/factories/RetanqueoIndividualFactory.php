@@ -24,7 +24,7 @@ class RetanqueoIndividualFactory extends Factory
             'monto_solicitado' => $this->faker->randomFloat(2, 100, 1000),
             'monto_desembolsar' => $this->faker->randomFloat(2, 100, 1000),
             'monto_cuota_retanqueo' => $this->faker->randomFloat(2, 20, 200),
-            'estado_retanqueo_individual' => $this->faker->randomElement(['pendiente', 'aprobado']),
+            'estado_retanqueo_individual' => $this->faker->randomElement(['pendiente', 'aprobado', 'rechazado']),
         ];
     }
 }

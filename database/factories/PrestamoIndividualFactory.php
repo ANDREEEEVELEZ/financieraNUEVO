@@ -26,7 +26,7 @@ class PrestamoIndividualFactory extends Factory
             'monto_devolver_individual' => $this->faker->randomFloat(2, 120, 1200),
             'seguro' => $this->faker->randomFloat(2, 5, 50),
             'interes' => $this->faker->randomFloat(2, 1, 5),
-            'estado' => $this->faker->randomElement(['vigente', 'cancelado']),
+            'estado' => $this->faker->randomElement(['Pendiente', 'Aprobado', 'Rechazado']),
         ];
     }
 }

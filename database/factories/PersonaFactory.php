@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Faker\Factory as FakerFactory;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Persona>
@@ -14,20 +15,23 @@ class PersonaFactory extends Factory
      *
      * @return array<string, mixed>
      */
-    public function definition(): array
-    {
-        return [
-            'DNI' => $this->faker->unique()->numerify('########'),
-            'nombre' => $this->faker->firstName,
-            'apellidos' => $this->faker->lastName,
-            'sexo' => $this->faker->randomElement(['Masculino', 'Femenino']),
-            'fecha_nacimiento' => $this->faker->date('Y-m-d'),
-            'celular' => $this->faker->phoneNumber,
-            'correo' => $this->faker->unique()->safeEmail,
-            'direccion' => $this->faker->address,
-            'distrito' => $this->faker->city,
-            'estado_civil' => $this->faker->randomElement(['soltero', 'casado', 'divorciado']),
+   public function definition(): array
+{
+    $faker = FakerFactory::create('es_PE'); // o sin localización
+    $nombres = ['Juan', 'María', 'Carlos', 'Ana', 'Luis', 'Carmen', 'José', 'Isabel'];
+    $apellidos = ['García', 'López', 'Martínez', 'González'];
 
-        ];
-    }
+    return [
+        'DNI' => str_pad($faker->unique()->numberBetween(1, 99999999), 8, '0', STR_PAD_LEFT),
+        'nombre' => $faker->randomElement($nombres),
+        'apellidos' => $faker->randomElement($apellidos) . ' ' . $faker->randomElement($apellidos),
+        'sexo' => $faker->randomElement(['Masculino', 'Femenino']),
+        'fecha_nacimiento' => $faker->date('Y-m-d'),
+        'celular' => '9' . $faker->numberBetween(10000000, 99999999),
+        'correo' => 'user' . $faker->unique()->numberBetween(1, 9999) . '@example.com',
+        'direccion' => 'Calle ' . $faker->numberBetween(1, 999),
+        'distrito' => $faker->randomElement(['Lima', 'Surco']),
+        'estado_civil' => $faker->randomElement(['Soltero', 'Casado']),
+    ];
+}
 }

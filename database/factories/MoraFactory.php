@@ -21,7 +21,7 @@ class MoraFactory extends Factory
         return [
              'cuota_grupal_id' => CuotasGrupales::factory(),
             'estado_mora' => $this->faker->randomElement(['pendiente', 'pagada','parcialmente_pagada']),
-            'fecha_atraso' => $this->faker->date('Y-m-d'),
+            'fecha_atraso' => now()->toDateString(),
         ];
     }
 }

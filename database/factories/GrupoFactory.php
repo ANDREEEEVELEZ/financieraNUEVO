@@ -19,11 +19,11 @@ class GrupoFactory extends Factory
     public function definition(): array
     {
         return [
-            'nombre_grupo' => $this->faker->company(),
+            'nombre_grupo' => 'Grupo ' . rand(1, 1000),
             'numero_integrantes' => $this->faker->numberBetween(3, 10),
-            'fecha_registro' => $this->faker->date('Y-m-d'),
+            'fecha_registro'=> now()->toDateString(),
             'calificacion_grupo' => $this->faker->randomFloat(2, 0, 10),
-            'estado_grupo' => $this->faker->randomElement(['activo', 'inactivo']),
+            'estado_grupo'=> fake()->randomElement(['activo', 'inactivo']),
             'asesor_id' => Asesor::factory(),
         ];
     }

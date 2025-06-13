@@ -21,7 +21,7 @@ class EgresoFactory extends Factory
     {
         return [
             'tipo_egreso' => $this->faker->randomElement(['gasto', 'desembolso']),
-            'fecha' => $this->faker->date('Y-m-d'),
+            'fecha' => now()->toDateString(),
             'descripcion' => $this->faker->sentence(),
             'monto' => $this->faker->randomFloat(2, 100, 2000),
             'prestamo_id' => Prestamo::factory(),

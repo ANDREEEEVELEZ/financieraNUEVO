@@ -25,7 +25,7 @@ class ClienteFactory extends Factory
             'ciclo' => $this->faker->numberBetween(1, 5),
             'condicion_vivienda' => $this->faker->randomElement(['propia', 'alquilada', 'familiar']),
             'actividad' => $this->faker->word(),
-            'condicion_personal' => $this->faker->randomElement(['activo', 'moroso']),
+            'condicion_personal' => $this->faker->randomElement(['PEP', 'Capacitado','Iletrado']),
             'estado_cliente' => $this->faker->randomElement(['activo', 'inactivo']),
             'asesor_id' => Asesor::factory(),
 

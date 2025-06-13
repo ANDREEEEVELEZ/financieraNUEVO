@@ -19,14 +19,11 @@ class AsesorFactory extends Factory
     public function definition(): array
     {
         return [
-
             'persona_id' => Persona::factory(),
             'user_id' => User::factory(),
-            'codigo_asesor' => $this->faker->unique()->bothify('ASR-####'),
-            'fecha_ingreso' => $this->faker->date('Y-m-d'),
-            'estado_asesor' => $this->faker->randomElement(['activo', 'inactivo']),
-
-
+            'codigo_asesor' => 'ASR-' . str_pad($this->faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
+            'fecha_ingreso' => now()->toDateString(),
+            'estado_asesor' => fake()->randomElement(['activo', 'inactivo']),
         ];
     }
 }

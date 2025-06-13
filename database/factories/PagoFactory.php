@@ -20,7 +20,7 @@ class PagoFactory extends Factory
             'codigo_operacion' => $this->faker->uuid(),
             'monto_pagado' => $this->faker->randomFloat(2, 50, 1000),
             'monto_mora_pagada' => $this->faker->randomFloat(2, 0, 50),
-            'fecha_pago' => $this->faker->dateTime()->format('Y-m-d H:i:s'),
+           'fecha_pago' => $this->faker->dateTime(),
             'estado_pago' => $this->faker->randomElement(['Aprobado', 'Pendiente', 'Rechazado']),
             'observaciones' => $this->faker->sentence(),
         ];

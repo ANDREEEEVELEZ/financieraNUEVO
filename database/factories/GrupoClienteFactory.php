@@ -22,7 +22,7 @@ class GrupoClienteFactory extends Factory
         return [
              'grupo_id' => Grupo::factory(),
             'cliente_id' => Cliente::factory(),
-            'fecha_ingreso' => $this->faker->date('Y-m-d'),
+            'fecha_ingreso' => now()->toDateString(),
             'rol' => $this->faker->randomElement(['miembro', 'lider']),
             'estado_grupo_cliente' => $this->faker->randomElement(['activo', 'inactivo']),
         ];
