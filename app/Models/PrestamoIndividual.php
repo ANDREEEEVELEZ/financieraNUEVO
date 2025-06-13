@@ -38,4 +38,10 @@ class PrestamoIndividual extends Model
     {
         return $this->belongsTo(Cliente::class);
     }
+
+    // Opcional: método para saber si está finalizado
+    public function estaFinalizado()
+    {
+        return $this->estado === 'Finalizado';
+    }
 }

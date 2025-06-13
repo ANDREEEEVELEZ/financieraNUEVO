@@ -36,7 +36,7 @@ class Prestamo extends Model
     }
         public function cuotasGrupales()
     {
-        return $this->hasMany(CuotasGrupales::class);
+        return $this->hasMany(CuotasGrupales::class, 'prestamo_id');
     }
     public function scopeVisiblePorUsuario($query, $user)
     {
@@ -66,5 +66,10 @@ class Prestamo extends Model
     public function retanqueos()
     {
         return $this->hasMany(Retanqueo::class);
+    }
+    // Opcional: método para saber si está finalizado
+    public function estaFinalizado()
+    {
+        return $this->estado === 'Finalizado';
     }
 }

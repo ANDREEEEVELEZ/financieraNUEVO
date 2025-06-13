@@ -32,20 +32,28 @@ class PrestamoResource extends Resource
                 ->relationship('grupo', 'nombre_grupo')
                 ->options(function () {
                     $user = request()->user();
-                
+                    $gruposDisponibles = [];
                     if ($user->hasRole('Asesor')) {
                         $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
                         if ($asesor) {
-                            return \App\Models\Grupo::where('asesor_id', $asesor->id)
-                             ->orderBy('nombre_grupo', 'asc')
-                            ->pluck('nombre_grupo', 'id');
+                            $grupos = \App\Models\Grupo::where('asesor_id', $asesor->id)
+                                ->orderBy('nombre_grupo', 'asc')
+                                ->get();
                         }
                     } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                    
-                         return \App\Models\Grupo::orderBy('nombre_grupo', 'asc') //
-                            ->pluck('nombre_grupo', 'id');
+                        $grupos = \App\Models\Grupo::orderBy('nombre_grupo', 'asc')->get();
+                    } else {
+                        $grupos = collect();
                     }
-                    return []; // Retornar vacío si no aplica
+                    // Filtrar grupos que NO tengan préstamos activos con deuda
+                    $gruposDisponibles = $grupos->filter(function($grupo) {
+                        $tienePrestamoActivo = $grupo->prestamos()->whereIn('estado', ['Pendiente', 'Aprobado'])
+                            ->whereHas('cuotasGrupales', function($q) {
+                                $q->where('estado_pago', '!=', 'Pagado');
+                            })->exists();
+                        return !$tienePrestamoActivo;
+                    })->pluck('nombre_grupo', 'id');
+                    return $gruposDisponibles;
                 })
                 ->searchable()
                 ->required()
@@ -183,6 +191,7 @@ class PrestamoResource extends Resource
                     'Pendiente' => 'Pendiente',
                     'Aprobado' => 'Aprobado',
                     'Rechazado' => 'Rechazado',
+                    // 'Finalizado' NO se muestra como opción
                 ])
                 ->default('Pendiente')
                 ->required()
@@ -202,7 +211,8 @@ class PrestamoResource extends Resource
     // Proteger el backend para que solo los roles permitidos puedan modificar el estado
     public static function mutateFormDataBeforeSave(array $data): array
     {
-        if (!\Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos'])) {
+        // Solo los roles permitidos pueden modificar el estado
+        if (!\Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])) {
             unset($data['estado']);
         }
         // Eliminar el campo nuevo_rol para que no intente guardarse en la tabla prestamos
@@ -241,6 +251,7 @@ class PrestamoResource extends Resource
                 ->color(fn (string $state): string => match (strtolower($state)) {
                     'aprobado' => 'success',
                     'rechazado' => 'danger',
+                    'finalizado' => 'primary',
                     default => 'warning',
                 })
                 ->sortable(),

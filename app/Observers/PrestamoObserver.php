@@ -51,6 +51,13 @@ class PrestamoObserver
             'changed_attributes' => $prestamo->getChanges()
         ]);
         
+        // Sincronizar estados con PrestamoIndividual
+        if ($prestamo->wasChanged('estado')) {
+            if (in_array($prestamo->estado, ['Pendiente', 'Aprobado', 'Rechazado'])) {
+                PrestamoIndividual::where('prestamo_id', $prestamo->id)
+                    ->update(['estado' => $prestamo->estado]);
+            }
+        }
      
         if ($prestamo->wasChanged('estado') && strtolower($prestamo->estado) === 'aprobado') {
             Log::info('PrestamoObserver: Préstamo aprobado detectado', ['prestamo_id' => $prestamo->id]);
