@@ -21,7 +21,9 @@ use Filament\Forms\Components\Section;
 class ClienteResource extends Resource
 {
     protected static ?string $model = Cliente::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+  protected static ?string $navigationIcon = 'heroicon-o-user-plus';
+
+
 
     public static function form(Form $form): Form
     {
@@ -29,20 +31,20 @@ class ClienteResource extends Resource
             ->schema([
                 Tabs::make('Cliente')
                     ->tabs([
-                        Tabs\Tab::make('Información Personal')
+                        Tabs\Tab::make('Información Personal')->icon('heroicon-o-user')
                             ->schema([
-                                TextInput::make('persona.DNI')->label('DNI')->required()->maxLength(8)->minLength(8)->numeric(),
-                                TextInput::make('persona.nombre')->label('Nombre')->required(),
-                                TextInput::make('persona.apellidos')->label('Apellidos')->required(),
-                                Select::make('persona.sexo')->label('Sexo')->required()->options([
+                                TextInput::make('persona.DNI')->label('DNI')->required()->maxLength(8)->minLength(8)->numeric()->prefixIcon('heroicon-o-identification'),
+                                TextInput::make('persona.nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user'),
+                                TextInput::make('persona.apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user'),
+                                Select::make('persona.sexo')->label('Sexo')->required()->prefixIcon('heroicon-o-adjustments-horizontal')->options([
                                       'Femenino' => 'Femenino',
                                     'Masculino' => 'Masculino',
                                 ])->native(false),
-                                DatePicker::make('persona.fecha_nacimiento')->label('Fecha de Nacimiento')->required(),
-                                TextInput::make('persona.celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required(),
-                                TextInput::make('persona.correo')->label('Correo Electrónico')->email()->required(),
-                                TextInput::make('persona.direccion')->label('Dirección')->required(),
-                                Select::make('persona.distrito')->label('Distrito')->options([
+                                DatePicker::make('persona.fecha_nacimiento')->label('Fecha de Nacimiento')->required()->prefixIcon('heroicon-o-calendar'),
+                                TextInput::make('persona.celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required()->prefixIcon('heroicon-o-phone'),
+                                TextInput::make('persona.correo')->label('Correo Electrónico')->email()->required()->prefixIcon('heroicon-o-envelope'),
+                                TextInput::make('persona.direccion')->label('Dirección')->required()->prefixIcon('heroicon-o-map-pin'),
+                                Select::make('persona.distrito')->label('Distrito')->prefixIcon('heroicon-o-map-pin')->options([
 
                                     'Sullana' => 'Sullana',
                                     'Bellavista ' => 'Bellavista',
@@ -54,7 +56,7 @@ class ClienteResource extends Resource
                                     'Miguel Checa' => 'Miguel Checa',
 
                                 ])->native(false)->required(),
-                                Select::make('persona.estado_civil')->label('Estado Civil')->options([
+                                Select::make('persona.estado_civil')->label('Estado Civil')->prefixIcon('heroicon-o-heart')->options([
                                     'Soltero' => 'Soltero',
                                     'Casado' => 'Casado',
                                     'Divorciado' => 'Divorciado',
@@ -64,8 +66,8 @@ class ClienteResource extends Resource
 
                         Tabs\Tab::make('Información Cliente')
                             ->schema([
-                                TextInput::make('infocorp')->label('Infocorp')->required(),
-                                TextInput::make('ciclo')->label('Ciclo')->required(),
+                                TextInput::make('infocorp')->label('Infocorp')->required()->prefixIcon('heroicon-o-document-magnifying-glass'),
+                                TextInput::make('ciclo')->label('Ciclo')->required() ->prefixIcon('heroicon-o-arrow-path-rounded-square'),
                                 Forms\Components\Select::make('condicion_vivienda')
                                     ->options([
                                         'Propia' => 'Propia',
@@ -75,8 +77,9 @@ class ClienteResource extends Resource
                                     ->native(false)
                                     ->searchable()
                                     ->label('Condición de Vivienda')
+                                    ->prefixIcon('heroicon-o-home-modern')
                                     ->required(),
-                                TextInput::make('actividad')->label('Actividad')->required(),
+                                TextInput::make('actividad')->label('Actividad')->required() ->prefixIcon('heroicon-o-briefcase'),
                                 Forms\Components\Select::make('condicion_personal')
                                     ->options([
                                         'Capacitado' => 'Capacitado',
@@ -86,9 +89,11 @@ class ClienteResource extends Resource
                                     ->native(false)
                                     ->searchable()
                                     ->label('Condición Personal')
+                                    ->prefixIcon('heroicon-o-user-circle')
                                     ->required(),
                                 Forms\Components\Select::make('estado_cliente')
-                                    ->options([
+                                   ->prefixIcon('heroicon-o-check-circle')
+                                ->options([
                                         'Activo' => 'Activo',
                                         'Inactivo' => 'Inactivo',
                                     ])
@@ -109,7 +114,8 @@ class ClienteResource extends Resource
                                     ->searchable()
                                     ->required(fn () => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                                     ->visible(fn () => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
-                                    ->helperText('Seleccione el asesor responsable para este cliente.'),
+                                    ->helperText('Seleccione el asesor responsable para este cliente.')
+                                    ->prefixIcon('heroicon-o-user-group'),
                             ])->columns(2),
                     ])
             ]);
@@ -203,7 +209,7 @@ class ClienteResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
                 Tables\Actions\Action::make('activar')
                     ->label('Activar')
                     ->icon('heroicon-o-check-circle')

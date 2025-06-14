@@ -22,7 +22,8 @@ class ListClientes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+            ->icon('heroicon-o-plus-circle'),
         ];
     }
 
@@ -62,7 +63,7 @@ class ListClientes extends ListRecords
                     });
                 })
                 ->deselectRecordsAfterCompletion(),
-                
+
             BulkAction::make('activate')
                 ->label('Activar seleccionados')
                 ->color('success')

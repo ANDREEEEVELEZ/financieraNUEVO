@@ -28,15 +28,16 @@ class EditCliente extends EditRecord
         ));
     }
 
-    protected function getHeaderActions(): array 
+    protected function getHeaderActions(): array
     {
         return [
             Actions\DeleteAction::make()
+            ->icon('heroicon-o-trash')
                 ->action(function () {
                     // En lugar de eliminar, cambiar el estado a inactivo
                     $this->record->estado_cliente = 'Inactivo';
                     $this->record->save();
-                    
+
                     $this->redirect($this->getResource()::getUrl('index'));
                 })
         ];

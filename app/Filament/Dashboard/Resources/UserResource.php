@@ -17,22 +17,27 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+   protected static ?string $navigationIcon = 'heroicon-o-identification';
+
+
+
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')->label('Nombre')->required(),
-                Forms\Components\TextInput::make('email')->label('Correo')->email()->required(),
+                Forms\Components\TextInput::make('name')->label('Nombre')->required()->prefixIcon('heroicon-o-user'),
+                Forms\Components\TextInput::make('email')->label('Correo')->email()->required()->prefixIcon('heroicon-o-envelope'),
                 Forms\Components\TextInput::make('password')
                     ->label('Contraseña')
+                    ->prefixIcon('heroicon-o-lock-closed')
                     ->password()
                     ->dehydrateStateUsing(fn($state) => !empty($state) ? bcrypt($state) : null)
                     ->dehydrated(fn($state) => filled($state))
                     ->required(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\CreateRecord),
                 Forms\Components\Select::make('roles')
                     ->relationship('roles', 'name')
+                    ->prefixIcon('heroicon-o-shield-check')
                     ->multiple()
                     ->preload()
                     ->searchable(),
@@ -52,7 +57,7 @@ class UserResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

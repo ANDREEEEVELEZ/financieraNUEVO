@@ -17,7 +17,7 @@ class ListPagos extends ListRecords
         $user = Auth::user();
 
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()->icon('heroicon-o-plus-circle'),
             Actions\Action::make('exportar_pdf')
                 ->label('Exportar PDF')
                 ->icon('heroicon-o-document-arrow-down')

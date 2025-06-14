@@ -10,13 +10,16 @@ use App\Models\Cliente;
 use App\Models\Prestamo;
 use App\Models\Retanqueo;
 use App\Models\CuotasGrupales;
+
 use App\Models\Asesor as AsesorModel;
 
-class AsesorPage extends Page
+class AsesorPage  extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static string $view = 'filament.dashboard.pages.asesor';
     protected static ?string $navigationLabel = 'Panel asesor';
+    protected static ?string $title = 'PANEL ASESOR';
+
 
     public function getViewData(): array
     {

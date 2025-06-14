@@ -42,6 +42,7 @@ public static function form(Form $form): Form
             return [
             TextInput::make('tipo_ingreso')
                 ->label('Tipo de Ingreso')
+               ->prefixIcon('heroicon-o-banknotes')
                 ->default('transferencia')
                 ->disabled() // Siempre deshabilitado
                 ->dehydrated() // Asegura que sí se guarde en la BD
@@ -123,6 +124,7 @@ public static function form(Form $form): Form
 
             DateTimePicker::make('fecha_hora')
                 ->label('Fecha y Hora')
+                ->prefixIcon('heroicon-o-calendar')
                 ->required()
                 ->default(now())
             ->disabled(fn (Forms\Get $get) => $isEditing && in_array($get('tipo_ingreso'), ['transferencia', 'pago de cuota de grupo'])),
@@ -130,6 +132,7 @@ public static function form(Form $form): Form
 
         Textarea::make('descripcion')
             ->label('Descripción')
+           
             ->rows(3)
             ->columnSpanFull()
             ->required()

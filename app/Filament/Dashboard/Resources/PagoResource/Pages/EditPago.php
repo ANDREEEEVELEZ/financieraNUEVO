@@ -20,12 +20,12 @@ class EditPago extends EditRecord
 
     protected function getFormActions(): array
     {
-        return []; 
+        return [];
     }
 
     protected function getHeaderActions(): array
     {
-        // Aquí puedes mantener las acciones aprobar/rechazar para roles específicos
+        
         return [
             Actions\Action::make('aprobar')
                 ->label('Aprobar')

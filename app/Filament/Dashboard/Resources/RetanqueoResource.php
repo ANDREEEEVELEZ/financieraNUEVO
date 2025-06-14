@@ -89,7 +89,7 @@ class RetanqueoResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -123,6 +123,11 @@ class RetanqueoResource extends Resource
             //
         ];
     }
+    public static function shouldRegisterNavigation(): bool
+{
+    return false;
+}
+
 
     public static function getPages(): array
     {
