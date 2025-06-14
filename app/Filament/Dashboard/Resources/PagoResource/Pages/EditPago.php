@@ -34,7 +34,7 @@ class EditPago extends EditRecord
                 ->outlined()
                 ->size('sm')
                 ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) &&
-                    Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                    Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                 ->action(function ($record) {
                     $record->aprobar();
                     Notification::make()
@@ -49,7 +49,7 @@ class EditPago extends EditRecord
                 ->outlined()
                 ->size('sm')
                 ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) &&
-                    Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                    Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', ]))
                 ->action(function ($record) {
                     $record->rechazar();
                     Notification::make()
