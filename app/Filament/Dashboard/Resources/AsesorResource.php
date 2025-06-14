@@ -15,16 +15,18 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 
+
 class AsesorResource extends Resource
 {
     protected static ?string $model = Asesor::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    // Aquí se define el nombre singular que aparece en la interfaz
+  protected static ?string $navigationIcon = 'heroicon-o-user-plus';
+
+
     public static function getModelLabel(): string
     {
         return 'Asesor';
     }
-    // Aquí se define el nombre plural que aparece en la interfaz
+
     public static function getPluralModelLabel(): string
     {
         return 'Asesores';
@@ -35,21 +37,21 @@ class AsesorResource extends Resource
         ->schema([
             Tabs::make('DatosAsesor')
                 ->tabs([
-                    Tabs\Tab::make('Información Personal')
+                    Tabs\Tab::make('Información Personal') ->icon('heroicon-o-user')
     ->schema([
         Forms\Components\Group::make([
-            TextInput::make('DNI')->label('DNI')->required()->maxLength(8)->minLength(8)->numeric(),
-            TextInput::make('nombre')->label('Nombre')->required(),
-            TextInput::make('apellidos')->label('Apellidos')->required(),
-            Select::make('sexo')->label('Sexo')->required()->options([
+            TextInput::make('DNI')->label('DNI')->required()->maxLength(8)->minLength(8)->numeric()->prefixIcon('heroicon-o-identification'),
+            TextInput::make('nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user'),
+            TextInput::make('apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user'),
+            Select::make('sexo')->label('Sexo')->required()->prefixIcon('heroicon-o-adjustments-horizontal')->options([
                 'Femenino' => 'Femenino',
                 'Masculino' => 'Masculino',
             ])->native(false),
-            DatePicker::make('fecha_nacimiento')->label('Fecha de Nacimiento')->required(),
-            TextInput::make('celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required(),
-            TextInput::make('correo')->label('Correo Electrónico')->email()->required(),
-            TextInput::make('direccion')->label('Dirección')->required(),
-            Select::make('distrito')->label('Distrito')->options([
+            DatePicker::make('fecha_nacimiento')->label('Fecha de Nacimiento')->required()->prefixIcon('heroicon-o-calendar'),
+            TextInput::make('celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required()->prefixIcon('heroicon-o-phone'),
+            TextInput::make('correo')->label('Correo Electrónico')->email()->required()->prefixIcon('heroicon-o-envelope'),
+            TextInput::make('direccion')->label('Dirección')->required()->prefixIcon('heroicon-o-map-pin'),
+            Select::make('distrito')->label('Distrito')->prefixIcon('heroicon-o-map-pin')->options([
                 'Sullana' => 'Sullana',
                 'Bellavista' => 'Bellavista',
                 'Ignacio Escudero' => 'Ignacio Escudero',
@@ -59,7 +61,7 @@ class AsesorResource extends Resource
                 'Lancones' => 'Lancones',
                 'Miguel Checa' => 'Miguel Checa',
             ])->native(false)->required(),
-            Select::make('estado_civil')->label('Estado Civil')->options([
+            Select::make('estado_civil')->label('Estado Civil')->prefixIcon('heroicon-o-heart')->options([
                 'Soltero' => 'Soltero',
                 'Casado' => 'Casado',
                 'Divorciado' => 'Divorciado',
@@ -68,12 +70,13 @@ class AsesorResource extends Resource
         ])->columns(2)->relationship('persona'),
 
             ]),
-                    Tabs\Tab::make('Datos de Usuario')
+                    Tabs\Tab::make('Datos de Usuario')->icon('heroicon-o-cog-6-tooth')
                         ->schema([
                             Forms\Components\Group::make([
-                                TextInput::make('name')->label('Nombre de Usuario')->required(),
-                                TextInput::make('email')->label('Correo')->email()->required(),
+                                TextInput::make('name')->label('Nombre de Usuario')->required()  ->prefixIcon('heroicon-o-user'),
+                                TextInput::make('email')->label('Correo')->email()->required() ->prefixIcon('heroicon-o-envelope'),
                                 TextInput::make('password')
+                                ->prefixIcon('heroicon-o-lock-closed')
                                     ->label('Contraseña')
                                     ->password()
                                     ->dehydrateStateUsing(fn ($state) => !empty($state) ? bcrypt($state) : null)
@@ -81,12 +84,13 @@ class AsesorResource extends Resource
                                     ->required(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\CreateRecord),
                             ])->relationship('user'),
                         ]),
-                    Tabs\Tab::make('Datos del Asesor')
+                    Tabs\Tab::make('Datos del Asesor')->icon('heroicon-o-clipboard-document')
                         ->schema([
-                            TextInput::make('codigo_asesor')->nullable(),
-                            DatePicker::make('fecha_ingreso')->nullable(),
+                            TextInput::make('codigo_asesor')->nullable() ->prefixIcon('heroicon-o-tag'),
+                            DatePicker::make('fecha_ingreso')->nullable()->prefixIcon('heroicon-o-clock'),
                             Select::make('estado_asesor')
-                                ->options([
+                                 ->prefixIcon('heroicon-o-check-circle')
+                            ->options([
                                     'Activo' => 'Activo',
                                     'Inactivo' => 'Inactivo'
                                 ])

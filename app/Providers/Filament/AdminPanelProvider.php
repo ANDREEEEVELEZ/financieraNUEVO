@@ -43,7 +43,7 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
                 Widgets\FilamentInfoWidget::class,
             ])
-            // 👇 Aquí agregas Shield
+        
             ->plugins([
                 FilamentShieldPlugin::make(),
             ])

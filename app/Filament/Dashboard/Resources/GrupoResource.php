@@ -24,7 +24,8 @@ class GrupoResource extends Resource
     protected static ?string $model = Grupo::class;
 
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+protected static ?string $navigationIcon = 'heroicon-o-user-group';
+
 
 
     public static function form(Form $form): Form
@@ -33,18 +34,23 @@ class GrupoResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('nombre_grupo')
                     ->maxLength(255)
+                     ->prefixIcon('heroicon-o-tag')
                     ->required(),
                 Forms\Components\DatePicker::make('fecha_registro')
-                    ->required(),
+                    ->required()
+                    ->prefixIcon('heroicon-o-calendar'),
                 Forms\Components\TextInput::make('calificacion_grupo')
+                ->prefixIcon('heroicon-o-star')
                     ->maxLength(255),
                 Forms\Components\TextInput::make('estado_grupo')
-                    ->default('Activo')
+                   ->prefixIcon('heroicon-o-check-circle')
+                ->default('Activo')
                     ->maxLength(255)
                     ->disabled()
                     ->dehydrated(),
 Forms\Components\Select::make('clientes')
     ->label('Integrantes')
+    ->prefixIcon('heroicon-o-user-group')
     ->multiple()
     ->relationship('clientes', 'id')
     ->options(function () {
@@ -132,6 +138,7 @@ Forms\Components\Select::make('clientes')
                     }),
                 Forms\Components\Select::make('lider_grupal')
     ->label('Líder Grupal')
+    ->prefixIcon('heroicon-o-user-circle')
     ->options(function (callable $get) {
         $ids = $get('clientes') ?? [];
         return Cliente::with('persona')
@@ -151,6 +158,7 @@ Forms\Components\Select::make('clientes')
                     ->visible(fn(callable $get) => !empty($get('clientes'))),
                 Forms\Components\TextInput::make('numero_integrantes')
                     ->label('Numero de Integrantes')
+                    ->prefixIcon('heroicon-o-hashtag')
                     ->disabled()
                     ->dehydrated(false)
                     ->reactive()
@@ -198,7 +206,7 @@ Forms\Components\Select::make('clientes')
         if ($user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
                 ->label('Asesor')
-                ->formatStateUsing(fn ($record) => 
+                ->formatStateUsing(fn ($record) =>
                     $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-')
                 ->sortable()
                 ->searchable();
@@ -226,7 +234,7 @@ Forms\Components\Select::make('clientes')
                     }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
                 Tables\Actions\Action::make('imprimir_contratos')
                     ->label('Imprimir Contratos')
                     ->icon('heroicon-o-printer')

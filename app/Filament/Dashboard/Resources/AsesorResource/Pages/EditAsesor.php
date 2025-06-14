@@ -8,18 +8,19 @@ use Filament\Notifications\Notification;
 class EditAsesor extends EditRecord
 {
     protected static string $resource = AsesorResource::class;
-    
+
     protected function getHeaderActions(): array
     {
         return [
             Actions\DeleteAction::make()
+            ->icon('heroicon-o-trash')
                 ->action(function () {
                     // Buscar grupos asignados a este asesor
                     $grupos = $this->record->grupos()->get();
                     if ($grupos->count() > 0) {
                         $cantidad = $grupos->count();
                         $nombreAsesor = $this->record->persona ? $this->record->persona->nombre . ' ' . $this->record->persona->apellidos : '';
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->danger()
                             ->title('¡Atención!')

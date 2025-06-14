@@ -20,6 +20,9 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Filament\Support\Facades\FilamentAsset;
+use Filament\Support\Assets\Css;
+use Filament\Facades\Filament;
 
 class DashboardPanelProvider extends PanelProvider
 {
@@ -30,8 +33,15 @@ class DashboardPanelProvider extends PanelProvider
             ->login()
             ->path('dashboard')
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => '#9b2c4d',
+                'secondary' => '#16b4c0',
+                'info' => '#4dc0b5',
+                'success' => '#10b981', // Verde
+            'warning' => '#f59e0b', // Amarillo
+            'danger' => '#ef4444', // Rojo
+
             ])
+            ->brandName('Emprende Conmigo')
             ->discoverResources(in: app_path('Filament/Dashboard/Resources'), for: 'App\\Filament\\Dashboard\\Resources')
             ->discoverPages(in: app_path('Filament/Dashboard/Pages'), for: 'App\\Filament\\Dashboard\\Pages')
             ->pages([
@@ -64,4 +74,5 @@ class DashboardPanelProvider extends PanelProvider
                 Authenticate::class,
             ]);
     }
+
 }

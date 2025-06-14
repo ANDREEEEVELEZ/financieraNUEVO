@@ -19,10 +19,11 @@ use Filament\Tables\Actions\ActionGroup;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 
+
 class PagoResource extends Resource
 {
     protected static ?string $model = Pago::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+   protected static ?string $navigationIcon = 'heroicon-o-credit-card';
     protected static ?string $navigationLabel = 'Pagos';
     protected static ?string $modelLabel = 'Pago';
     protected static ?string $pluralModelLabel = 'Pagos';
@@ -32,6 +33,7 @@ class PagoResource extends Resource
         return $form->schema([
             Select::make('grupo_id')
                 ->label('Grupo')
+                ->prefixIcon('heroicon-o-rectangle-stack')
                 ->options(function () {
                     $user = request()->user();
                     $query = \App\Models\Grupo::whereHas('prestamos', function($q) {
@@ -95,6 +97,7 @@ class PagoResource extends Resource
 
             TextInput::make('numero_cuota')
                 ->label('Número de Cuota')
+                ->prefixIcon('heroicon-o-hashtag')
                 ->numeric()
                 ->disabled() // Ya estaba deshabilitado
                 ->required()
@@ -107,6 +110,7 @@ class PagoResource extends Resource
 
             TextInput::make('monto_cuota')
                 ->label('Monto de la Cuota')
+                ->prefix('S/.')
                 ->numeric()
                 ->disabled() // Ya estaba deshabilitado
                 ->required()
@@ -119,6 +123,7 @@ class PagoResource extends Resource
 
             TextInput::make('monto_mora_pagada')
                 ->label('Monto de Mora Aplicado')
+                ->prefix('S/.')
                 ->numeric()
                 ->disabled() // Ya estaba deshabilitado
                 ->dehydrated(true)
@@ -142,7 +147,7 @@ class PagoResource extends Resource
                             $component->state($record->cuotaGrupal->saldoPendiente());
                         } else {
                             $cuotaId = $get('cuota_grupal_id');
-                            if ($cuotaId && $cuota = \App\Models\CuotasGrupales::with('mora')->find($cuotaId)) {
+                            if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
                                 $component->state($cuota->saldoPendiente());
                             }
                         }
@@ -182,6 +187,7 @@ class PagoResource extends Resource
 
             TextInput::make('monto_pagado')
                 ->label('Monto Pagado')
+                ->prefix('S/.')
                 ->numeric()
                 ->required()
                 ->disabled(function (callable $get, $record) {
@@ -214,6 +220,7 @@ class PagoResource extends Resource
 
             TextInput::make('codigo_operacion')
                 ->label('Código de Operación')
+                ->prefixIcon('heroicon-o-finger-print')
                 ->required()
                 ->maxLength(255)
                 ->afterStateHydrated(function ($component, $state, $record) {
@@ -227,6 +234,7 @@ class PagoResource extends Resource
 
 DateTimePicker::make('fecha_pago')
     ->label('Fecha de Pago')
+     ->prefixIcon('heroicon-o-calendar-days')
     ->required()
     ->dehydrated(true)
     ->disabled(fn ($record) => $record !== null)
@@ -236,12 +244,14 @@ DateTimePicker::make('fecha_pago')
 
             TextInput::make('observaciones')
                 ->label('Observaciones')
+                ->prefixIcon('heroicon-o-pencil-square')
                 ->maxLength(255)
                 // Deshabilitar en modo edición
                 ->disabled(fn ($record) => $record !== null),
 
             Select::make('estado_pago')
                 ->label('Estado del Pago')
+                  ->prefixIcon('heroicon-o-check-badge')
                 ->options([
                     'Pendiente' => 'Pendiente',
                     'aprobado' => 'Aprobado',

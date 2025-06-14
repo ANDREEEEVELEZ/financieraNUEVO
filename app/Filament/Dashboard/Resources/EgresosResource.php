@@ -22,7 +22,8 @@ class EgresosResource extends Resource
 {
     protected static ?string $model = Egreso::class;
     protected static ?string $navigationGroup = 'Movimientos financieros';
-    protected static ?string $navigationIcon = 'heroicon-o-minus-circle';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-down-circle';
+
     protected static ?string $modelLabel = 'Egreso';
     protected static ?string $pluralModelLabel = 'Egresos';
 
@@ -38,6 +39,7 @@ class EgresosResource extends Resource
                 // Tipo de Egreso - Solo gasto para creación manual
                 Forms\Components\TextInput::make('tipo_egreso')
                     ->label('Tipo de Egreso')
+                    ->prefixIcon('heroicon-o-receipt-percent')
                     ->default('gasto')
                     ->disabled() // Siempre deshabilitado
                     ->dehydrated(true) // Asegura que sí se guarde en la BD
@@ -46,6 +48,7 @@ class EgresosResource extends Resource
                 // Fecha
                 Forms\Components\DatePicker::make('fecha')
                     ->label('Fecha')
+                     ->prefixIcon('heroicon-o-calendar')
                     ->default(now())
                     ->required()
                     ->disabled($isEditing),
@@ -53,6 +56,7 @@ class EgresosResource extends Resource
                 // Campos específicos para GASTO - Solo visibles para gastos
                 Forms\Components\Select::make('categoria_id')
                     ->label('Categoría')
+                    ->prefixIcon('heroicon-o-folder')
                     ->relationship('categoria', 'nombre_categoria')
                     ->searchable()
                     ->preload()
@@ -76,6 +80,7 @@ class EgresosResource extends Resource
 
                 Forms\Components\Select::make('subcategoria_id')
                     ->label('Subcategoría')
+                    ->prefixIcon('heroicon-o-folder-open')
                     ->options(fn (Get $get): array =>
                         Subcategoria::query()
                             ->where('categoria_id', $get('categoria_id'))
@@ -144,6 +149,7 @@ class EgresosResource extends Resource
                 // Descripción
                 Forms\Components\Textarea::make('descripcion')
                     ->label('Descripción')
+                    
                     ->rows(3)
                     ->required()
                     ->disabled($isEditing)

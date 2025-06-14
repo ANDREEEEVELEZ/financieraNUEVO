@@ -15,7 +15,7 @@ class Moras extends Page
 
     public function getViewData(): array
     {
-        // Actualizar cuotas vencidas a mora
+
         CuotasGrupales::where('estado_cuota_grupal', 'vigente')
             ->where('estado_pago', '!=', 'pagado')
             ->whereDate('fecha_vencimiento', '<', now())
@@ -30,10 +30,10 @@ class Moras extends Page
                 ? now()->diffInDays($cuota->fecha_vencimiento)
                 : 0;
 
-            // Verificar si ya existe una mora para esta cuota
+
             $moraExistente = Mora::where('cuota_grupal_id', $cuota->id)->first();
 
-            // Solo calcular y actualizar si la mora NO está pagada
+
             if (!$moraExistente || $moraExistente->estado_mora !== 'pagada') {
                 $montoMora = Mora::calcularMontoMora($cuota, now(), $moraExistente->estado_mora ?? 'pendiente');
 
@@ -56,7 +56,7 @@ class Moras extends Page
                 });
             });
 
-        // Aplicar todos los filtros de manera combinada
+
         $query = $this->aplicarFiltros($query);
 
         return [
@@ -67,14 +67,14 @@ class Moras extends Page
 
     private function aplicarFiltros($query)
     {
-        // Filtro por grupo (si hay nombre ingresado)
+
         if (request('grupo')) {
             $query->whereHas('prestamo.grupo', function($q) {
                 $q->where('nombre_grupo', 'like', '%' . request('grupo') . '%');
             });
         }
 
-        // Filtro por rango de fechas (ambas fechas pueden estar presentes)
+
         if (request('desde')) {
             $query->whereDate('fecha_vencimiento', '>=', request('desde'));
         }
@@ -82,20 +82,19 @@ class Moras extends Page
             $query->whereDate('fecha_vencimiento', '<=', request('hasta'));
         }
 
-        // Filtro por monto mínimo
+
         if (request('monto') && is_numeric(request('monto'))) {
             $query->whereHas('mora', function($q) {
                 $q->whereRaw('ABS(monto_mora_calculado) >= ?', [floatval(request('monto'))]);
             });
         }
 
-        // Filtro por estado de mora
         if (request('estado_mora') && request('estado_mora') !== '') {
             $estadosValidos = ['pendiente', 'pagada', 'parcialmente_pagada'];
             if (in_array(request('estado_mora'), $estadosValidos)) {
                 $query->whereHas('mora', function($q) {
                     $estado = request('estado_mora');
-                    // Mapear 'parcial' a 'parcialmente_pagada' si es necesario
+                   
                     if ($estado === 'parcial') {
                         $estado = 'parcialmente_pagada';
                     }

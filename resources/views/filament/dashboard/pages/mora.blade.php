@@ -25,9 +25,11 @@
             <!-- Botón exportar PDF -->
             <button type="button" onclick="document.getElementById('exportarModal').showModal()"
                 class="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-green-200 to-green-400 hover:from-green-300 hover:to-green-500 text-black text-base font-bold rounded-xl shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 border border-green-400 dark:border-green-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 16v-8m0 8l-4-4m4 4l4-4M4 4h16v16H4V4z" />
+            </svg>
+
                 Exportar PDF
             </button>
         </div>

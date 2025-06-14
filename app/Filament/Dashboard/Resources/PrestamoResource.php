@@ -29,6 +29,7 @@ class PrestamoResource extends Resource
         return $form->schema([
             Select::make('grupo_id')
                 ->label('Grupo')
+                 ->prefixIcon('heroicon-o-rectangle-stack')
                 ->relationship('grupo', 'nombre_grupo')
                 ->options(function () {
                     $user = request()->user();
@@ -143,11 +144,13 @@ class PrestamoResource extends Resource
                 ->columns(4),
             TextInput::make('tasa_interes')
                 ->label('Tasa interés ( % )')
+                ->prefixIcon('heroicon-o-chart-bar')
                 ->default(17)
                 ->readOnly()
                 ->numeric(),
             TextInput::make('monto_prestado_total')
                 ->label('Monto prestado total')
+                ->prefix('S/.')
                 ->required()
                 ->numeric()
                 ->readOnly()
@@ -162,13 +165,17 @@ class PrestamoResource extends Resource
                 }),
             TextInput::make('monto_devolver')
                 ->label('Monto devolver')
+                ->prefix('S/.')
                 ->readOnly(),
             TextInput::make('cantidad_cuotas')
                 ->numeric()
+                ->prefixIcon('heroicon-o-hashtag')
                 ->required(),
             DatePicker::make('fecha_prestamo')
+            ->prefixIcon('heroicon-o-calendar')
                 ->required(),
             Select::make('frecuencia')
+            ->prefixIcon('heroicon-o-arrow-path')
                 ->options([
                     'mensual' => 'Mensual',
                     'semanal' => 'Semanal',
@@ -187,6 +194,7 @@ class PrestamoResource extends Resource
                     ]);
                 }),
             Select::make('estado')
+             ->prefixIcon('heroicon-o-check-circle')
                 ->options([
                     'Pendiente' => 'Pendiente',
                     'Aprobado' => 'Aprobado',
@@ -202,6 +210,7 @@ class PrestamoResource extends Resource
                 ))
                 ->dehydrated(true),
             TextInput::make('calificacion')
+            ->prefixIcon('heroicon-o-star')
                 ->numeric()
                 ->required(),
 
@@ -279,7 +288,7 @@ class PrestamoResource extends Resource
                 }),
         ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
                 Tables\Actions\Action::make('imprimir_contrato')
                     ->label('Imprimir Contrato')
                     ->icon('heroicon-o-printer')
