@@ -105,11 +105,11 @@ class AsesorResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre') ->AlignLeft(),
-                Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos') ->AlignLeft(),
-                Tables\Columns\TextColumn::make('persona.DNI')->label('DNI') ->AlignLeft(),
+                Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre') ->AlignLeft() ->searchable(),
+                Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos') ->AlignLeft()->searchable(),
+                Tables\Columns\TextColumn::make('persona.DNI')->label('DNI') ->AlignLeft()->searchable(),
                 Tables\Columns\TextColumn::make('persona.correo')->label('Correo') ->AlignLeft(),
-                Tables\Columns\TextColumn::make('codigo_asesor')->label('Código Asesor') ->AlignLeft(),
+                Tables\Columns\TextColumn::make('codigo_asesor')->label('Código Asesor') ->AlignLeft()->searchable(),
                 Tables\Columns\TextColumn::make('estado_asesor')
                     ->label('Estado')
                     ->badge()

@@ -60,7 +60,7 @@ class AsesorPage  extends Page
         $totalClientes = $clientesQuery->count();
         $totalGrupos = $gruposQuery->count();
         $totalPrestamos = count($prestamoIds);
-        $totalRetanqueos = Retanqueo::whereIn('prestamo_id', $prestamoIds)->count();
+       // $totalRetanqueos = Retanqueo::whereIn('prestamo_id', $prestamoIds)->count();
 
         // Estadísticas de moras - optimizado
         $cuotasQuery = CuotasGrupales::whereIn('prestamo_id', $prestamoIds);
@@ -182,7 +182,7 @@ class AsesorPage  extends Page
             'totalGrupos' => $totalGrupos,
             'totalClientes' => $totalClientes,
             'totalPrestamos' => $totalPrestamos,
-            'totalRetanqueos' => $totalRetanqueos,
+            //'totalRetanqueos' => $totalRetanqueos,
             'totalPagosRegistrados' => $totalPagosRegistrados,
             'totalMorasHistoricas' => $totalMorasHistoricas,
             'cuotasEnMora' => $cuotasEnMora,

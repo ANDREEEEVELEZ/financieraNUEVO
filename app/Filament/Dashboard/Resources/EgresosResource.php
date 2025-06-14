@@ -33,27 +33,28 @@ class EgresosResource extends Resource
             $isEditing = filled($record);
 
             return [
-                // Campo oculto para detectar edición
+
                 Forms\Components\Hidden::make('id'),
 
-                // Tipo de Egreso - Solo gasto para creación manual
+
                 Forms\Components\TextInput::make('tipo_egreso')
                     ->label('Tipo de Egreso')
                     ->prefixIcon('heroicon-o-receipt-percent')
                     ->default('gasto')
-                    ->disabled() // Siempre deshabilitado
-                    ->dehydrated(true) // Asegura que sí se guarde en la BD
+                    ->disabled()
+                    ->dehydrated(true)
                     ->required(),
 
-                // Fecha
+
                 Forms\Components\DatePicker::make('fecha')
                     ->label('Fecha')
+                    ->maxDate(now())
                      ->prefixIcon('heroicon-o-calendar')
                     ->default(now())
                     ->required()
                     ->disabled($isEditing),
 
-                // Campos específicos para GASTO - Solo visibles para gastos
+
                 Forms\Components\Select::make('categoria_id')
                     ->label('Categoría')
                     ->prefixIcon('heroicon-o-folder')
@@ -149,7 +150,7 @@ class EgresosResource extends Resource
                 // Descripción
                 Forms\Components\Textarea::make('descripcion')
                     ->label('Descripción')
-                    
+
                     ->rows(3)
                     ->required()
                     ->disabled($isEditing)
@@ -164,15 +165,12 @@ class EgresosResource extends Resource
         });
     }
 
-    /**
-     * Método auxiliar para actualizar la descripción según el tipo de egreso
-     */
+
     private static function updateDescripcion(Set $set, Get $get): void
     {
         $tipoEgreso = $get('tipo_egreso');
         $descripcionActual = trim($get('descripcion') ?? '');
 
-        // Solo actualizar si la descripción está vacía
         if (empty($descripcionActual)) {
             if ($tipoEgreso === 'gasto') {
                 self::updateDescripcionGasto($set, $get);
@@ -182,9 +180,7 @@ class EgresosResource extends Resource
         }
     }
 
-    /**
-     * Método auxiliar para actualizar la descripción de gastos
-     */
+
     private static function updateDescripcionGasto(Set $set, Get $get): void
     {
         $categoriaId = $get('categoria_id');
@@ -201,9 +197,7 @@ class EgresosResource extends Resource
         }
     }
 
-    /**
-     * Método auxiliar para actualizar la descripción de desembolsos
-     */
+
     private static function updateDescripcionDesembolso(Set $set, Get $get): void
     {
         $grupoId = $get('grupo_id');

@@ -18,6 +18,7 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Notifications\Notification;
 
 
 class PagoResource extends Resource
@@ -45,10 +46,10 @@ class PagoResource extends Resource
                         if ($asesor) {
                             $query->where('asesor_id', $asesor->id);
                         } else {
-                            return []; // Si el asesor no existe, retornar vacío
+                            return [];
                         }
                     } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                        return []; // Si no tiene roles permitidos, retornar vacío
+                        return [];
                     }
 
                     return $query->pluck('nombre_grupo', 'id');
@@ -61,13 +62,41 @@ class PagoResource extends Resource
                         $component->disabled(false);
                     }
                 })
-                ->afterStateUpdated(function ($state, callable $set) {
+                            ->afterStateUpdated(function ($state, callable $set) {
                     $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
-                        $query->where('grupo_id', $state);
-                    })
-                    ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
-                    ->orderBy('numero_cuota', 'asc')
-                    ->get();
+                            $query->where('grupo_id', $state);
+                        })
+                        ->pluck('id');
+
+                    $pagoPendiente = Pago::whereIn('cuota_grupal_id', $cuotas)
+                        ->where('estado_pago', 'Pendiente')
+                        ->exists();
+
+                    if ($pagoPendiente) {
+                        Notification::make()
+                            ->title('Este grupo ya tiene un pago pendiente')
+                            ->body('No puedes registrar un nuevo pago hasta que se apruebe o rechace el anterior.')
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+
+                        $set('grupo_id', null);
+                        $set('cuota_grupal_id', null);
+                        $set('numero_cuota', null);
+                        $set('monto_cuota', null);
+                        $set('monto_mora_pagada', 0.00);
+                        $set('saldo_pendiente_actual', 0.00);
+                        return;
+                    }
+
+
+                    $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
+                            $query->where('grupo_id', $state);
+                        })
+                        ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
+                        ->orderBy('numero_cuota', 'asc')
+                        ->get();
 
                     foreach ($cuotas as $cuota) {
                         if ($cuota->saldoPendiente() > 0) {
@@ -90,7 +119,7 @@ class PagoResource extends Resource
                 ->searchable()
                 ->required()
                 ->reactive()
-                // Deshabilitar en modo edición
+
                 ->disabled(fn ($record) => $record !== null),
 
             Hidden::make('cuota_grupal_id')->required(),
@@ -99,7 +128,7 @@ class PagoResource extends Resource
                 ->label('Número de Cuota')
                 ->prefixIcon('heroicon-o-hashtag')
                 ->numeric()
-                ->disabled() // Ya estaba deshabilitado
+                ->disabled()
                 ->required()
                 ->dehydrated()
                 ->afterStateHydrated(function ($component, $state, $record) {
@@ -112,7 +141,7 @@ class PagoResource extends Resource
                 ->label('Monto de la Cuota')
                 ->prefix('S/.')
                 ->numeric()
-                ->disabled() // Ya estaba deshabilitado
+                ->disabled()
                 ->required()
                 ->dehydrated()
                 ->afterStateHydrated(function ($component, $state, $record) {
@@ -125,7 +154,7 @@ class PagoResource extends Resource
                 ->label('Monto de Mora Aplicado')
                 ->prefix('S/.')
                 ->numeric()
-                ->disabled() // Ya estaba deshabilitado
+                ->disabled()
                 ->dehydrated(true)
                 ->default(0.00)
                 ->afterStateHydrated(function ($component, $state, $record) {
@@ -170,7 +199,7 @@ class PagoResource extends Resource
                     $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
                     $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
-                    // Calcular saldo pendiente actual
+
                     $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
                     $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
 
@@ -178,30 +207,36 @@ class PagoResource extends Resource
                         $set('monto_pagado', $saldoPendiente);
                         $set('monto_mora_pagada', $montoMora);
                     } elseif ($state === 'pago_parcial') {
-                        // En pago parcial no cambiar el monto_pagado automáticamente
+
                         $set('monto_mora_pagada', $montoMora);
                     }
                 })
-                // Deshabilitar en modo edición
+
                 ->disabled(fn ($record) => $record !== null),
 
             TextInput::make('monto_pagado')
                 ->label('Monto Pagado')
                 ->prefix('S/.')
                 ->numeric()
+                ->minValue(0)
+                ->rules(['numeric', 'min:0'])
+                 ->extraAttributes([
+        'onkeydown' => "if (event.key === '-' || event.key === 'e') event.preventDefault();",
+        'inputmode' => 'decimal',
+    ])
                 ->required()
                 ->disabled(function (callable $get, $record) {
-                    // Si está en modo edición, deshabilitar siempre
+
                     if ($record !== null) {
                         return true;
                     }
-                    // Si está en modo creación, aplicar la lógica original
+
                     return $get('tipo_pago') === 'pago_completo';
                 })
                 ->dehydrated()
                 ->live(onBlur: true)
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                    // Validar que el monto pagado no exceda el saldo pendiente
+
                     $saldoPendiente = floatval($get('saldo_pendiente_actual') ?? 0);
                     $montoPagado = floatval($state ?? 0);
 
@@ -224,12 +259,12 @@ class PagoResource extends Resource
                 ->required()
                 ->maxLength(255)
                 ->afterStateHydrated(function ($component, $state, $record) {
-                    // Asegurarse de que el código de operación se cargue correctamente en edición
+
                     if ($record && $record->codigo_operacion) {
                         $component->state($record->codigo_operacion);
                     }
                 })
-                // Deshabilitar en modo edición
+
                 ->disabled(fn ($record) => $record !== null),
 
 DateTimePicker::make('fecha_pago')
@@ -237,6 +272,7 @@ DateTimePicker::make('fecha_pago')
      ->prefixIcon('heroicon-o-calendar-days')
     ->required()
     ->dehydrated(true)
+    ->maxDate(now())
     ->disabled(fn ($record) => $record !== null)
     ->default(function () {
         return now()->format('Y-m-d H:i:s');
@@ -246,7 +282,7 @@ DateTimePicker::make('fecha_pago')
                 ->label('Observaciones')
                 ->prefixIcon('heroicon-o-pencil-square')
                 ->maxLength(255)
-                // Deshabilitar en modo edición
+
                 ->disabled(fn ($record) => $record !== null),
 
             Select::make('estado_pago')
@@ -258,18 +294,18 @@ DateTimePicker::make('fecha_pago')
                     'Rechazado' => 'Rechazado',
                 ])
                 ->default('Pendiente')
-                ->disabled() // Ya estaba deshabilitado
+                ->disabled()
                 ->dehydrated(),
 
-            // Campo para mostrar en edición (mantenemos el original para compatibilidad)
+
             TextInput::make('saldo_pendiente')
                 ->label('Saldo Pendiente (Total a Pagar)')
                 ->numeric()
-                ->disabled() // Ya estaba deshabilitado
+                ->disabled()
                 ->dehydrated(false)
-                ->visible(fn ($record) => $record !== null && false) // Ocultamos este campo ya que tenemos el nuevo
+                ->visible(fn ($record) => $record !== null && false)
                 ->afterStateHydrated(function ($component, $state, $record) {
-                    // Código original mantenido para compatibilidad
+
                     if ($record && $record->cuotaGrupal) {
                         $cuota = $record->cuotaGrupal->fresh();
                         $saldo = floatval($cuota->saldo_pendiente);

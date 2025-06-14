@@ -32,16 +32,24 @@ class DashboardPanelProvider extends PanelProvider
             ->id('dashboard')
             ->login()
             ->path('dashboard')
+            ->theme(asset('css/filament/dashboard/theme.css'))
             ->colors([
+
+              //  'primary'=> Color::Pink,
                 'primary' => '#9b2c4d',
-                'secondary' => '#16b4c0',
-                'info' => '#4dc0b5',
-                'success' => '#10b981', // Verde
-            'warning' => '#f59e0b', // Amarillo
-            'danger' => '#ef4444', // Rojo
+                //'secondary' => '#16b4c0',
+                //'info' => '#4dc0b5',
+                //'success' => '#10b981', // Verde
+               // 'warning' => '#f59e0b', // Amarillo
+                //'danger' => '#ef4444', // Rojo
 
             ])
-            ->brandName('Emprende Conmigo')
+            ->darkMode(false)
+            ->font('Poppins')
+            ->brandName('EMPRENDE CONMIGO SAC')
+
+
+            //->brandLogo(asset('logoEmprendeConmigo.png'))
             ->discoverResources(in: app_path('Filament/Dashboard/Resources'), for: 'App\\Filament\\Dashboard\\Resources')
             ->discoverPages(in: app_path('Filament/Dashboard/Pages'), for: 'App\\Filament\\Dashboard\\Pages')
             ->pages([

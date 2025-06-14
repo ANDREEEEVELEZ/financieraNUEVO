@@ -125,6 +125,7 @@ public static function form(Form $form): Form
             DateTimePicker::make('fecha_hora')
                 ->label('Fecha y Hora')
                 ->prefixIcon('heroicon-o-calendar')
+                ->maxDate(now())
                 ->required()
                 ->default(now())
             ->disabled(fn (Forms\Get $get) => $isEditing && in_array($get('tipo_ingreso'), ['transferencia', 'pago de cuota de grupo'])),
@@ -132,7 +133,7 @@ public static function form(Form $form): Form
 
         Textarea::make('descripcion')
             ->label('Descripción')
-           
+
             ->rows(3)
             ->columnSpanFull()
             ->required()

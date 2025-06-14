@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '../../../../vendor/filament/filament/resources/css/base.css';
+
+@config 'tailwind.config.js';
+/* Fondo de la barra lateral */
+.fi-sidebar {
+    @apply bg-[#8a2e4a] text-white !important;
+}
+
+/* Grupo de títulos del menú */
+.fi-sidebar-group div span {
+    @apply text-white;
+}
+
+/* Íconos del menú */
+.fi-sidebar-item-icon {
+    @apply text-[#f7c3d1];
+}
+
+/* Texto de ítems del menú */
+.fi-sidebar-item a {
+    @apply text-white;
+}
+
+.fi-sidebar-item-label {
+    @apply text-white;
+}
+
+/* Hover de ítems del menú */
+.fi-sidebar-item a:hover {
+    @apply bg-[#a53e5d] text-white;
+}
+
+/* Elemento activo del menú */
+.fi-sidebar-item-active a {
+    @apply bg-[#9b2c4d] text-white font-bold;
+}
+
+.fi-sidebar-item-active .fi-sidebar-item-icon {
+    @apply text-white;
+}
+
+/* Fondo del contenido principal */
+.fi-main-ctn {
+    @apply bg-[#f9f9f9];
+}
+
+.fi-header {
+    @apply bg-[#f9f9f9] text-[#9b2c4d];
+}
+/* Botones primarios */
+.fi-button {
+    @apply bg-[#9b2c4d] hover:bg-[#7d243f] text-white;
+}
+
+/* Enlaces */
+a {
+    @apply text-[#9b2c4d] hover:text-[#7d243f];
+}
+

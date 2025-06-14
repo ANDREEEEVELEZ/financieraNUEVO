@@ -22,12 +22,13 @@
             <label class="text-sm text-gray-700 dark:text-gray-300 font-semibold mt-1">Hasta</label>
             <input type="date" name="hasta" value="{{ request('hasta') }}" class="rounded-lg border border-blue-200 dark:border-blue-500 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 dark:bg-gray-900 dark:text-white transition">
         </div>
-        <button type="submit" class="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-200 to-blue-400 hover:from-blue-300 hover:to-blue-500 text-black text-base font-bold rounded-xl shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 border border-blue-400 dark:border-blue-600 ml-4">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            Aplicar filtro
-        </button>
+<button type="submit" class="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-200 to-blue-400 hover:from-blue-300 hover:to-blue-500 text-black dark:text-white text-base font-bold rounded-xl shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 border border-blue-400 dark:border-blue-600 ml-4">
+    <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L14 13.414V20a1 1 0 01-1.447.894l-4-2A1 1 0 018 18v-4.586L3.293 6.707A1 1 0 013 6V4z" />
+</svg>
+
+    Aplicar filtro
+</button>
     </form>
     <div class="mb-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -69,7 +70,8 @@
                         <div class="text-3xl font-black text-amber-900 dark:text-amber-200">{{ $totalPrestamos ?? '0' }}</div>
                         <div class="text-sm text-green-700 dark:text-green-300 font-semibold mt-1">Total de Préstamos</div>
                     </div>
-                    <!-- Total de Retanqueos -->
+                    <!-- Total de Retanqueos
+
                     <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-lg p-4 flex flex-col items-center group transition-transform hover:-translate-y-1 hover:shadow-2xl duration-200">
                         <div class="absolute top-2 right-2 opacity-10 group-hover:opacity-20 text-5xl pointer-events-none select-none">
                             <svg class="w-10 h-10 text-yellow-400 dark:text-yellow-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3" /></svg>
@@ -80,6 +82,7 @@
                         <div class="text-3xl font-black text-yellow-900 dark:text-yellow-200">{{ $totalRetanqueos ?? '0' }}</div>
                         <div class="text-sm text-yellow-700 dark:text-yellow-300 font-semibold mt-1">Total de Retanqueos</div>
                     </div>
+                     -->
                     <!-- Total de Pagos Registrados -->
                     <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-lg p-4 flex flex-col items-center group transition-transform hover:-translate-y-1 hover:shadow-2xl duration-200">
                         <div class="absolute top-2 right-2 opacity-10 group-hover:opacity-20 text-5xl pointer-events-none select-none">
@@ -190,7 +193,7 @@
 
             <!-- Estado de Cuotas -->
             <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
-                <h2 class="text-lg font-extrabold text-black mb-6">Estado de Cuotas</h2>
+                <h2 class="text-lg font-extrabold text-black dark:text-white mb-6">Estado de Cuotas</h2>
                 <div class="h-64">
                     <canvas id="barCuotasEstados" height="250"></canvas>
                 </div>
@@ -201,7 +204,7 @@
         <div class="grid grid-cols-1 gap-4">
             <!-- Evolución de Pagos Registrados -->
             <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
-                <h2 class="text-lg font-extrabold text-black mb-6">Evolución de Pagos Registrados</h2>
+                <h2 class="text-lg font-extrabold text-black dark:text-white mb-6">Evolución de Pagos Registrados</h2>
                 <div class="h-64">
                     <canvas id="linePagosEvolucion" height="250"></canvas>
                 </div>
@@ -209,7 +212,7 @@
 
             <!-- Distribución de Pagos por Estado -->
             <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-4">
-                <h2 class="text-lg font-extrabold text-black mb-6">Distribución de Pagos por Estado</h2>
+                <h2 class="text-lg font-extrabold text-black dark:text-white mb-6">Distribución de Pagos por Estado</h2>
                 <div class="h-64">
                     <canvas id="piePagosEstado" height="250"></canvas>
                 </div>
