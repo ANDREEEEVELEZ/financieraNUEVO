@@ -33,15 +33,33 @@ class ClienteResource extends Resource
                     ->tabs([
                         Tabs\Tab::make('Información Personal')->icon('heroicon-o-user')
                             ->schema([
-                                TextInput::make('persona.DNI')->label('DNI')->required()->maxLength(8)->minLength(8)->numeric()->prefixIcon('heroicon-o-identification'),
-                                TextInput::make('persona.nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user'),
-                                TextInput::make('persona.apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user'),
+                                TextInput::make('persona.DNI')
+                                    ->label('DNI')
+                                    ->required()
+                                    ->maxLength(8)
+                                    ->minLength(8)
+                                    ->numeric()
+                                    ->prefixIcon('heroicon-o-identification')
+                                    ->rule('regex:/^[0-9]{8}$/')
+                                    ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+                                    ->mask('99999999'),
+                                TextInput::make('persona.nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u'),
+                                TextInput::make('persona.apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u'),
                                 Select::make('persona.sexo')->label('Sexo')->required()->prefixIcon('heroicon-o-adjustments-horizontal')->options([
                                       'Femenino' => 'Femenino',
                                     'Masculino' => 'Masculino',
                                 ])->native(false),
                                 DatePicker::make('persona.fecha_nacimiento')->label('Fecha de Nacimiento')->required()->prefixIcon('heroicon-o-calendar'),
-                                TextInput::make('persona.celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required()->prefixIcon('heroicon-o-phone'),
+                                TextInput::make('persona.celular')
+                                    ->label('Celular')
+                                    ->maxLength(9)
+                                    ->minLength(9)
+                                    ->numeric()
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-phone')
+                                    ->rule('regex:/^[0-9]{9}$/')
+                                    ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+                                    ->mask('999999999'),
                                 TextInput::make('persona.correo')->label('Correo Electrónico')->email()->required()->prefixIcon('heroicon-o-envelope'),
                                 TextInput::make('persona.direccion')->label('Dirección')->required()->prefixIcon('heroicon-o-map-pin'),
                                 Select::make('persona.distrito')->label('Distrito')->prefixIcon('heroicon-o-map-pin')->options([

@@ -170,7 +170,11 @@ class PrestamoResource extends Resource
             TextInput::make('cantidad_cuotas')
                 ->numeric()
                 ->prefixIcon('heroicon-o-hashtag')
-                ->required(),
+                ->required()
+                ->minValue(1)
+                ->rules(['integer', 'min:1'])
+                ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+                ->mask('999'),
             DatePicker::make('fecha_prestamo')
             ->prefixIcon('heroicon-o-calendar')
                 ->required(),

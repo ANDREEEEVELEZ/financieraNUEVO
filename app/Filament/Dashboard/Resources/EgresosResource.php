@@ -145,7 +145,11 @@ class EgresosResource extends Resource
                     ->step(0.01)
                     ->required()
                     ->disabled($isEditing)
-                    ->dehydrated(true),
+                    ->dehydrated(true)
+                    ->minValue(0.01)
+                    ->rule('numeric|min:0.01')
+                    ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+                    ->mask('999999.99'),
 
                 // Descripción
                 Forms\Components\Textarea::make('descripcion')

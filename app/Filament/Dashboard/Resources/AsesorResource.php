@@ -40,15 +40,33 @@ class AsesorResource extends Resource
                     Tabs\Tab::make('Información Personal') ->icon('heroicon-o-user')
     ->schema([
         Forms\Components\Group::make([
-            TextInput::make('DNI')->label('DNI')->required()->maxLength(8)->minLength(8)->numeric()->prefixIcon('heroicon-o-identification'),
-            TextInput::make('nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user'),
-            TextInput::make('apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user'),
+            TextInput::make('DNI')
+    ->label('DNI')
+    ->required()
+    ->maxLength(8)
+    ->minLength(8)
+    ->numeric()
+    ->prefixIcon('heroicon-o-identification')
+    ->rule('regex:/^[0-9]{8}$/')
+    ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+    ->mask('99999999'),
+            TextInput::make('nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u'),
+            TextInput::make('apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u'),
             Select::make('sexo')->label('Sexo')->required()->prefixIcon('heroicon-o-adjustments-horizontal')->options([
                 'Femenino' => 'Femenino',
                 'Masculino' => 'Masculino',
             ])->native(false),
             DatePicker::make('fecha_nacimiento')->label('Fecha de Nacimiento')->required()->prefixIcon('heroicon-o-calendar'),
-            TextInput::make('celular')->label('Celular')->maxLength(9)->minLength(9)->numeric()->required()->prefixIcon('heroicon-o-phone'),
+            TextInput::make('celular')
+    ->label('Celular')
+    ->maxLength(9)
+    ->minLength(9)
+    ->numeric()
+    ->required()
+    ->prefixIcon('heroicon-o-phone')
+    ->rule('regex:/^[0-9]{9}$/')
+    ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+    ->mask('999999999'),
             TextInput::make('correo')->label('Correo Electrónico')->email()->required()->prefixIcon('heroicon-o-envelope'),
             TextInput::make('direccion')->label('Dirección')->required()->prefixIcon('heroicon-o-map-pin'),
             Select::make('distrito')->label('Distrito')->prefixIcon('heroicon-o-map-pin')->options([
@@ -160,7 +178,7 @@ class AsesorResource extends Resource
                         \Filament\Notifications\Notification::make()
                             ->success()
                             ->title('Asesor Activado')
-                            ->body('El asesor ha sido activado exitosamente con todos sus permisos.')
+                            ->body('El asesor ha sido activado exitosamente with todos sus permisos.')
                             ->send();
                     }),
             ])

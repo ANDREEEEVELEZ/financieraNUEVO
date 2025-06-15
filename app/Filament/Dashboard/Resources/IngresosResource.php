@@ -118,9 +118,10 @@ public static function form(Form $form): Form
             ->step(0.01)
             ->prefix('S/')
             ->required()
-          ->disabled(fn (Forms\Get $get) => $isEditing && in_array($get('tipo_ingreso'), ['transferencia', 'pago de cuota de grupo'])),
-
-
+            ->minValue(0.01)
+            ->rule('numeric|min:0.01')
+            ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+            ->mask('999999.99'),
 
             DateTimePicker::make('fecha_hora')
                 ->label('Fecha y Hora')
