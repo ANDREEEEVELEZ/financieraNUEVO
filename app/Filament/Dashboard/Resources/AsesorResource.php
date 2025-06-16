@@ -178,7 +178,7 @@ class AsesorResource extends Resource
                         \Filament\Notifications\Notification::make()
                             ->success()
                             ->title('Asesor Activado')
-                            ->body('El asesor ha sido activado exitosamente with todos sus permisos.')
+                            ->body('El asesor ha sido activado exitosamente con todos sus permisos.')
                             ->send();
                     }),
             ])
