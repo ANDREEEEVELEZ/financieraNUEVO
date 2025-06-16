@@ -50,7 +50,7 @@ class CheckUserActive
                     return response()->json(['message' => 'Tu cuenta está inactiva.'], 403);
                 }
                 
-                return redirect('/admin/login')
+                return redirect('/dashboard/login')
                     ->with('notification', [
                         'title' => 'Cuenta Inactiva',
                         'message' => 'Tu cuenta está inactiva. Por favor, contacta al administrador.',
