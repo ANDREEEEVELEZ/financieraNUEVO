@@ -33,7 +33,7 @@ class CheckUserActive
                         return response()->json(['message' => '¡ASESOR INACTIVO! No tienes permiso para acceder al sistema. Por favor, contacta al administrador.'], 403);
                     }
                     
-                    return redirect('/admin/login')
+                    return redirect('/dashboard/login')
                         ->with('notification', [
                             'title' => '¡ASESOR INACTIVO!',
                             'message' => 'No tienes permiso para acceder al sistema. Por favor, contacta al administrador.',
