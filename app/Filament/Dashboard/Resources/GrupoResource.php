@@ -30,83 +30,98 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     public static function form(Form $form): Form
     {
+        $user = request()->user();
         return $form
             ->schema([
+                // Campo asesor solo para super_admin y jefe de operaciones
+                Forms\Components\Select::make('asesor_id')
+                    ->label('Asesor')
+                    ->options(function () {
+                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                            ->with('persona')
+                            ->get()
+                            ->mapWithKeys(function ($asesor) {
+                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                            });
+                    })
+                    ->searchable()
+                    ->required()
+                    ->reactive()
+                    ->visible(fn () => $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones'])),
                 Forms\Components\TextInput::make('nombre_grupo')
                     ->maxLength(255)
-                     ->prefixIcon('heroicon-o-tag')
+                    ->prefixIcon('heroicon-o-tag')
                     ->required(),
                 Forms\Components\DatePicker::make('fecha_registro')
                     ->required()
                     ->prefixIcon('heroicon-o-calendar'),
                 Forms\Components\TextInput::make('calificacion_grupo')
-                ->prefixIcon('heroicon-o-star')
+                    ->prefixIcon('heroicon-o-star')
                     ->maxLength(255),
                 Forms\Components\TextInput::make('estado_grupo')
-                   ->prefixIcon('heroicon-o-check-circle')
-                ->default('Activo')
+                    ->prefixIcon('heroicon-o-check-circle')
+                    ->default('Activo')
                     ->maxLength(255)
                     ->disabled()
                     ->dehydrated(),
-Forms\Components\Select::make('clientes')
-    ->label('Integrantes')
-    ->prefixIcon('heroicon-o-user-group')
-    ->multiple()
-    ->relationship('clientes', 'id')
-    ->options(function () {
-        $user = request()->user();
-
-        // Si es asesor, mostrar solo sus clientes
-        if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-
-            if ($asesor) {
-                return Cliente::where('asesor_id', $asesor->id)
-                    ->with(['persona', 'grupos' => function ($query) {
-                        $query->where('estado_grupo', 'Activo');
-                    }])
-                    ->join('personas', 'clientes.persona_id', '=', 'personas.id')
-                    ->orderBy('personas.nombre') // Ordenar por nombre
-                    ->orderBy('personas.apellidos') // Luego por apellidos
-                    ->select('clientes.*') // Seleccionar solo las columnas de clientes
-                    ->get()
-                    ->mapWithKeys(function($cliente) {
-                        if ($cliente->tieneGrupoActivo()) {
-                            $grupoActivo = $cliente->grupoActivo;
-                            return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
+                Forms\Components\Select::make('clientes')
+                    ->label('Integrantes')
+                    ->prefixIcon('heroicon-o-user-group')
+                    ->multiple()
+                    ->relationship('clientes', 'id')
+                    ->options(function (callable $get) use ($user) {
+                        // Si es asesor, mostrar solo sus clientes
+                        if ($user->hasRole('Asesor')) {
+                            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                            if ($asesor) {
+                                return Cliente::where('asesor_id', $asesor->id)
+                                    ->with(['persona', 'grupos' => function ($query) {
+                                        $query->where('estado_grupo', 'Activo');
+                                    }])
+                                    ->join('personas', 'clientes.persona_id', '=', 'personas.id')
+                                    ->orderBy('personas.nombre')
+                                    ->orderBy('personas.apellidos')
+                                    ->select('clientes.*')
+                                    ->get()
+                                    ->mapWithKeys(function($cliente) {
+                                        if ($cliente->tieneGrupoActivo()) {
+                                            $grupoActivo = $cliente->grupoActivo;
+                                            return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
+                                        }
+                                        return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
+                                    });
+                            }
                         }
-                        return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
-                    });
-            }
-        }
-
-        // Si es admin, jefe de operaciones o jefe de crédito, mostrar todos
-        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            return Cliente::with(['persona', 'grupos' => function ($query) {
-                    $query->where('estado_grupo', 'Activo');
-                }])
-                ->join('personas', 'clientes.persona_id', '=', 'personas.id')
-                ->orderBy('personas.nombre') // Ordenar por nombre
-                ->orderBy('personas.apellidos') // Luego por apellidos
-                ->select('clientes.*') // Seleccionar solo las columnas de clientes
-                ->get()
-                ->mapWithKeys(function($cliente) {
-                    if ($cliente->tieneGrupoActivo()) {
-                        $grupoActivo = $cliente->grupoActivo;
-                        return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
-                    }
-                    return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
-                });
-        }
-
-        // Si no aplica, retornar vacío
-        return [];
-})
-
-
+                        // Si es super_admin o jefe de operaciones, filtrar por asesor seleccionado
+                        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                            $asesorId = $get('asesor_id');
+                            if ($asesorId) {
+                                return Cliente::where('asesor_id', $asesorId)
+                                    ->with(['persona', 'grupos' => function ($query) {
+                                        $query->where('estado_grupo', 'Activo');
+                                    }])
+                                    ->join('personas', 'clientes.persona_id', '=', 'personas.id')
+                                    ->orderBy('personas.nombre')
+                                    ->orderBy('personas.apellidos')
+                                    ->select('clientes.*')
+                                    ->get()
+                                    ->mapWithKeys(function($cliente) {
+                                        if ($cliente->tieneGrupoActivo()) {
+                                            $grupoActivo = $cliente->grupoActivo;
+                                            return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya pertenece al grupo: {$grupoActivo->nombre_grupo}"];
+                                        }
+                                        return [$cliente->id => "{$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
+                                    });
+                            }
+                            return [];
+                        }
+                        // Si no aplica, retornar vacío
+                        return [];
+                    })
                     ->searchable()
                     ->preload()
                     ->required()
+                    ->reactive()
                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                         if (!empty($state)) {
                             $clientesConGrupo = Cliente::whereIn('clientes.id', $state)
@@ -114,23 +129,17 @@ Forms\Components\Select::make('clientes')
                                 ->filter(function ($cliente) {
                                     return $cliente->tieneGrupoActivo();
                                 });
-
-
                             if ($clientesConGrupo->isNotEmpty()) {
                                 $mensajesError = $clientesConGrupo->map(function ($cliente) {
                                     $grupoActivo = $cliente->grupoActivo;
                                     return "{$cliente->persona->nombre} {$cliente->persona->apellidos} ya pertenece al grupo {$grupoActivo->nombre_grupo}";
                                 })->join("\n");
-
-
                                 Notification::make()
                                     ->danger()
                                     ->title('Error al agregar clientes')
                                     ->body($mensajesError)
                                     ->persistent()
                                     ->send();
-
-
                                 // Remover los clientes que ya tienen grupo ACTIVO
                                 $set('clientes', array_values(array_diff($state, $clientesConGrupo->pluck('id')->toArray())));
                             }
