@@ -158,7 +158,11 @@ class ClienteResource extends Resource
                     'Activo' => 'success',
                     'Inactivo' => 'danger',
                     default => 'warning',
-                })
+                }),
+            Tables\Columns\TextColumn::make('grupos')
+                ->label('Grupos Pertenecientes')
+                ->formatStateUsing(fn ($record) => $record->grupos->pluck('nombre_grupo')->implode(' - ') ?: '-')
+                ->searchable(false),
         ];
 
         // Agregar columna de asesor solo para roles administrativos al final
