@@ -267,8 +267,12 @@
                                 S/ {{ number_format($cuota->saldo_pendiente, 2) }}
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-red-600 dark:text-red-300 font-semibold">
-                           {{ max(0, floor(\Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->diffInDays(\Carbon\Carbon::now(), false))) }}
+                     <td class="px-4 py-3 text-red-600 dark:text-red-300 font-semibold">
+                            @if($cuota->mora)
+                                {{ $cuota->mora->dias_atraso }}
+                            @else
+                                {{ max(0, floor(\Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->diffInDays(\Carbon\Carbon::now(), false))) }}
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-pink-700 dark:text-pink-200">
                             @if($cuota->mora)

@@ -31,4 +31,8 @@ class Persona extends Model
     {
         return $this->hasOne(User::class, 'persona_id');
     }
+    public function clientes()
+    {
+        return $this->hasMany(Cliente::class, 'persona_id'); // Asegúrate del nombre correcto del FK
+    }
 }

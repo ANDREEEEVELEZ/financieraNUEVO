@@ -18,10 +18,10 @@ class PagoFactory extends Factory
             'cuota_grupal_id' => CuotasGrupales::factory(),
             'tipo_pago' => $this->faker->randomElement(['parcial', 'completo']),
             'codigo_operacion' => $this->faker->uuid(),
-            'monto_pagado' => $this->faker->randomFloat(2, 50, 1000),
+            'monto_pagado' => 150.00,
             'monto_mora_pagada' => $this->faker->randomFloat(2, 0, 50),
            'fecha_pago' => $this->faker->dateTime(),
-            'estado_pago' => $this->faker->randomElement(['Aprobado', 'Pendiente', 'Rechazado']),
+            'estado_pago' => 'pendiente',
             'observaciones' => $this->faker->sentence(),
         ];
     }

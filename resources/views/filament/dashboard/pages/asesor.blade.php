@@ -4,6 +4,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 @php
     // Solo usar las variables realmente definidas en getViewData()
+  // Variables corregidas para separar cuotas de pagos
     $cuotasEstadosBarArr = $cuotasEstadosBar;
     $pagosPorFechaArr = $pagosPorFecha->toArray();
     $pagosPorFechaLabels = array_keys($pagosPorFechaArr);

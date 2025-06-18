@@ -74,15 +74,19 @@
                 <td>{{ $cuota->fecha_vencimiento ? \Carbon\Carbon::parse($cuota->fecha_vencimiento)->format('d/m/Y') : '-' }}</td>
                 <td>S/ {{ number_format($cuota->saldo_pendiente, 2) }}</td>
                 <td>
+                @if($cuota->mora)
+                    {{ $cuota->mora->dias_atraso }}
+                @else
                     @php
                         $diasAtraso = 0;
                         if ($cuota->fecha_vencimiento && $cuota->estado_pago !== 'pagado' && $cuota->estado_cuota_grupal !== 'cancelada') {
                             $fechaVencimiento = \Carbon\Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
-                            $diasAtraso = max(0, $fechaVencimiento->diffInDays(now()));
+                            $diasAtraso = max(0, floor($fechaVencimiento->diffInDays(now())));
                         }
                     @endphp
                     {{ $diasAtraso }}
-                </td>
+                @endif
+            </td>
 
                 <td>S/ {{ $cuota->mora ? number_format(abs($cuota->mora->monto_mora_calculado), 2) : '0.00' }}</td>
                 <td>
