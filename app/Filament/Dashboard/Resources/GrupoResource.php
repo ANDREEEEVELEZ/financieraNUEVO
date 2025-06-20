@@ -240,7 +240,8 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             });
                         }
                         return $query;
-                    }),
+                    })
+                    ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),

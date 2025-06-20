@@ -293,6 +293,41 @@ class PrestamoResource extends Resource
                     return $html;
                 }),
         ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('asesor')
+                    ->label('Asesor')
+                    ->options(function () {
+                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                            ->with('persona')
+                            ->get()
+                            ->mapWithKeys(function ($asesor) {
+                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                            });
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            $query->whereHas('grupo.asesor', function ($q) use ($data) {
+                                $q->where('id', $data['value']);
+                            });
+                        }
+                        return $query;
+                    })
+                    ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])),
+                Tables\Filters\SelectFilter::make('estado')
+                    ->label('Estado')
+                    ->options([
+                        'Pendiente' => 'Pendiente',
+                        'Aprobado' => 'Aprobado',
+                        'Rechazado' => 'Rechazado',
+                        'Finalizado' => 'Finalizado',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            $query->where('estado', $data['value']);
+                        }
+                        return $query;
+                    }),
+            ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
                 Tables\Actions\Action::make('imprimir_contrato')
