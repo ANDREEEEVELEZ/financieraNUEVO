@@ -26,6 +26,10 @@ class PrestamoResource extends Resource
 
     public static function form(Forms\Form $form): Forms\Form
     {
+        $record = request()->route('record');
+        $prestamo = $record ? \App\Models\Prestamo::find($record) : null;
+        $estado = $prestamo ? strtolower($prestamo->estado) : null;
+        $isBloqueado = in_array($estado, ['aprobado', 'activo']);
         return $form->schema([
             Select::make('grupo_id')
                 ->label('Grupo')
@@ -78,7 +82,8 @@ class PrestamoResource extends Resource
                     } else {
                         $set('clientes_grupo', []);
                     }
-                }),
+                })
+                ->disabled(fn() => $isBloqueado),
             \Filament\Forms\Components\Hidden::make('clientes_grupo')
                 ->dehydrateStateUsing(fn($state) => $state)
                 ->reactive(),
@@ -140,7 +145,8 @@ class PrestamoResource extends Resource
                             } else {
                                 $set('../../monto_devolver', '');
                             }
-                        }),
+                        })
+                        ->disabled(fn() => $isBloqueado),
                 ])
                 ->visible(fn(callable $get) => !empty($get('clientes_grupo')))
                 ->columns(4),
@@ -149,7 +155,8 @@ class PrestamoResource extends Resource
                 ->prefixIcon('heroicon-o-chart-bar')
                 ->default(17)
                 ->readOnly()
-                ->numeric(),
+                ->numeric()
+                ->disabled(fn() => $isBloqueado),
             TextInput::make('monto_prestado_total')
                 ->label('Monto prestado total')
                 ->prefix('S/.')
@@ -164,11 +171,13 @@ class PrestamoResource extends Resource
                         $montoDevolver = $monto * (1 + $interes / 100);
                         $set('monto_devolver', number_format($montoDevolver, 2, '.', ''));
                     }
-                }),
+                })
+                ->disabled(fn() => $isBloqueado),
             TextInput::make('monto_devolver')
                 ->label('Monto devolver')
                 ->prefix('S/.')
-                ->readOnly(),
+                ->readOnly()
+                ->disabled(fn() => $isBloqueado),
             TextInput::make('cantidad_cuotas')
                 ->numeric()
                 ->prefixIcon('heroicon-o-hashtag')
@@ -176,10 +185,12 @@ class PrestamoResource extends Resource
                 ->minValue(1)
                 ->rules(['integer', 'min:1'])
                 ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
-                ->mask('999'),
+                ->mask('999')
+                ->disabled(fn() => $isBloqueado),
             DatePicker::make('fecha_prestamo')
             ->prefixIcon('heroicon-o-calendar')
-                ->required(),
+                ->required()
+                ->disabled(fn() => $isBloqueado),
             Select::make('frecuencia')
             ->prefixIcon('heroicon-o-arrow-path')
                 ->options([
@@ -189,7 +200,7 @@ class PrestamoResource extends Resource
                 ])
                 ->required()
                 ->default('semanal')
-                ->disabled(fn() => false)
+                ->disabled(fn() => $isBloqueado)
                 ->reactive()
                 ->afterStateHydrated(function ($component, $state) {
                     // Solo permitir seleccionar semanal
@@ -209,7 +220,7 @@ class PrestamoResource extends Resource
                 ])
                 ->default('Pendiente')
                 ->required()
-                ->disabled(fn() => !(
+                ->disabled(fn() => $isBloqueado || !(
                     \Illuminate\Support\Facades\Auth::check() &&
                     \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin','Jefe de operaciones', 'Jefe de creditos']) &&
                     request()->routeIs('filament.dashboard.resources.prestamos.edit')
@@ -218,7 +229,8 @@ class PrestamoResource extends Resource
             TextInput::make('calificacion')
             ->prefixIcon('heroicon-o-star')
                 ->numeric()
-                ->required(),
+                ->required()
+                ->disabled(fn() => $isBloqueado),
 
         ]);
     }
