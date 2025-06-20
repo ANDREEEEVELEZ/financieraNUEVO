@@ -38,11 +38,13 @@ class PrestamoResource extends Resource
                         $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
                         if ($asesor) {
                             $grupos = \App\Models\Grupo::where('asesor_id', $asesor->id)
+                                ->where('estado_grupo', 'Activo')
                                 ->orderBy('nombre_grupo', 'asc')
                                 ->get();
                         }
                     } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                        $grupos = \App\Models\Grupo::orderBy('nombre_grupo', 'asc')->get();
+                        $grupos = \App\Models\Grupo::where('estado_grupo', 'Activo')
+                            ->orderBy('nombre_grupo', 'asc')->get();
                     } else {
                         $grupos = collect();
                     }
