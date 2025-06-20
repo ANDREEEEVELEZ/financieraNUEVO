@@ -5,6 +5,8 @@ use App\Http\Controllers\ContratoGrupoController;
 use App\Http\Controllers\PagoPdfController;
 use App\Http\Controllers\MoraPdfController;
 use App\Http\Controllers\AsistenteController;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
 Route::get('/', function () 
 {
@@ -20,3 +22,11 @@ Route::middleware(['auth', \App\Http\Middleware\CheckUserActive::class, 'role:su
 }
 
 );
+
+// Ruta para cerrar sesión
+Route::post('/logout', function(Request $request) {
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect('/dashboard/login');
+})->name('logout');
