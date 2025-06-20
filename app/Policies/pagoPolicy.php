@@ -21,14 +21,14 @@ class PagoPolicy
     /**
      * Determine whether the user can view the model.
      */
-public function view(User $user, Pago $pago): bool
-{
-    $grupo = optional($pago->cuotaGrupal?->prestamo?->grupo);
-    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+    public function view(User $user, Pago $pago): bool
+    {
+        $grupo = optional($pago->cuotaGrupal?->prestamo?->grupo);
+        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
 
-    return $grupo && $asesor && $grupo->asesor_id === $asesor->id
-        || $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
-}
+        return $grupo && $asesor && $grupo->asesor_id === $asesor->id
+            || $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
+    }
 
     /**
      * Determine whether the user can create models.
@@ -40,10 +40,11 @@ public function view(User $user, Pago $pago): bool
 
     /**
      * Determine whether the user can update the model.
-     * Solo permitirá acceder a la vista de edición, pero no guardar cambios.
+     * CAMBIO: Ahora permite acceso a la vista pero el formulario controlará la edición
      */
     public function update(User $user, Pago $pago): bool
     {
+        // Solo verifica si puede VER el registro, no el estado
         return $this->view($user, $pago);
     }
 

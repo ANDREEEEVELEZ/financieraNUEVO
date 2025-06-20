@@ -36,7 +36,7 @@ return [
         'actions' => [
 
             'authenticate' => [
-                'label' => 'Entrar',
+                'label' => 'Iniciar sesión',
             ],
 
         ],

@@ -13,19 +13,42 @@ class EditPago extends EditRecord
 {
     protected static string $resource = PagoResource::class;
 
+    /*
     protected function isFormDisabled(): bool
     {
-        return true; // Siempre deshabilita para evitar edición
+        return strtolower($this->record->estado_pago) !== 'pendiente';
+    }
+        */
+    protected function mutateFormDataBeforeSave(array $data): array
+{
+    if (strtolower($this->record->estado_pago) !== 'pendiente') {
+        throw \Filament\Forms\Components\Component::make()->getValidationException([
+            'estado_pago' => 'Solo se puede editar un pago en estado pendiente.',
+        ]);
     }
 
-    protected function getFormActions(): array
-    {
+    return $data;
+}
+
+
+protected function getFormActions(): array
+{
+    if (strtolower($this->record->estado_pago) !== 'pendiente') {
         return [];
     }
 
+    return parent::getFormActions();
+}
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
+
+
     protected function getHeaderActions(): array
     {
-        
+
         return [
             Actions\Action::make('aprobar')
                 ->label('Aprobar')

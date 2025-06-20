@@ -54,133 +54,182 @@ class PagoResource extends Resource
 
                     return $query->pluck('nombre_grupo', 'id');
                 })
-                ->afterStateHydrated(function ($component, $state, $record) {
-                    if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
-                        $component->state($record->cuotaGrupal->prestamo->grupo->id);
-                        $component->disabled(true);
-                    } else {
-                        $component->disabled(false);
-                    }
-                })
-                            ->afterStateUpdated(function ($state, callable $set) {
-                    $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
-                            $query->where('grupo_id', $state);
-                        })
-                        ->pluck('id');
-
-                    $pagoPendiente = Pago::whereIn('cuota_grupal_id', $cuotas)
-                        ->where('estado_pago', 'Pendiente')
-                        ->exists();
-
-                    if ($pagoPendiente) {
-                        Notification::make()
-                            ->title('Este grupo ya tiene un pago pendiente')
-                            ->body('No puedes registrar un nuevo pago hasta que se apruebe o rechace el anterior.')
-                            ->danger()
-                            ->persistent()
-                            ->send();
+               ->afterStateHydrated(function ($component, $state, $record) {
+    if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
+        $component->state($record->cuotaGrupal->prestamo->grupo->id);
 
 
-                        $set('grupo_id', null);
-                        $set('cuota_grupal_id', null);
-                        $set('numero_cuota', null);
-                        $set('monto_cuota', null);
-                        $set('monto_mora_pagada', 0.00);
-                        $set('saldo_pendiente_actual', 0.00);
-                        return;
-                    }
+        if (strtolower($record->estado_pago) !== 'pendiente') {
+            $component->disabled(true);
+        } else {
+            $component->disabled(false);
+        }
+    }
+})
+->afterStateUpdated(function ($state, callable $set, callable $get) {
+    $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
+            $query->where('grupo_id', $state);
+        })
+        ->pluck('id');
 
+    $pagoPendiente = Pago::whereIn('cuota_grupal_id', $cuotas)
+        ->where('estado_pago', 'Pendiente')
+        ->exists();
 
-                    $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
-                            $query->where('grupo_id', $state);
-                        })
-                        ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
-                        ->orderBy('numero_cuota', 'asc')
-                        ->get();
+    if ($pagoPendiente) {
+        Notification::make()
+            ->title('Este grupo ya tiene un pago pendiente')
+            ->body('No puedes registrar un nuevo pago hasta que se apruebe o rechace el anterior.')
+            ->danger()
+            ->persistent()
+            ->send();
 
-                    foreach ($cuotas as $cuota) {
-                        if ($cuota->saldoPendiente() > 0) {
-                            $set('cuota_grupal_id', $cuota->id);
-                            $set('numero_cuota', $cuota->numero_cuota);
-                            $set('monto_cuota', $cuota->monto_cuota_grupal);
-                            $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
-                            $set('saldo_pendiente_actual', $cuota->saldoPendiente());
-                            return;
-                        }
-                    }
+        $set('grupo_id', null);
+        $set('cuota_grupal_id', null);
+        $set('numero_cuota', null);
+        $set('monto_cuota', null);
+        $set('monto_mora_pagada', 0.00);
+        $set('saldo_pendiente_actual', 0.00);
+        $set('monto_pagado', 0.00); // Agregar esta línea
+        $set('tipo_pago', null);    // Agregar esta línea
+        return;
+    }
 
-                    $set('cuota_grupal_id', null);
-                    $set('numero_cuota', null);
-                    $set('monto_cuota', null);
-                    $set('monto_mora_pagada', 0.00);
-                    $set('saldo_pendiente_actual', 0.00);
-                })
+    $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
+            $query->where('grupo_id', $state);
+        })
+        ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
+        ->orderBy('numero_cuota', 'asc')
+        ->get();
+
+    foreach ($cuotas as $cuota) {
+        if ($cuota->saldoPendiente() > 0) {
+            $set('cuota_grupal_id', $cuota->id);
+            $set('numero_cuota', $cuota->numero_cuota);
+            $set('monto_cuota', $cuota->monto_cuota_grupal);
+            $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+            $set('saldo_pendiente_actual', $cuota->saldoPendiente());
+
+            // AGREGAR ESTAS LÍNEAS PARA ACTUALIZAR EL MONTO PAGADO
+            $tipoPago = $get('tipo_pago');
+            if ($tipoPago === 'pago_completo') {
+                $set('monto_pagado', $cuota->saldoPendiente());
+            } else {
+                $set('monto_pagado', 0.00); // Resetear para pago parcial o sin tipo
+            }
+
+            return;
+        }
+    }
+
+    $set('cuota_grupal_id', null);
+    $set('numero_cuota', null);
+    $set('monto_cuota', null);
+    $set('monto_mora_pagada', 0.00);
+    $set('saldo_pendiente_actual', 0.00);
+    $set('monto_pagado', 0.00); // Agregar esta línea
+    $set('tipo_pago', null);    // Agregar esta línea también
+})
 
                 ->searchable()
                 ->required()
                 ->reactive()
 
-                ->disabled(fn ($record) => $record !== null),
+                ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente'),
+
 
             Hidden::make('cuota_grupal_id')->required(),
 
-            TextInput::make('numero_cuota')
-                ->label('Número de Cuota')
-                ->prefixIcon('heroicon-o-hashtag')
-                ->numeric()
-                ->disabled()
-                ->required()
-                ->dehydrated()
-                ->afterStateHydrated(function ($component, $state, $record) {
-                    if ($record && $record->cuotaGrupal) {
-                        $component->state($record->cuotaGrupal->numero_cuota);
-                    }
-                }),
+        TextInput::make('numero_cuota')
+            ->label('Número de Cuota')
+            ->disabled(function ($record, callable $get) {
+                // Si estamos editando un registro existente, siempre deshabilitar
+                if ($record !== null) {
+                    return true;
+                }
 
-            TextInput::make('monto_cuota')
-                ->label('Monto de la Cuota')
-                ->prefix('S/.')
-                ->numeric()
-                ->disabled()
-                ->required()
-                ->dehydrated()
-                ->afterStateHydrated(function ($component, $state, $record) {
-                    if ($record && $record->cuotaGrupal) {
-                        $component->state($record->cuotaGrupal->monto_cuota_grupal);
-                    }
-                }),
+                // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
+                return $get('grupo_id') !== null;
+            })
+            ->prefixIcon('heroicon-o-hashtag')
+            ->numeric()
+            ->required()
+            ->dehydrated()
+            ->afterStateHydrated(function ($component, $state, $record) {
+                if ($record && $record->cuotaGrupal) {
+                    $component->state($record->cuotaGrupal->numero_cuota);
+                }
+            }),
 
-            TextInput::make('monto_mora_pagada')
-                ->label('Monto de Mora Aplicado')
-                ->prefix('S/.')
-                ->numeric()
-                ->disabled()
-                ->dehydrated(true)
-                ->default(0.00)
-                ->afterStateHydrated(function ($component, $state, $record) {
-                    if ($record && $record->cuotaGrupal && $record->cuotaGrupal->mora) {
-                        $component->state(abs($record->cuotaGrupal->mora->monto_mora_calculado));
-                    } else {
-                        $component->state(0.00);
-                    }
-                }),
+        TextInput::make('monto_cuota')
+            ->label('Monto de la Cuota')
+            ->prefix('S/.')
+            ->numeric()
+            ->disabled(function ($record, callable $get) {
+                // Si estamos editando un registro existente, siempre deshabilitar
+                if ($record !== null) {
+                    return true;
+                }
 
-                TextInput::make('saldo_pendiente_actual')
-                    ->label('Saldo Pendiente')
-                    ->numeric()
-                    ->disabled()
-                    ->dehydrated(false)
-                    ->prefix('S/.')
-                    ->afterStateHydrated(function ($component, $state, $record, callable $get) {
-                        if ($record && $record->cuotaGrupal) {
-                            $component->state($record->cuotaGrupal->saldoPendiente());
-                        } else {
-                            $cuotaId = $get('cuota_grupal_id');
-                            if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
-                                $component->state($cuota->saldoPendiente());
-                            }
-                        }
-                    }),
+                // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
+                return $get('grupo_id') !== null;
+            })
+            ->required()
+            ->dehydrated()
+            ->afterStateHydrated(function ($component, $state, $record) {
+                if ($record && $record->cuotaGrupal) {
+                    $component->state($record->cuotaGrupal->monto_cuota_grupal);
+                }
+            }),
+
+          TextInput::make('monto_mora_pagada')
+            ->label('Monto de Mora Aplicado')
+            ->prefix('S/.')
+            ->numeric()
+            ->disabled(function ($record, callable $get) {
+                // Si estamos editando un registro existente, siempre deshabilitar
+                if ($record !== null) {
+                    return true;
+                }
+
+                // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
+                return $get('grupo_id') !== null;
+            })
+            ->dehydrated(true)
+            ->default(0.00)
+            ->afterStateHydrated(function ($component, $state, $record) {
+                if ($record && $record->cuotaGrupal && $record->cuotaGrupal->mora) {
+                    $component->state(abs($record->cuotaGrupal->mora->monto_mora_calculado));
+                } else {
+                    $component->state(0.00);
+                }
+            }),
+
+
+            TextInput::make('saldo_pendiente_actual')
+    ->label('Saldo Pendiente')
+    ->numeric()
+    ->disabled(function ($record, callable $get) {
+        // Si estamos editando un registro existente, siempre deshabilitar
+        if ($record !== null) {
+            return true;
+        }
+
+        // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
+        return $get('grupo_id') !== null;
+    })
+    ->dehydrated(false)
+    ->prefix('S/.')
+    ->afterStateHydrated(function ($component, $state, $record, callable $get) {
+        if ($record && $record->cuotaGrupal) {
+            $component->state($record->cuotaGrupal->saldoPendiente());
+        } else {
+            $cuotaId = $get('cuota_grupal_id');
+            if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
+                $component->state($cuota->saldoPendiente());
+            }
+        }
+    }),
 
             Select::make('tipo_pago')
                 ->label('Tipo de Pago')
@@ -212,7 +261,8 @@ class PagoResource extends Resource
                     }
                 })
 
-                ->disabled(fn ($record) => $record !== null),
+                ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente')
+,
 
             TextInput::make('monto_pagado')
                 ->label('Monto Pagado')
@@ -220,29 +270,28 @@ class PagoResource extends Resource
                 ->numeric()
                 ->minValue(0)
                 ->rules(['numeric', 'min:0'])
-                 ->extraAttributes([
-        'onkeydown' => "if (event.key === '-' || event.key === 'e') event.preventDefault();",
-        'inputmode' => 'decimal',
-    ])
+                ->extraAttributes([
+                    'onkeydown' => "if (event.key === '-' || event.key === 'e') event.preventDefault();",
+                    'inputmode' => 'decimal',
+                ])
                 ->required()
                 ->disabled(function (callable $get, $record) {
 
-                    if ($record !== null) {
+                    if ($record !== null && strtolower($record->estado_pago) !== 'pendiente') {
                         return true;
                     }
+
 
                     return $get('tipo_pago') === 'pago_completo';
                 })
                 ->dehydrated()
                 ->live(onBlur: true)
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
-
                     $saldoPendiente = floatval($get('saldo_pendiente_actual') ?? 0);
                     $montoPagado = floatval($state ?? 0);
 
                     if ($montoPagado > $saldoPendiente && $saldoPendiente > 0) {
                         $set('monto_pagado', $saldoPendiente);
-
                     }
                 })
                 ->helperText(function (callable $get) {
@@ -252,6 +301,7 @@ class PagoResource extends Resource
                     }
                     return null;
                 }),
+
 
             TextInput::make('codigo_operacion')
                 ->label('Código de Operación')
@@ -265,7 +315,8 @@ class PagoResource extends Resource
                     }
                 })
 
-                ->disabled(fn ($record) => $record !== null),
+                ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente'),
+
 
 DateTimePicker::make('fecha_pago')
     ->label('Fecha de Pago')
@@ -273,7 +324,8 @@ DateTimePicker::make('fecha_pago')
     ->required()
     ->dehydrated(true)
     ->maxDate(now())
-    ->disabled(fn ($record) => $record !== null)
+    ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente')
+
     ->default(function () {
         return now()->format('Y-m-d H:i:s');
     }),
@@ -283,7 +335,7 @@ DateTimePicker::make('fecha_pago')
                 ->prefixIcon('heroicon-o-pencil-square')
                 ->maxLength(255)
 
-                ->disabled(fn ($record) => $record !== null),
+               ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente'),
 
             Select::make('estado_pago')
                 ->label('Estado del Pago')
@@ -294,14 +346,15 @@ DateTimePicker::make('fecha_pago')
                     'Rechazado' => 'Rechazado',
                 ])
                 ->default('Pendiente')
-                ->disabled()
+                ->disabled(true)
+
                 ->dehydrated(),
 
 
             TextInput::make('saldo_pendiente')
                 ->label('Saldo Pendiente (Total a Pagar)')
                 ->numeric()
-                ->disabled()
+                ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente')
                 ->dehydrated(false)
                 ->visible(fn ($record) => $record !== null && false)
                 ->afterStateHydrated(function ($component, $state, $record) {
