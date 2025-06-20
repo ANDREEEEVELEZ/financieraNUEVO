@@ -18,6 +18,10 @@ class EditGrupo extends EditRecord
 
     protected function getHeaderActions(): array
     {
+        // Solo mostrar el botón si el grupo está ACTIVO
+        if ($this->record->estado_grupo !== 'Activo') {
+            return [];
+        }
         return [
             Actions\Action::make('inactivar')
                 ->label('Inactivar Grupo')

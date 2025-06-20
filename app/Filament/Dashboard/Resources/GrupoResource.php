@@ -31,6 +31,9 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
     public static function form(Form $form): Form
     {
         $user = request()->user();
+        $record = request()->route('record');
+        $grupo = $record ? \App\Models\Grupo::find($record) : null;
+        $isInactivo = $grupo && $grupo->estado_grupo === 'Inactivo';
         return $form
             ->schema([
                 // Campo asesor solo para super_admin y jefe de operaciones
@@ -47,17 +50,21 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                     ->searchable()
                     ->required()
                     ->reactive()
-                    ->visible(fn () => $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones'])),
+                    ->visible(fn () => $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                    ->disabled(fn () => $isInactivo),
                 Forms\Components\TextInput::make('nombre_grupo')
                     ->maxLength(255)
                     ->prefixIcon('heroicon-o-tag')
-                    ->required(),
+                    ->required()
+                    ->disabled(fn () => $isInactivo),
                 Forms\Components\DatePicker::make('fecha_registro')
                     ->required()
-                    ->prefixIcon('heroicon-o-calendar'),
+                    ->prefixIcon('heroicon-o-calendar')
+                    ->disabled(fn () => $isInactivo),
                 Forms\Components\TextInput::make('calificacion_grupo')
                     ->prefixIcon('heroicon-o-star')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->disabled(fn () => $isInactivo),
                 Forms\Components\TextInput::make('estado_grupo')
                     ->prefixIcon('heroicon-o-check-circle')
                     ->default('Activo')
@@ -144,7 +151,8 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                 $set('clientes', array_values(array_diff($state, $clientesConGrupo->pluck('id')->toArray())));
                             }
                         }
-                    }),
+                    })
+                    ->disabled(fn () => $isInactivo),
                 Forms\Components\Select::make('lider_grupal')
     ->label('Líder Grupal')
     ->prefixIcon('heroicon-o-user-circle')
@@ -164,7 +172,8 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                     })
                     ->required()
                     ->searchable()
-                    ->visible(fn(callable $get) => !empty($get('clientes'))),
+                    ->visible(fn(callable $get) => !empty($get('clientes')))
+                    ->disabled(fn () => $isInactivo),
                 Forms\Components\TextInput::make('numero_integrantes')
                     ->label('Numero de Integrantes')
                     ->prefixIcon('heroicon-o-hashtag')
@@ -245,13 +254,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
-                Tables\Actions\Action::make('imprimir_contratos')
-                    ->label('Imprimir Contratos')
-                    ->icon('heroicon-o-printer')
-                    ->color('success')
-                    ->url(fn($record) => $record ? route('contratos.grupo.imprimir', $record->id) : '#')
-                    ->openUrlInNewTab()
-                    ->visible(fn($record) => $record !== null),
+
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
