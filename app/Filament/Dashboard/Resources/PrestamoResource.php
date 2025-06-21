@@ -3,7 +3,6 @@
 namespace App\Filament\Dashboard\Resources;
 
 use App\Filament\Dashboard\Resources\PrestamoResource\Pages;
-use App\Filament\Dashboard\Resources\PrestamoResource\RelationManagers;
 use App\Models\Prestamo;
 use Filament\Forms;
 use Filament\Resources\Resource;
@@ -14,15 +13,11 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PrestamoResource extends Resource
 {
     protected static ?string $model = Prestamo::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
-
 
     public static function form(Forms\Form $form): Forms\Form
     {
@@ -30,133 +25,90 @@ class PrestamoResource extends Resource
         $prestamo = $record ? \App\Models\Prestamo::find($record) : null;
         $estado = $prestamo ? strtolower($prestamo->estado) : null;
         $isBloqueado = in_array($estado, ['aprobado', 'activo']);
+
         return $form->schema([
             Select::make('grupo_id')
                 ->label('Grupo')
-                 ->prefixIcon('heroicon-o-rectangle-stack')
+                ->prefixIcon('heroicon-o-rectangle-stack')
                 ->relationship('grupo', 'nombre_grupo')
                 ->options(function () {
                     $user = request()->user();
-                    $gruposDisponibles = [];
                     if ($user->hasRole('Asesor')) {
                         $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-                        if ($asesor) {
-                            $grupos = \App\Models\Grupo::where('asesor_id', $asesor->id)
-                                ->where('estado_grupo', 'Activo')
-                                ->orderBy('nombre_grupo', 'asc')
-                                ->get();
-                        }
+                        $grupos = $asesor ? \App\Models\Grupo::where('asesor_id', $asesor->id)->where('estado_grupo', 'Activo')->get() : collect();
                     } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                        $grupos = \App\Models\Grupo::where('estado_grupo', 'Activo')
-                            ->orderBy('nombre_grupo', 'asc')->get();
+                        $grupos = \App\Models\Grupo::where('estado_grupo', 'Activo')->get();
                     } else {
                         $grupos = collect();
                     }
-                    // Filtrar grupos que NO tengan préstamos activos con deuda
-                    $gruposDisponibles = $grupos->filter(function($grupo) {
-                        $tienePrestamoActivo = $grupo->prestamos()->whereIn('estado', ['Pendiente', 'Aprobado'])
-                            ->whereHas('cuotasGrupales', function($q) {
-                                $q->where('estado_pago', '!=', 'Pagado');
-                            })->exists();
-                        return !$tienePrestamoActivo;
+
+                    return $grupos->filter(function ($grupo) {
+                        return !$grupo->prestamos()->whereIn('estado', ['Pendiente', 'Aprobado'])
+                            ->whereHas('cuotasGrupales', fn($q) => $q->where('estado_pago', '!=', 'Pagado'))
+                            ->exists();
                     })->pluck('nombre_grupo', 'id');
-                    return $gruposDisponibles;
                 })
                 ->searchable()
                 ->required()
                 ->reactive()
                 ->afterStateUpdated(function ($state, callable $set) {
                     $grupo = \App\Models\Grupo::with('clientes.persona')->find($state);
-                    if ($grupo) {
-                        $clientes = $grupo->clientes->map(function ($cliente) {
-                            return [
-                                'id' => $cliente->id,
-                                'nombre' => $cliente->persona->nombre,
-                                'apellidos' => $cliente->persona->apellidos,
-                                'dni' => $cliente->persona->DNI,
-                                'ciclo' => $cliente->ciclo ?? 1,
-                                'monto' => null,
-                            ];
-                        })->toArray();
-                        $set('clientes_grupo', $clientes);
-                    } else {
-                        $set('clientes_grupo', []);
-                    }
+                    $set('clientes_grupo', $grupo ? $grupo->clientes->map(function ($c) {
+                        return [
+                            'id' => $c->id,
+                            'nombre' => $c->persona->nombre,
+                            'apellidos' => $c->persona->apellidos,
+                            'dni' => $c->persona->DNI,
+                            'ciclo' => $c->ciclo ?? 1,
+                            'monto' => null,
+                        ];
+                    })->toArray() : []);
                 })
                 ->disabled(fn() => $isBloqueado),
-            \Filament\Forms\Components\Hidden::make('clientes_grupo')
-                ->dehydrateStateUsing(fn($state) => $state)
-                ->reactive(),
-            \Filament\Forms\Components\Repeater::make('clientes_grupo')
+
+            Forms\Components\Hidden::make('clientes_grupo')->dehydrateStateUsing(fn($state) => $state)->reactive(),
+
+            Forms\Components\Repeater::make('clientes_grupo')
                 ->label('Integrantes del Grupo')
                 ->schema([
-                    \Filament\Forms\Components\TextInput::make('nombre')
-                        ->label('Nombre')
-                        ->disabled(),
-                    \Filament\Forms\Components\TextInput::make('apellidos')
-                        ->label('Apellidos')
-                        ->disabled(),
-                    \Filament\Forms\Components\TextInput::make('dni')
-                        ->label('DNI')
-                        ->disabled(),
-                    \Filament\Forms\Components\TextInput::make('ciclo')
-                        ->label('Ciclo')
-                        ->disabled(),
-                    \Filament\Forms\Components\TextInput::make('monto')
-                        ->label(function(callable $get) {
-                            $ciclo = (int)($get('ciclo') ?? 1);
-                            $ciclos = [
-                                1 => ['max' => 400],
-                                2 => ['max' => 600],
-                                3 => ['max' => 800],
-                                4 => ['max' => 1000],
-                            ];
-                            $ciclo = $ciclo > 4 ? 4 : ($ciclo < 1 ? 1 : $ciclo);
-                            $max = $ciclos[$ciclo]['max'];
-                            return 'Monto a Prestar (MAX: S/ ' . $max . ')';
+                    TextInput::make('nombre')->disabled(),
+                    TextInput::make('apellidos')->disabled(),
+                    TextInput::make('dni')->disabled(),
+                    TextInput::make('ciclo')->disabled(),
+                    TextInput::make('monto')
+                        ->label(function (callable $get) {
+                            $c = (int)($get('ciclo') ?? 1);
+                            $m = [1 => 400, 2 => 600, 3 => 800, 4 => 1000][$c > 4 ? 4 : ($c < 1 ? 1 : $c)];
+                            return 'Monto a Prestar (MAX: S/ ' . $m . ')';
                         })
                         ->numeric()
                         ->required()
                         ->live()
+                        ->minValue(100)
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                            $ciclo = (int)($get('ciclo') ?? 1);
-                            $ciclos = [
-                                1 => ['max' => 400],
-                                2 => ['max' => 600],
-                                3 => ['max' => 800],
-                                4 => ['max' => 1000],
-                            ];
-                            $ciclo = $ciclo > 4 ? 4 : ($ciclo < 1 ? 1 : $ciclo);
-                            $max = $ciclos[$ciclo]['max'];
-                            if ($state > $max) {
-                                \Filament\Notifications\Notification::make()
-                                    ->title('El monto máximo permitido para este cliente es S/ ' . $max)
-                                    ->danger()
-                                    ->send();
-                                $set('monto', $max);
+                            $c = (int)($get('ciclo') ?? 1);
+                            $m = [1 => 400, 2 => 600, 3 => 800, 4 => 1000][$c > 4 ? 4 : ($c < 1 ? 1 : $c)];
+                            if ($state < 100) {
+                                \Filament\Notifications\Notification::make()->title('Mínimo S/ 100')->danger()->send();
+                                $set('monto', 100);
                             }
-                            $clientes = $get('../../clientes_grupo') ?? [];
-                            $total = array_sum(array_map(fn($c) => floatval($c['monto'] ?? 0), $clientes));
-                            $set('../../monto_prestado_total', $total);
-                            $interes = floatval($get('../../tasa_interes'));
-                            if ($total > 0 && $interes >= 0) {
-                                $montoDevolver = $total * (1 + $interes / 100);
-                                $set('../../monto_devolver', number_format($montoDevolver, 2, '.', ''));
-                            } else {
-                                $set('../../monto_devolver', '');
+                            if ($state > $m) {
+                                \Filament\Notifications\Notification::make()->title('Máximo S/ ' . $m)->danger()->send();
+                                $set('monto', $m);
                             }
+                            $cs = $get('../../clientes_grupo') ?? [];
+                            $t = array_sum(array_map(fn($c) => floatval($c['monto'] ?? 0), $cs));
+                            $set('../../monto_prestado_total', $t);
+                            $i = floatval($get('../../tasa_interes'));
+                            $set('../../monto_devolver', $t > 0 ? number_format($t * (1 + $i / 100), 2, '.', '') : '');
                         })
                         ->disabled(fn() => $isBloqueado),
                 ])
                 ->visible(fn(callable $get) => !empty($get('clientes_grupo')))
                 ->columns(4),
-            TextInput::make('tasa_interes')
-                ->label('Tasa interés ( % )')
-                ->prefixIcon('heroicon-o-chart-bar')
-                ->default(17)
-                ->readOnly()
-                ->numeric()
-                ->disabled(fn() => $isBloqueado),
+
+            TextInput::make('tasa_interes')->label('Tasa interés ( % )')->default(17)->readOnly()->numeric()->disabled(fn() => $isBloqueado),
+
             TextInput::make('monto_prestado_total')
                 ->label('Monto prestado total')
                 ->prefix('S/.')
@@ -165,51 +117,23 @@ class PrestamoResource extends Resource
                 ->readOnly()
                 ->live()
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                    $monto = floatval($state);
-                    $interes = floatval($get('tasa_interes'));
-                    if ($monto > 0 && $interes >= 0) {
-                        $montoDevolver = $monto * (1 + $interes / 100);
-                        $set('monto_devolver', number_format($montoDevolver, 2, '.', ''));
-                    }
+                    $m = floatval($state);
+                    $i = floatval($get('tasa_interes'));
+                    $set('monto_devolver', $m > 0 ? number_format($m * (1 + $i / 100), 2, '.', '') : '');
                 })
                 ->disabled(fn() => $isBloqueado),
-            TextInput::make('monto_devolver')
-                ->label('Monto devolver')
-                ->prefix('S/.')
-                ->readOnly()
-                ->disabled(fn() => $isBloqueado),
-            TextInput::make('cantidad_cuotas')
-                ->numeric()
-                ->prefixIcon('heroicon-o-hashtag')
-                ->required()
-                ->minValue(1)
-                ->rules(['integer', 'min:1'])
-                ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
-                ->mask('999')
-                ->disabled(fn() => $isBloqueado),
-            DatePicker::make('fecha_prestamo')
-            ->prefixIcon('heroicon-o-calendar')
-                ->required()
-                ->disabled(fn() => $isBloqueado),
+
+            TextInput::make('monto_devolver')->label('Monto devolver')->prefix('S/.')->readOnly()->disabled(fn() => $isBloqueado),
+
+            TextInput::make('cantidad_cuotas')->numeric()->required()->minValue(1)->mask('999')->disabled(fn() => $isBloqueado),
+
+            DatePicker::make('fecha_prestamo')->required()->disabled(fn() => $isBloqueado),
+
             Select::make('frecuencia')
-            ->prefixIcon('heroicon-o-arrow-path')
-                ->options([
-                    'mensual' => 'Mensual',
-                    'semanal' => 'Semanal',
-                    'quincenal' => 'Quincenal',
-                ])
-                ->required()
+                ->options(['semanal' => 'Semanal', 'mensual' => 'Mensual (bloqueado)', 'quincenal' => 'Quincenal (bloqueado)'])
                 ->default('semanal')
-                ->disabled(fn() => $isBloqueado)
-                ->reactive()
-                ->afterStateHydrated(function ($component, $state) {
-                    // Solo permitir seleccionar semanal
-                    $component->options([
-                        'semanal' => 'Semanal',
-                        'mensual' => 'Mensual (bloqueado)',
-                        'quincenal' => 'Quincenal (bloqueado)'
-                    ]);
-                }),
+                ->disabled(fn() => $isBloqueado),
+
             Select::make('estado')
              ->prefixIcon('heroicon-o-check-circle')
                 ->options([
@@ -220,7 +144,7 @@ class PrestamoResource extends Resource
                 ])
                 ->default('Pendiente')
                 ->required()
-                ->disabled(fn() => $isBloqueado || !(
+                ->disabled(fn() => !(
                     \Illuminate\Support\Facades\Auth::check() &&
                     \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin','Jefe de operaciones', 'Jefe de creditos']) &&
                     request()->routeIs('filament.dashboard.resources.prestamos.edit')
@@ -229,60 +153,39 @@ class PrestamoResource extends Resource
             TextInput::make('calificacion')
             ->prefixIcon('heroicon-o-star')
                 ->numeric()
-                ->required()
-                ->disabled(fn() => $isBloqueado),
+                ->required(),
 
         ]);
     }
 
-    // Proteger el backend para que solo los roles permitidos puedan modificar el estado
     public static function mutateFormDataBeforeSave(array $data): array
     {
-        // Solo los roles permitidos pueden modificar el estado
         if (!\Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])) {
             unset($data['estado']);
         }
-        // Eliminar el campo nuevo_rol para que no intente guardarse en la tabla prestamos
         unset($data['nuevo_rol']);
         return $data;
     }
 
-    public static function table(Tables\Table $table): Tables\Table
+    public static function table(Table $table): Table
     {
         return $table->columns([
-            TextColumn::make('grupo.nombre_grupo')
-                ->label('Grupo')
-                ->searchable()
-                ->sortable(),
-            TextColumn::make('tasa_interes')
-                ->label('Tasa Interés')
-                ->sortable(),
-            TextColumn::make('monto_prestado_total')
-                ->label('Monto Prestado')
-                ->money('PEN')
-                ->sortable(),
-            TextColumn::make('monto_devolver')
-                ->label('Monto a Devolver')
-                ->money('PEN')
-                ->sortable(),
-            TextColumn::make('cantidad_cuotas')
-                ->label('N° Cuotas')
-                ->sortable(),
-            TextColumn::make('fecha_prestamo')
-                ->label('Fecha')
-                ->date()
-                ->sortable(),
+            TextColumn::make('grupo.nombre_grupo')->label('Grupo')->searchable()->sortable(),
+            TextColumn::make('monto_prestado_total')->label('Monto Prestado')->money('PEN')->sortable(),
+            TextColumn::make('monto_devolver')->label('Monto a Devolver')->money('PEN')->sortable(),
+            TextColumn::make('cantidad_cuotas')->label('N° Cuotas')->sortable(),
+            TextColumn::make('fecha_prestamo')->label('Fecha')->date()->sortable(),
             TextColumn::make('estado')
-                ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                ->label('Estado')
+                ->formatStateUsing(fn($state, $record) => $record->estado_visible)
                 ->badge()
-                ->color(fn (string $state): string => match (strtolower($state)) {
+                ->color(fn(string $state) => match (strtolower($state)) {
                     'aprobado' => 'success',
+                    'activo' => 'warning',
                     'rechazado' => 'danger',
                     'finalizado' => 'primary',
                     default => 'warning',
                 })
-                ->sortable(),
-            TextColumn::make('calificacion')
                 ->sortable(),
             TextColumn::make('detalle_individual')
                 ->label('Detalle Individual')
@@ -305,41 +208,6 @@ class PrestamoResource extends Resource
                     return $html;
                 }),
         ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('asesor')
-                    ->label('Asesor')
-                    ->options(function () {
-                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
-                            ->with('persona')
-                            ->get()
-                            ->mapWithKeys(function ($asesor) {
-                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
-                            });
-                    })
-                    ->query(function (Builder $query, array $data) {
-                        if (!empty($data['value'])) {
-                            $query->whereHas('grupo.asesor', function ($q) use ($data) {
-                                $q->where('id', $data['value']);
-                            });
-                        }
-                        return $query;
-                    })
-                    ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])),
-                Tables\Filters\SelectFilter::make('estado')
-                    ->label('Estado')
-                    ->options([
-                        'Pendiente' => 'Pendiente',
-                        'Aprobado' => 'Aprobado',
-                        'Rechazado' => 'Rechazado',
-                        'Finalizado' => 'Finalizado',
-                    ])
-                    ->query(function (Builder $query, array $data) {
-                        if (!empty($data['value'])) {
-                            $query->where('estado', $data['value']);
-                        }
-                        return $query;
-                    }),
-            ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
                 Tables\Actions\Action::make('imprimir_contrato')
@@ -348,31 +216,8 @@ class PrestamoResource extends Resource
                     ->color('success')
                     ->url(fn($record) => route('contratos.grupo.imprimir', $record->grupo_id))
                     ->visible(fn($record) => $record->grupo_id !== null),
-            ]);
-    }
 
-    public static function getEloquentQuery(): Builder
-    {
-        $user = request()->user();
-
-        $query = parent::getEloquentQuery();
-
-        if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-
-            if ($asesor) {
-                $query->whereHas('grupo', function ($subQuery) use ($asesor) {
-                    $subQuery->where('asesor_id', $asesor->id);
-                });
-            }
-        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            // No se aplica ningún filtro adicional para estos roles, ya que deben ver todos los grupos
-        } else {
-            // En caso de que el usuario no tenga un rol específico, se puede manejar según sea necesario
-            $query->whereRaw('1 = 0'); // Esto asegura que no se devuelvan resultados
-        }
-
-        return $query;
+        ]);
     }
 
     public static function getPages(): array
@@ -382,5 +227,22 @@ class PrestamoResource extends Resource
             'create' => Pages\CreatePrestamo::route('/create'),
             'edit' => Pages\EditPrestamo::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $user = request()->user();
+        $query = parent::getEloquentQuery();
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                $query->whereHas('grupo', fn($q) => $q->where('asesor_id', $asesor->id));
+            }
+        } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query;
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,30 +31,18 @@ class Prestamo extends Model
         'fecha_prestamo' => 'date',
     ];
 
+    // Relaciones
     public function grupo()
     {
         return $this->belongsTo(Grupo::class, 'grupo_id');
     }
-        public function cuotasGrupales()
+
+    public function cuotasGrupales()
     {
         return $this->hasMany(CuotasGrupales::class, 'prestamo_id');
     }
-    public function scopeVisiblePorUsuario($query, $user)
-    {
-        if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-            if ($asesor) {
-                return $query->whereHas('grupo', function ($subQuery) use ($asesor) {
-                    $subQuery->where('asesor_id', $asesor->id);
-                });
-            }
-        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            return $query; // Mostrar todos los préstamos
-        }
 
-        return $query->whereRaw('1 = 0'); // No mostrar nada si no aplica
-    }
-      public function prestamoIndividual()
+    public function prestamoIndividual()
     {
         return $this->hasMany(PrestamoIndividual::class);
     }
@@ -67,9 +56,53 @@ class Prestamo extends Model
     {
         return $this->hasMany(Retanqueo::class);
     }
-    // Opcional: método para saber si está finalizado
+
+    public function scopeVisiblePorUsuario($query, $user)
+    {
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                return $query->whereHas('grupo', function ($subQuery) use ($asesor) {
+                    $subQuery->where('asesor_id', $asesor->id);
+                });
+            }
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            return $query;
+        }
+
+        return $query->whereRaw('1 = 0');
+    }
+
     public function estaFinalizado()
     {
         return $this->estado === 'Finalizado';
+    }
+
+    // Accessor para estado visible en tabla
+    public function getEstadoVisibleAttribute()
+    {
+        if ($this->estado === 'Aprobado') {
+            $total = $this->cuotasGrupales()->count();
+            $pagadas = $this->cuotasGrupales()->where('estado_pago', 'Pagado')->count();
+            if ($pagadas > 0 && $pagadas < $total) {
+                return 'Activo';
+            }
+        }
+
+        return $this->estado;
+    }
+
+    // Método para actualizar el estado automáticamente
+    public function actualizarEstadoAutomaticamente()
+    {
+        if ($this->estado === 'Aprobado') {
+            $total = $this->cuotasGrupales()->count();
+            $pagadas = $this->cuotasGrupales()->where('estado_pago', 'Pagado')->count();
+
+            if ($total > 0 && $total === $pagadas) {
+                $this->estado = 'Finalizado';
+                $this->save();
+            }
+        }
     }
 }
