@@ -83,7 +83,7 @@ class PrestamoResource extends Resource
                         })
                         ->numeric()
                         ->required()
-                        ->live()
+                        ->live(debounce: 1000)
                         ->minValue(100)
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
                             $c = (int)($get('ciclo') ?? 1);
@@ -105,6 +105,8 @@ class PrestamoResource extends Resource
                         ->disabled(fn() => $isBloqueado),
                 ])
                 ->visible(fn(callable $get) => !empty($get('clientes_grupo')))
+                ->grid(2)    
+                ->columnSpanFull() // <-- para que use todo el ancho disponible
                 ->columns(4),
 
             TextInput::make('tasa_interes')->label('Tasa interés ( % )')->default(17)->readOnly()->numeric()->disabled(fn() => $isBloqueado),
@@ -115,7 +117,7 @@ class PrestamoResource extends Resource
                 ->required()
                 ->numeric()
                 ->readOnly()
-                ->live()
+                ->live(debounce: 1000)
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
                     $m = floatval($state);
                     $i = floatval($get('tasa_interes'));
