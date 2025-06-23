@@ -22,7 +22,7 @@ class PrestamoResource extends Resource
     public static function form(Forms\Form $form): Forms\Form
     {
         $record = request()->route('record');
-        $prestamo = $record ? \App\Models\Prestamo::find($record) : null;
+        $prestamo = $record ? \App\Models\Prestamo::with('prestamoIndividual.cliente.persona')->find($record) : null;
         $estado = $prestamo ? strtolower($prestamo->estado) : null;
         $isBloqueado = in_array($estado, ['aprobado', 'activo']);
 
@@ -105,9 +105,33 @@ class PrestamoResource extends Resource
                         ->disabled(fn() => $isBloqueado),
                 ])
                 ->visible(fn(callable $get) => !empty($get('clientes_grupo')))
-                ->grid(2)    
-                ->columnSpanFull() // <-- para que use todo el ancho disponible
+                ->grid(2)
+                ->columnSpanFull()
                 ->columns(4),
+
+            Forms\Components\Repeater::make('prestamo_individual')
+                ->label('Detalle del préstamo por integrante')
+                ->relationship('prestamoIndividual')
+                ->schema([
+                    Forms\Components\Placeholder::make('nombre')
+                        ->label('Nombre')
+                        ->content(fn($record) => $record->cliente->persona->nombre ?? '-'),
+
+                    Forms\Components\Placeholder::make('apellidos')
+                        ->label('Apellidos')
+                        ->content(fn($record) => $record->cliente->persona->apellidos ?? '-'),
+
+                    TextInput::make('monto_prestado_individual')->label('Monto prestado')->prefix('S/.')->disabled(),
+                    TextInput::make('seguro')->label('Seguro')->prefix('S/.')->disabled(),
+                    TextInput::make('interes')->label('Interés')->prefix('S/.')->disabled(),
+                    TextInput::make('monto_devolver_individual')->label('Total a devolver')->prefix('S/.')->disabled(),
+                ])
+                
+                ->visible(fn (callable $get) => $get('id') !== null)
+                ->grid(2)
+                ->columnSpanFull()
+                ->columns(4)
+                ->disabled(),
 
             TextInput::make('tasa_interes')->label('Tasa interés ( % )')->default(17)->readOnly()->numeric()->disabled(fn() => $isBloqueado),
 
@@ -137,26 +161,21 @@ class PrestamoResource extends Resource
                 ->disabled(fn() => $isBloqueado),
 
             Select::make('estado')
-             ->prefixIcon('heroicon-o-check-circle')
+                ->prefixIcon('heroicon-o-check-circle')
                 ->options([
                     'Pendiente' => 'Pendiente',
                     'Aprobado' => 'Aprobado',
                     'Rechazado' => 'Rechazado',
-                    // 'Finalizado' NO se muestra como opción
                 ])
                 ->default('Pendiente')
                 ->required()
-                ->disabled(fn() => !(
-                    \Illuminate\Support\Facades\Auth::check() &&
-                    \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin','Jefe de operaciones', 'Jefe de creditos']) &&
-                    request()->routeIs('filament.dashboard.resources.prestamos.edit')
-                ))
+                ->disabled(fn() => !(\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin','Jefe de operaciones', 'Jefe de creditos']) && request()->routeIs('filament.dashboard.resources.prestamos.edit')))
                 ->dehydrated(true),
+
             TextInput::make('calificacion')
-            ->prefixIcon('heroicon-o-star')
+                ->prefixIcon('heroicon-o-star')
                 ->numeric()
                 ->required(),
-
         ]);
     }
 
@@ -218,8 +237,7 @@ class PrestamoResource extends Resource
                     ->color('success')
                     ->url(fn($record) => route('contratos.grupo.imprimir', $record->grupo_id))
                     ->visible(fn($record) => $record->grupo_id !== null),
-
-        ]);
+            ]);
     }
 
     public static function getPages(): array
