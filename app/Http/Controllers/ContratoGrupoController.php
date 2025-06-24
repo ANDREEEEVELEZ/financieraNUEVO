@@ -57,6 +57,6 @@ class ContratoGrupoController extends Controller
         }
 
         $pdf = Pdf::loadHTML($contratosHtml);
-        return $pdf->download('contratos_grupo_'.$grupo->id.'.pdf');
+        return $pdf->download('Contrado del Grupo '.$grupo->nombre_grupo.'.pdf');
     }
 }
