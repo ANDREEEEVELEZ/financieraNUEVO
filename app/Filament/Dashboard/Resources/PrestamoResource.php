@@ -132,6 +132,8 @@ class PrestamoResource extends Resource
             Forms\Components\Repeater::make('prestamo_individual')
                 ->label('Detalle del préstamo por integrante')
                 ->relationship('prestamoIndividual')
+                ->live()
+                ->reactive()
                 ->schema([
                     Forms\Components\Placeholder::make('nombre')
                         ->label('Nombre')
@@ -141,21 +143,108 @@ class PrestamoResource extends Resource
                         ->label('Apellidos')
                         ->content(fn($record) => $record->cliente->persona->apellidos ?? '-'),
 
-                    TextInput::make('monto_prestado_individual')->label('Monto prestado')->prefix('S/.')->disabled(),
-                    TextInput::make('seguro')->label('Seguro')->prefix('S/.')->disabled(),
-                    Forms\Components\TextInput::make('interes')
+                    TextInput::make('monto_prestado_individual')
+                        ->label('Monto prestado')
+                        ->prefix('S/.')
+                        ->numeric()
+                        ->minValue(100)
+                        ->live(debounce: 500)
+                        ->disabled(fn() => !$puedeEditarCampos)
+                        ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
+                            if (!$state || !$record) return;
+                            
+                            $monto = floatval($state);
+                            $tasaInteres = $record->prestamo->tasa_interes ?? 17;
+                            $numCuotas = $record->prestamo->cantidad_cuotas ?? 1;
+                            
+                            // Calcular seguro según el monto
+                            if ($monto <= 400) {
+                                $seguro = 6;
+                            } elseif ($monto <= 600) {
+                                $seguro = 7;
+                            } elseif ($monto <= 800) {
+                                $seguro = 8;
+                            } else {
+                                $seguro = 9;
+                            }
+                            
+                            // Calcular interés
+                            $interes = $monto * ($tasaInteres / 100);
+                            
+                            // Calcular monto total a devolver individual
+                            $montoDevolver = $monto + $interes + $seguro;
+                            
+                            // Calcular cuota individual
+                            $cuotaIndividual = $montoDevolver / $numCuotas;
+                            
+                            // Actualizar campos individuales con valores numéricos exactos
+                            $set('seguro', round($seguro, 2));
+                            $set('interes', round($interes, 2));
+                            $set('monto_devolver_individual', round($montoDevolver, 2));
+                            $set('monto_cuota_prestamo_individual', round($cuotaIndividual, 2));
+                            
+                            // Recalcular totales inmediatamente
+                            $allItems = $get('../../prestamo_individual') ?? [];
+                            $montoTotalPrestado = 0;
+                            $montoTotalDevolver = 0;
+                            
+                            foreach ($allItems as $index => $item) {
+                                if (isset($item['id']) && $item['id'] == $record->id) {
+                                    // Usar los valores actualizados para este item
+                                    $montoTotalPrestado += $monto;
+                                    $montoTotalDevolver += $montoDevolver;
+                                } else {
+                                    // Usar los valores existentes para otros items
+                                    $montoTotalPrestado += floatval($item['monto_prestado_individual'] ?? 0);
+                                    $montoTotalDevolver += floatval($item['monto_devolver_individual'] ?? 0);
+                                }
+                            }
+                            
+                            // Actualizar los campos totales con valores numéricos exactos
+                            $set('../../monto_prestado_total', round($montoTotalPrestado, 2));
+                            $set('../../monto_devolver', round($montoTotalDevolver, 2));
+                        }),
+                    TextInput::make('seguro')
+                        ->label('Seguro')
+                        ->prefix('S/.')
+                        ->disabled()
+                        ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
+                    TextInput::make('interes')
                         ->label('Interés')
                         ->prefix('S/.')
                         ->disabled()
                         ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
-                    TextInput::make('monto_devolver_individual')->label('Total a devolver')->prefix('S/.')->disabled(),
+                    TextInput::make('monto_devolver_individual')
+                        ->label('Total a devolver')
+                        ->prefix('S/.')
+                        ->disabled()
+                        ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
+                    TextInput::make('monto_cuota_prestamo_individual')
+                        ->label('Cuota individual')
+                        ->prefix('S/.')
+                        ->disabled()
+                        ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
                 ])
-                
+                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                    // Recalcular totales cuando cambie cualquier cosa en el repeater
+                    $montoTotalPrestado = 0;
+                    $montoTotalDevolver = 0;
+                    
+                    if (is_array($state)) {
+                        foreach ($state as $item) {
+                            $montoTotalPrestado += floatval($item['monto_prestado_individual'] ?? 0);
+                            $montoTotalDevolver += floatval($item['monto_devolver_individual'] ?? 0);
+                        }
+                    }
+                    
+                    // Actualizar ambos campos con valores numéricos exactos
+                    $set('monto_prestado_total', round($montoTotalPrestado, 2));
+                    $set('monto_devolver', round($montoTotalDevolver, 2));
+                })
                 ->visible(fn (callable $get) => $get('id') !== null)
                 ->grid(2)
                 ->columnSpanFull()
-                ->columns(4)
-                ->disabled(),
+                ->columns(4),
 
             TextInput::make('tasa_interes')->label('Tasa interés ( % )')->default(17)->readOnly()->numeric()->disabled(fn() => !$puedeEditarCampos),
 
@@ -165,15 +254,20 @@ class PrestamoResource extends Resource
                 ->required()
                 ->numeric()
                 ->readOnly()
-                ->live(debounce: 1000)
-                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                    $m = floatval($state);
-                    $i = floatval($get('tasa_interes'));
-                    $set('monto_devolver', $m > 0 ? number_format($m * (1 + $i / 100), 2, '.', '') : '');
-                })
+                ->live()
+                ->reactive()
+                ->formatStateUsing(fn ($state) => number_format((float)$state, 2))
                 ->disabled(fn() => !$puedeEditarCampos),
 
-            TextInput::make('monto_devolver')->label('Monto devolver')->prefix('S/.')->readOnly()->disabled(fn() => !$puedeEditarCampos),
+            TextInput::make('monto_devolver')
+                ->label('Monto devolver')
+                ->prefix('S/.')
+                ->readOnly()
+                ->live()
+                ->reactive()
+                ->formatStateUsing(fn ($state) => number_format((float)$state, 2))
+                ->extraInputAttributes(['id' => 'monto_devolver_field'])
+                ->disabled(fn() => !$puedeEditarCampos),
 
             TextInput::make('cantidad_cuotas')->numeric()->required()->minValue(1)->mask('999')->disabled(fn() => !$puedeEditarCampos),
 
@@ -222,6 +316,20 @@ class PrestamoResource extends Resource
                     $data = ['estado' => $prestamo->estado];
                 }
             }
+        }
+        
+        // Si hay cambios en prestamo_individual, recalcular totales
+        if (isset($data['prestamo_individual']) && is_array($data['prestamo_individual'])) {
+            $montoTotalPrestado = 0;
+            $montoTotalDevolver = 0;
+            
+            foreach ($data['prestamo_individual'] as $pi) {
+                $montoTotalPrestado += floatval($pi['monto_prestado_individual'] ?? 0);
+                $montoTotalDevolver += floatval($pi['monto_devolver_individual'] ?? 0);
+            }
+            
+            $data['monto_prestado_total'] = round($montoTotalPrestado, 2);
+            $data['monto_devolver'] = round($montoTotalDevolver, 2);
         }
         
         unset($data['nuevo_rol']);

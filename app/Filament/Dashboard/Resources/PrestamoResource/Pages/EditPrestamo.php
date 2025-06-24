@@ -51,7 +51,7 @@ class EditPrestamo extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make()->icon('heroicon-o-trash'),
+            // Actions\DeleteAction::make()->icon('heroicon-o-trash'), BOTON DE ELIMINAR DESHABILITADO POR REQUERIMIENTO
         ];
     }
 
@@ -149,6 +149,16 @@ class EditPrestamo extends EditRecord
 
         // Verificar si ya debe finalizarse automáticamente (opcional)
         $prestamo->actualizarEstadoAutomaticamente();
+    }
+
+    protected function afterSaved(): void
+    {
+        // Los totales se actualizan automáticamente a través del PrestamoIndividualObserver
+        Notification::make()
+            ->title('Préstamo actualizado')
+            ->body('Los cambios han sido guardados correctamente.')
+            ->success()
+            ->send();
     }
 
     protected function getRedirectUrl(): string
