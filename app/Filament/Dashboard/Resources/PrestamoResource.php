@@ -23,8 +23,28 @@ class PrestamoResource extends Resource
     {
         $record = request()->route('record');
         $prestamo = $record ? \App\Models\Prestamo::with('prestamoIndividual.cliente.persona')->find($record) : null;
-        $estado = $prestamo ? strtolower($prestamo->estado) : null;
-        $isBloqueado = in_array($estado, ['aprobado', 'activo']);
+        $user = request()->user();
+        
+        // Determinar si el usuario puede editar campos
+        $puedeEditarCampos = false;
+        
+        if ($user->hasRole('Asesor')) {
+            // Asesor solo puede editar si es creador y está en estado Pendiente
+            if ($prestamo) {
+                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                $esCreador = $asesor && $prestamo->grupo && $prestamo->grupo->asesor_id == $asesor->id;
+                $puedeEditarCampos = $esCreador && $prestamo->estado === 'Pendiente';
+            } else {
+                // Si es creación, sí puede editar
+                $puedeEditarCampos = true;
+            }
+        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            // Jefes NO pueden editar campos de solicitud, solo el estado
+            $puedeEditarCampos = false;
+        }
+        
+        // Solo jefes pueden cambiar el estado
+        $puedeEditarEstado = $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
 
         return $form->schema([
             Select::make('grupo_id')
@@ -64,7 +84,7 @@ class PrestamoResource extends Resource
                         ];
                     })->toArray() : []);
                 })
-                ->disabled(fn() => $isBloqueado),
+                ->disabled(fn() => !$puedeEditarCampos),
 
             Forms\Components\Hidden::make('clientes_grupo')->dehydrateStateUsing(fn($state) => $state)->reactive(),
 
@@ -102,7 +122,7 @@ class PrestamoResource extends Resource
                             $i = floatval($get('../../tasa_interes'));
                             $set('../../monto_devolver', $t > 0 ? number_format($t * (1 + $i / 100), 2, '.', '') : '');
                         })
-                        ->disabled(fn() => $isBloqueado),
+                        ->disabled(fn() => !$puedeEditarCampos),
                 ])
                 ->visible(fn(callable $get) => !empty($get('clientes_grupo')))
                 ->grid(2)
@@ -133,7 +153,7 @@ class PrestamoResource extends Resource
                 ->columns(4)
                 ->disabled(),
 
-            TextInput::make('tasa_interes')->label('Tasa interés ( % )')->default(17)->readOnly()->numeric()->disabled(fn() => $isBloqueado),
+            TextInput::make('tasa_interes')->label('Tasa interés ( % )')->default(17)->readOnly()->numeric()->disabled(fn() => !$puedeEditarCampos),
 
             TextInput::make('monto_prestado_total')
                 ->label('Monto prestado total')
@@ -147,18 +167,18 @@ class PrestamoResource extends Resource
                     $i = floatval($get('tasa_interes'));
                     $set('monto_devolver', $m > 0 ? number_format($m * (1 + $i / 100), 2, '.', '') : '');
                 })
-                ->disabled(fn() => $isBloqueado),
+                ->disabled(fn() => !$puedeEditarCampos),
 
-            TextInput::make('monto_devolver')->label('Monto devolver')->prefix('S/.')->readOnly()->disabled(fn() => $isBloqueado),
+            TextInput::make('monto_devolver')->label('Monto devolver')->prefix('S/.')->readOnly()->disabled(fn() => !$puedeEditarCampos),
 
-            TextInput::make('cantidad_cuotas')->numeric()->required()->minValue(1)->mask('999')->disabled(fn() => $isBloqueado),
+            TextInput::make('cantidad_cuotas')->numeric()->required()->minValue(1)->mask('999')->disabled(fn() => !$puedeEditarCampos),
 
-            DatePicker::make('fecha_prestamo')->required()->disabled(fn() => $isBloqueado),
+            DatePicker::make('fecha_prestamo')->required()->disabled(fn() => !$puedeEditarCampos),
 
             Select::make('frecuencia')
                 ->options(['semanal' => 'Semanal', 'mensual' => 'Mensual (bloqueado)', 'quincenal' => 'Quincenal (bloqueado)'])
                 ->default('semanal')
-                ->disabled(fn() => $isBloqueado),
+                ->disabled(fn() => !$puedeEditarCampos),
 
             Select::make('estado')
                 ->prefixIcon('heroicon-o-check-circle')
@@ -169,7 +189,7 @@ class PrestamoResource extends Resource
                 ])
                 ->default('Pendiente')
                 ->required()
-                ->disabled(fn() => !(\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin','Jefe de operaciones', 'Jefe de creditos']) && request()->routeIs('filament.dashboard.resources.prestamos.edit')))
+                ->disabled(fn() => !$puedeEditarEstado)
                 ->dehydrated(true),
 
             TextInput::make('calificacion')
@@ -181,9 +201,25 @@ class PrestamoResource extends Resource
 
     public static function mutateFormDataBeforeSave(array $data): array
     {
-        if (!\Illuminate\Support\Facades\Auth::user()->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])) {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        
+        // Solo los jefes pueden modificar el estado
+        if (!$user->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])) {
             unset($data['estado']);
         }
+        
+        // Los asesores solo pueden editar si el préstamo está en estado Pendiente
+        if ($user->hasRole('Asesor')) {
+            $record = request()->route('record');
+            if ($record) {
+                $prestamo = \App\Models\Prestamo::find($record);
+                if ($prestamo && $prestamo->estado !== 'Pendiente') {
+                    // Si no está en Pendiente, preservar todos los campos excepto el estado
+                    $data = ['estado' => $prestamo->estado];
+                }
+            }
+        }
+        
         unset($data['nuevo_rol']);
         return $data;
     }
@@ -221,8 +257,8 @@ class PrestamoResource extends Resource
                     $html = '<ul style="padding-left: 1em;">';
                     foreach ($detalles as $detalle) {
                         $nombre = $detalle->cliente->persona->nombre . ' ' . $detalle->cliente->persona->apellidos;
-                        $monto = number_format($detalle->monto_prestado_individual, 2);
-                        $devolver = number_format($detalle->monto_devolver_individual, 2);
+                        $monto = number_format((float)$detalle->monto_prestado_individual, 2);
+                        $devolver = number_format((float)$detalle->monto_devolver_individual, 2);
                         $html .= "<li><b>$nombre</b>: Prestado S/ $monto | A devolver S/ $devolver</li>";
                     }
                     $html .= '</ul>';

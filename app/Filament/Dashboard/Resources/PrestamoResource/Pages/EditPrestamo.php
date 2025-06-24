@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\PrestamoIndividual;
 use App\Models\Grupo;
+use Filament\Notifications\Notification;
 
 class EditPrestamo extends EditRecord
 {
@@ -14,6 +15,38 @@ class EditPrestamo extends EditRecord
 
     /** @var string|null */
     protected $oldEstado = null;
+
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+        
+        // Validar permisos antes de mostrar el formulario
+        $user = \Illuminate\Support\Facades\Auth::user();
+        
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            $esCreador = $asesor && $this->record->grupo && $this->record->grupo->asesor_id == $asesor->id;
+            
+            if (!$esCreador) {
+                Notification::make()
+                    ->title('Sin permisos')
+                    ->body('No tienes permisos para editar este préstamo porque no eres el asesor que lo creó.')
+                    ->danger()
+                    ->send();
+                    
+                $this->redirect(static::getResource()::getUrl('index'));
+                return;
+            }
+            
+            if ($this->record->estado !== 'Pendiente') {
+                Notification::make()
+                    ->title('Préstamo no editable')
+                    ->body('Solo puedes editar préstamos que estén en estado "Pendiente".')
+                    ->warning()
+                    ->send();
+            }
+        }
+    }
 
     protected function getHeaderActions(): array
     {
@@ -25,9 +58,33 @@ class EditPrestamo extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $this->oldEstado = $this->record->estado;
+        $user = \Illuminate\Support\Facades\Auth::user();
+
+        // Validación de permisos para asesores
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            $esCreador = $asesor && $this->record->grupo && $this->record->grupo->asesor_id == $asesor->id;
+            
+            // Si no es el creador o el préstamo no está en Pendiente, no puede modificar
+            if (!$esCreador || $this->record->estado !== 'Pendiente') {
+                // Conservar todos los datos originales excepto los permitidos
+                $data = [
+                    'id' => $this->record->id,
+                    'estado' => $this->record->estado, // No puede cambiar el estado
+                ];
+            }
+        }
+        
+        // Validación para jefes - solo pueden cambiar el estado
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            // Conservar todos los campos originales excepto el estado
+            $allowedData = [
+                'estado' => $data['estado'] ?? $this->record->estado,
+            ];
+            $data = array_merge($this->record->toArray(), $allowedData);
+        }
 
         if (isset($data['nuevo_rol']) && !empty($data['nuevo_rol'])) {
-            $user = \Illuminate\Support\Facades\Auth::user();
             if ($user->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos'])) {
                 $user->syncRoles([$data['nuevo_rol']]);
             }
