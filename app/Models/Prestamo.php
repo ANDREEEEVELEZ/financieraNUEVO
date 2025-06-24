@@ -24,7 +24,7 @@ class Prestamo extends Model
     ];
 
     protected $casts = [
-        'tasa_interes' => 'float',
+        'tasa_interes' => 'integer',
         'monto_prestado_total' => 'float',
         'monto_devolver' => 'float',
         'cantidad_cuotas' => 'integer',

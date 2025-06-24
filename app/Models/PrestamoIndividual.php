@@ -20,7 +20,16 @@ class PrestamoIndividual extends Model
         'monto_cuota_prestamo_individual',
         'monto_devolver_individual',
         'seguro',
+        'interes',
         'estado',
+    ];
+
+    protected $casts = [
+        'monto_prestado_individual' => 'decimal:2',
+        'monto_cuota_prestamo_individual' => 'decimal:2',
+        'monto_devolver_individual' => 'decimal:2',
+        'seguro' => 'decimal:2',
+        'interes' => 'integer',  // Porcentaje como entero (17)
     ];
 
     /**
