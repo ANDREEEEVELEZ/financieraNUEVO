@@ -29,120 +29,130 @@ class PagoResource extends Resource
     protected static ?string $modelLabel = 'Pago';
     protected static ?string $pluralModelLabel = 'Pagos';
 
-    public static function form(Form $form): Form
-    {
-        return $form->schema([
-            Select::make('grupo_id')
-                ->label('Grupo')
-                ->prefixIcon('heroicon-o-rectangle-stack')
-                ->options(function () {
-                    $user = request()->user();
-                    $query = \App\Models\Grupo::whereHas('prestamos', function($q) {
-                        $q->where('estado', 'Aprobado');
-                    })->orderBy('nombre_grupo', 'asc');
+public static function form(Form $form): Form
+{
+    return $form->schema([
+        Select::make('grupo_id')
+            ->label('Grupo')
+            ->prefixIcon('heroicon-o-rectangle-stack')
+            ->options(function () {
+                $user = request()->user();
+                $query = \App\Models\Grupo::whereHas('prestamos', function($q) {
+                    $q->where('estado', 'Aprobado');
+                })->orderBy('nombre_grupo', 'asc');
 
-                    if ($user->hasRole('Asesor')) {
-                        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-                        if ($asesor) {
-                            $query->where('asesor_id', $asesor->id);
-                        } else {
-                            return [];
-                        }
-                    } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                if ($user->hasRole('Asesor')) {
+                    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                    if ($asesor) {
+                        $query->where('asesor_id', $asesor->id);
+                    } else {
                         return [];
                     }
+                } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                    return [];
+                }
 
-                    return $query->pluck('nombre_grupo', 'id');
-                })
-               ->afterStateHydrated(function ($component, $state, $record) {
-    if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
-        $component->state($record->cuotaGrupal->prestamo->grupo->id);
+                return $query->pluck('nombre_grupo', 'id');
+            })
+           ->afterStateHydrated(function ($component, $state, $record) {
+                if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
+                    $component->state($record->cuotaGrupal->prestamo->grupo->id);
 
+                    $user = request()->user();
+                    if (strtolower($record->estado_pago) !== 'pendiente' ||
+                        $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                        $component->disabled(true);
+                    } else {
+                        $component->disabled(false);
+                    }
+                }
+            })
+            ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
+                        $query->where('grupo_id', $state);
+                    })
+                    ->pluck('id');
 
-        if (strtolower($record->estado_pago) !== 'pendiente') {
-            $component->disabled(true);
-        } else {
-            $component->disabled(false);
-        }
-    }
-})
-->afterStateUpdated(function ($state, callable $set, callable $get) {
-    $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
-            $query->where('grupo_id', $state);
-        })
-        ->pluck('id');
+                $pagoPendiente = Pago::whereIn('cuota_grupal_id', $cuotas)
+                    ->where('estado_pago', 'Pendiente')
+                    ->exists();
 
-    $pagoPendiente = Pago::whereIn('cuota_grupal_id', $cuotas)
-        ->where('estado_pago', 'Pendiente')
-        ->exists();
+                if ($pagoPendiente) {
+                    Notification::make()
+                        ->title('Este grupo ya tiene un pago pendiente')
+                        ->body('No puedes registrar un nuevo pago hasta que se apruebe o rechace el anterior.')
+                        ->danger()
+                        ->persistent()
+                        ->send();
 
-    if ($pagoPendiente) {
-        Notification::make()
-            ->title('Este grupo ya tiene un pago pendiente')
-            ->body('No puedes registrar un nuevo pago hasta que se apruebe o rechace el anterior.')
-            ->danger()
-            ->persistent()
-            ->send();
+                    $set('grupo_id', null);
+                    $set('cuota_grupal_id', null);
+                    $set('numero_cuota', null);
+                    $set('monto_cuota', null);
+                    $set('monto_mora_pagada', 0.00);
+                    $set('saldo_pendiente_actual', 0.00);
+                    $set('monto_pagado', 0.00);
+                    $set('tipo_pago', null);
+                    return;
+                }
 
-        $set('grupo_id', null);
-        $set('cuota_grupal_id', null);
-        $set('numero_cuota', null);
-        $set('monto_cuota', null);
-        $set('monto_mora_pagada', 0.00);
-        $set('saldo_pendiente_actual', 0.00);
-        $set('monto_pagado', 0.00); // Agregar esta línea
-        $set('tipo_pago', null);    // Agregar esta línea
-        return;
-    }
+                $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
+                        $query->where('grupo_id', $state);
+                    })
+                    ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
+                    ->orderBy('numero_cuota', 'asc')
+                    ->get();
 
-    $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
-            $query->where('grupo_id', $state);
-        })
-        ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
-        ->orderBy('numero_cuota', 'asc')
-        ->get();
+                foreach ($cuotas as $cuota) {
+                    if ($cuota->saldoPendiente() > 0) {
+                        $set('cuota_grupal_id', $cuota->id);
+                        $set('numero_cuota', $cuota->numero_cuota);
+                        $set('monto_cuota', $cuota->monto_cuota_grupal);
+                        $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+                        $set('saldo_pendiente_actual', $cuota->saldoPendiente());
 
-    foreach ($cuotas as $cuota) {
-        if ($cuota->saldoPendiente() > 0) {
-            $set('cuota_grupal_id', $cuota->id);
-            $set('numero_cuota', $cuota->numero_cuota);
-            $set('monto_cuota', $cuota->monto_cuota_grupal);
-            $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
-            $set('saldo_pendiente_actual', $cuota->saldoPendiente());
+                        $tipoPago = $get('tipo_pago');
+                        if ($tipoPago === 'pago_completo') {
+                            $set('monto_pagado', $cuota->saldoPendiente());
+                        } else {
+                            $set('monto_pagado', 0.00);
+                        }
 
-            // AGREGAR ESTAS LÍNEAS PARA ACTUALIZAR EL MONTO PAGADO
-            $tipoPago = $get('tipo_pago');
-            if ($tipoPago === 'pago_completo') {
-                $set('monto_pagado', $cuota->saldoPendiente());
-            } else {
-                $set('monto_pagado', 0.00); // Resetear para pago parcial o sin tipo
-            }
+                        return;
+                    }
+                }
 
-            return;
-        }
-    }
+                $set('cuota_grupal_id', null);
+                $set('numero_cuota', null);
+                $set('monto_cuota', null);
+                $set('monto_mora_pagada', 0.00);
+                $set('saldo_pendiente_actual', 0.00);
+                $set('monto_pagado', 0.00);
+                $set('tipo_pago', null);
+            })
+            ->searchable()
+            ->required()
+            ->reactive()
+            ->disabled(function ($record) {
+                $user = request()->user();
+                return $record !== null && (
+                    strtolower($record->estado_pago) !== 'pendiente' ||
+                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
+                );
+            }),
 
-    $set('cuota_grupal_id', null);
-    $set('numero_cuota', null);
-    $set('monto_cuota', null);
-    $set('monto_mora_pagada', 0.00);
-    $set('saldo_pendiente_actual', 0.00);
-    $set('monto_pagado', 0.00); // Agregar esta línea
-    $set('tipo_pago', null);    // Agregar esta línea también
-})
-
-                ->searchable()
-                ->required()
-                ->reactive()
-
-                ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente'),
-
-
-            Hidden::make('cuota_grupal_id')->required(),
+        Hidden::make('cuota_grupal_id')->required(),
 
         TextInput::make('numero_cuota')
             ->label('Número de Cuota')
             ->disabled(function ($record, callable $get) {
+                $user = request()->user();
+
+                // Si es super_admin o jefe, siempre deshabilitar
+                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                    return true;
+                }
+
                 // Si estamos editando un registro existente, siempre deshabilitar
                 if ($record !== null) {
                     return true;
@@ -166,6 +176,13 @@ class PagoResource extends Resource
             ->prefix('S/.')
             ->numeric()
             ->disabled(function ($record, callable $get) {
+                $user = request()->user();
+
+                // Si es super_admin o jefe, siempre deshabilitar
+                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                    return true;
+                }
+
                 // Si estamos editando un registro existente, siempre deshabilitar
                 if ($record !== null) {
                     return true;
@@ -187,6 +204,13 @@ class PagoResource extends Resource
             ->prefix('S/.')
             ->numeric()
             ->disabled(function ($record, callable $get) {
+                $user = request()->user();
+
+                // Si es super_admin o jefe, siempre deshabilitar
+                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                    return true;
+                }
+
                 // Si estamos editando un registro existente, siempre deshabilitar
                 if ($record !== null) {
                     return true;
@@ -205,178 +229,206 @@ class PagoResource extends Resource
                 }
             }),
 
+        TextInput::make('saldo_pendiente_actual')
+            ->label('Saldo Pendiente')
+            ->numeric()
+            ->disabled(function ($record, callable $get) {
+                $user = request()->user();
 
-            TextInput::make('saldo_pendiente_actual')
-    ->label('Saldo Pendiente')
-    ->numeric()
-    ->disabled(function ($record, callable $get) {
-        // Si estamos editando un registro existente, siempre deshabilitar
-        if ($record !== null) {
-            return true;
-        }
+                // Si es super_admin o jefe, siempre deshabilitar
+                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                    return true;
+                }
 
-        // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
-        return $get('grupo_id') !== null;
-    })
-    ->dehydrated(false)
-    ->prefix('S/.')
-    ->afterStateHydrated(function ($component, $state, $record, callable $get) {
-        if ($record && $record->cuotaGrupal) {
-            $component->state($record->cuotaGrupal->saldoPendiente());
-        } else {
-            $cuotaId = $get('cuota_grupal_id');
-            if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
-                $component->state($cuota->saldoPendiente());
-            }
-        }
-    }),
+                // Si estamos editando un registro existente, siempre deshabilitar
+                if ($record !== null) {
+                    return true;
+                }
 
-            Select::make('tipo_pago')
-                ->label('Tipo de Pago')
-                ->options([
-                    'pago_completo' => 'Pago Completo',
-                    'pago_parcial' => 'Pago Parcial',
-                ])
-                ->required()
-                ->reactive()
-                ->dehydrated(true)
-                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
+                return $get('grupo_id') !== null;
+            })
+            ->dehydrated(false)
+            ->prefix('S/.')
+            ->afterStateHydrated(function ($component, $state, $record, callable $get) {
+                if ($record && $record->cuotaGrupal) {
+                    $component->state($record->cuotaGrupal->saldoPendiente());
+                } else {
                     $cuotaId = $get('cuota_grupal_id');
-                    if (!$cuotaId) return;
-
-                    $cuota = CuotasGrupales::with('mora')->find($cuotaId);
-                    $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
-                    $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-
-                    $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
-                    $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-
-                    if ($state === 'pago_completo') {
-                        $set('monto_pagado', $saldoPendiente);
-                        $set('monto_mora_pagada', $montoMora);
-                    } elseif ($state === 'pago_parcial') {
-
-                        $set('monto_mora_pagada', $montoMora);
+                    if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
+                        $component->state($cuota->saldoPendiente());
                     }
-                })
+                }
+            }),
 
-                ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente')
-,
+        Select::make('tipo_pago')
+            ->label('Tipo de Pago')
+            ->options([
+                'pago_completo' => 'Pago Completo',
+                'pago_parcial' => 'Pago Parcial',
+            ])
+            ->required()
+            ->reactive()
+            ->dehydrated(true)
+            ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                $cuotaId = $get('cuota_grupal_id');
+                if (!$cuotaId) return;
 
-            TextInput::make('monto_pagado')
-                ->label('Monto Pagado')
-                ->prefix('S/.')
-                ->numeric()
-                ->minValue(0)
-                ->rules(['numeric', 'min:0'])
-                ->extraAttributes([
-                    'onkeydown' => "if (event.key === '-' || event.key === 'e') event.preventDefault();",
-                    'inputmode' => 'decimal',
-                ])
-                ->required()
-                ->disabled(function (callable $get, $record) {
+                $cuota = CuotasGrupales::with('mora')->find($cuotaId);
+                $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
+                $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
-                    if ($record !== null && strtolower($record->estado_pago) !== 'pendiente') {
-                        return true;
-                    }
+                $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
+                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
 
+                if ($state === 'pago_completo') {
+                    $set('monto_pagado', $saldoPendiente);
+                    $set('monto_mora_pagada', $montoMora);
+                } elseif ($state === 'pago_parcial') {
+                    $set('monto_mora_pagada', $montoMora);
+                }
+            })
+            ->disabled(function ($record) {
+                $user = request()->user();
+                return $record !== null && (
+                    strtolower($record->estado_pago) !== 'pendiente' ||
+                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
+                );
+            }),
 
-                    return $get('tipo_pago') === 'pago_completo';
-                })
-                ->dehydrated()
-                ->live(onBlur: true)
-                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                    $saldoPendiente = floatval($get('saldo_pendiente_actual') ?? 0);
-                    $montoPagado = floatval($state ?? 0);
+        TextInput::make('monto_pagado')
+            ->label('Monto Pagado')
+            ->prefix('S/.')
+            ->numeric()
+            ->minValue(0)
+            ->rules(['numeric', 'min:0'])
+            ->extraAttributes([
+                'onkeydown' => "if (event.key === '-' || event.key === 'e') event.preventDefault();",
+                'inputmode' => 'decimal',
+            ])
+            ->required()
+            ->disabled(function (callable $get, $record) {
+                $user = request()->user();
 
-                    if ($montoPagado > $saldoPendiente && $saldoPendiente > 0) {
-                        $set('monto_pagado', $saldoPendiente);
-                    }
-                })
-                ->helperText(function (callable $get) {
-                    $saldoPendiente = $get('saldo_pendiente_actual');
-                    if ($saldoPendiente > 0) {
-                        return 'Máximo a pagar: S/. ' . number_format($saldoPendiente, 2);
-                    }
-                    return null;
-                }),
+                // Si es super_admin o jefe, siempre deshabilitar
+                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                    return true;
+                }
 
+                if ($record !== null && strtolower($record->estado_pago) !== 'pendiente') {
+                    return true;
+                }
 
-            TextInput::make('codigo_operacion')
-                ->label('Código de Operación')
-                ->prefixIcon('heroicon-o-finger-print')
-                ->required()
-                ->maxLength(255)
-                ->afterStateHydrated(function ($component, $state, $record) {
+                return $get('tipo_pago') === 'pago_completo';
+            })
+            ->dehydrated()
+            ->live(onBlur: true)
+            ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                $saldoPendiente = floatval($get('saldo_pendiente_actual') ?? 0);
+                $montoPagado = floatval($state ?? 0);
 
-                    if ($record && $record->codigo_operacion) {
-                        $component->state($record->codigo_operacion);
-                    }
-                })
+                if ($montoPagado > $saldoPendiente && $saldoPendiente > 0) {
+                    $set('monto_pagado', $saldoPendiente);
+                }
+            })
+            ->helperText(function (callable $get) {
+                $saldoPendiente = $get('saldo_pendiente_actual');
+                if ($saldoPendiente > 0) {
+                    return 'Máximo a pagar: S/. ' . number_format($saldoPendiente, 2);
+                }
+                return null;
+            }),
 
-                ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente'),
+        TextInput::make('codigo_operacion')
+            ->label('Código de Operación')
+            ->prefixIcon('heroicon-o-finger-print')
+            ->required()
+            ->maxLength(255)
+            ->afterStateHydrated(function ($component, $state, $record) {
+                if ($record && $record->codigo_operacion) {
+                    $component->state($record->codigo_operacion);
+                }
+            })
+            ->disabled(function ($record) {
+                $user = request()->user();
+                return $record !== null && (
+                    strtolower($record->estado_pago) !== 'pendiente' ||
+                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
+                );
+            }),
 
+        DateTimePicker::make('fecha_pago')
+            ->label('Fecha de Pago')
+             ->prefixIcon('heroicon-o-calendar-days')
+            ->required()
+            ->dehydrated(true)
+            ->maxDate(now())
+            ->disabled(function ($record) {
+                $user = request()->user();
+                return $record !== null && (
+                    strtolower($record->estado_pago) !== 'pendiente' ||
+                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
+                );
+            })
+            ->default(function () {
+                return now()->format('Y-m-d H:i:s');
+            }),
 
-DateTimePicker::make('fecha_pago')
-    ->label('Fecha de Pago')
-     ->prefixIcon('heroicon-o-calendar-days')
-    ->required()
-    ->dehydrated(true)
-    ->maxDate(now())
-    ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente')
+        TextInput::make('observaciones')
+            ->label('Observaciones')
+            ->prefixIcon('heroicon-o-pencil-square')
+            ->maxLength(255)
+            ->disabled(function ($record) {
+                $user = request()->user();
+                return $record !== null && (
+                    strtolower($record->estado_pago) !== 'pendiente' ||
+                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
+                );
+            }),
 
-    ->default(function () {
-        return now()->format('Y-m-d H:i:s');
-    }),
+        Select::make('estado_pago')
+            ->label('Estado del Pago')
+              ->prefixIcon('heroicon-o-check-badge')
+            ->options([
+                'Pendiente' => 'Pendiente',
+                'aprobado' => 'Aprobado',
+                'Rechazado' => 'Rechazado',
+            ])
+            ->default('Pendiente')
+            ->disabled(true)
+            ->dehydrated(),
 
-            TextInput::make('observaciones')
-                ->label('Observaciones')
-                ->prefixIcon('heroicon-o-pencil-square')
-                ->maxLength(255)
+        TextInput::make('saldo_pendiente')
+            ->label('Saldo Pendiente (Total a Pagar)')
+            ->numeric()
+            ->disabled(function ($record) {
+                $user = request()->user();
+                return $record !== null && (
+                    strtolower($record->estado_pago) !== 'pendiente' ||
+                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
+                );
+            })
+            ->dehydrated(false)
+            ->visible(fn ($record) => $record !== null && false)
+            ->afterStateHydrated(function ($component, $state, $record) {
+                if ($record && $record->cuotaGrupal) {
+                    $cuota = $record->cuotaGrupal->fresh();
+                    $saldo = floatval($cuota->saldo_pendiente);
+                    $mora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
-               ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente'),
-
-            Select::make('estado_pago')
-                ->label('Estado del Pago')
-                  ->prefixIcon('heroicon-o-check-badge')
-                ->options([
-                    'Pendiente' => 'Pendiente',
-                    'aprobado' => 'Aprobado',
-                    'Rechazado' => 'Rechazado',
-                ])
-                ->default('Pendiente')
-                ->disabled(true)
-
-                ->dehydrated(),
-
-
-            TextInput::make('saldo_pendiente')
-                ->label('Saldo Pendiente (Total a Pagar)')
-                ->numeric()
-                ->disabled(fn ($record) => $record !== null && strtolower($record->estado_pago) !== 'pendiente')
-                ->dehydrated(false)
-                ->visible(fn ($record) => $record !== null && false)
-                ->afterStateHydrated(function ($component, $state, $record) {
-
-                    if ($record && $record->cuotaGrupal) {
-                        $cuota = $record->cuotaGrupal->fresh();
-                        $saldo = floatval($cuota->saldo_pendiente);
-                        $mora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                        if (strtolower($record->estado_pago) === 'pendiente') {
-                            $component->state($saldo + $mora);
-                        } else {
-                            $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
-                            $saldoReal = max(($saldo + $mora) - $pagosAprobados, 0);
-                            $component->state($saldoReal);
-                        }
+                    if (strtolower($record->estado_pago) === 'pendiente') {
+                        $component->state($saldo + $mora);
                     } else {
-                        $component->state(null);
+                        $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
+                        $saldoReal = max(($saldo + $mora) - $pagosAprobados, 0);
+                        $component->state($saldoReal);
                     }
-                })
-        ]);
-    }
+                } else {
+                    $component->state(null);
+                }
+            })
+    ]);
+}
 
     public static function table(Table $table): Table
     {

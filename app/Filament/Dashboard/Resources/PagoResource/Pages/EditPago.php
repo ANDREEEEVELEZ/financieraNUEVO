@@ -13,41 +13,138 @@ class EditPago extends EditRecord
 {
     protected static string $resource = PagoResource::class;
 
-    /*
+    /**
+     * Determina si el formulario debe estar deshabilitado
+     */
     protected function isFormDisabled(): bool
     {
-        return strtolower($this->record->estado_pago) !== 'pendiente';
+        return $this->shouldDisableForm();
     }
-        */
+
+    /**
+     * Verifica si el formulario debe estar deshabilitado
+     */
+    
+private function shouldDisableForm(): bool
+{
+    $user = Auth::user();
+
+    // 🔓 Si el pago no está pendiente, todos pueden ver (formulario deshabilitado = solo lectura)
+    if (strtolower($this->record->estado_pago) !== 'pendiente') {
+        return true;
+    }
+
+    // ❌ Jefes y admin no pueden editar nunca
+    if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+        return true;
+    }
+
+    // ✅ Asesor solo puede editar su grupo y solo si el pago está pendiente
+    if ($user->hasRole('Asesor')) {
+        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+        $grupo = optional($this->record->cuotaGrupal?->prestamo?->grupo);
+
+        if (!$asesor || !$grupo || $grupo->asesor_id !== $asesor->id) {
+            return true; // no es su grupo
+        }
+
+        return false; // puede editar (porque el estado es pendiente)
+    }
+
+    return true; // todos los demás: bloqueado
+}
+
+
+    /**
+     * Mount method - se ejecuta al cargar la página
+     */
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+
+        // Si es super_admin o jefe y intenta editar, mostrar notificación
+        $user = Auth::user();
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) &&
+            strtolower($this->record->estado_pago) === 'pendiente') {
+
+
+        }
+    }
+
+    /**
+     * Mutate form data before save
+     */
     protected function mutateFormDataBeforeSave(array $data): array
-{
-    if (strtolower($this->record->estado_pago) !== 'pendiente') {
-        throw \Filament\Forms\Components\Component::make()->getValidationException([
-            'estado_pago' => 'Solo se puede editar un pago en estado pendiente.',
-        ]);
+    {
+        $user = Auth::user();
+
+        // Verificar que el pago esté pendiente
+        if (strtolower($this->record->estado_pago) !== 'pendiente') {
+            throw \Filament\Forms\Components\Component::make()->getValidationException([
+                'estado_pago' => 'Solo se puede editar un pago en estado pendiente.',
+            ]);
+        }
+
+        // Verificar que los super_admin y jefes no puedan editar
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            throw \Filament\Forms\Components\Component::make()->getValidationException([
+                'general' => 'No puedes editar pagos. Solo puedes aprobar o rechazar.',
+            ]);
+        }
+
+        // Para asesores, verificar que sea su grupo
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            $grupo = optional($this->record->cuotaGrupal?->prestamo?->grupo);
+
+            if (!$asesor || !$grupo || $grupo->asesor_id !== $asesor->id) {
+                throw \Filament\Forms\Components\Component::make()->getValidationException([
+                    'general' => 'No tienes permisos para editar este pago.',
+                ]);
+            }
+        }
+
+        return $data;
     }
 
-    return $data;
-}
+    /**
+     * Obtener las acciones del formulario
+     */
+    protected function getFormActions(): array
+    {
+        $user = Auth::user();
 
+        // Si el pago no está pendiente, no mostrar acciones de edición
+        if (strtolower($this->record->estado_pago) !== 'pendiente') {
+            return [];
+        }
 
-protected function getFormActions(): array
-{
-    if (strtolower($this->record->estado_pago) !== 'pendiente') {
-        return [];
+        // Si es super_admin, Jefe de operaciones o Jefe de créditos, no mostrar acciones de edición
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            return [];
+        }
+
+        // Para asesores, verificar que sea su grupo
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            $grupo = optional($this->record->cuotaGrupal?->prestamo?->grupo);
+
+            if (!$asesor || !$grupo || $grupo->asesor_id !== $asesor->id) {
+                return [];
+            }
+        }
+
+        return parent::getFormActions();
     }
 
-    return parent::getFormActions();
-}
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
     }
 
-
-
     protected function getHeaderActions(): array
     {
+        $user = Auth::user();
 
         return [
             Actions\Action::make('aprobar')
@@ -56,8 +153,10 @@ protected function getFormActions(): array
                 ->color('success')
                 ->outlined()
                 ->size('sm')
-                ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) &&
-                    Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                ->visible(fn($record) =>
+                    in_array(strtolower($record->estado_pago), ['pendiente']) &&
+                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones'])
+                )
                 ->action(function ($record) {
                     $record->aprobar();
                     Notification::make()
@@ -65,14 +164,17 @@ protected function getFormActions(): array
                         ->success()
                         ->send();
                 }),
+
             Actions\Action::make('rechazar')
                 ->label('Rechazar')
                 ->icon('heroicon-m-x-circle')
                 ->color('danger')
                 ->outlined()
                 ->size('sm')
-                ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) &&
-                    Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', ]))
+                ->visible(fn($record) =>
+                    in_array(strtolower($record->estado_pago), ['pendiente']) &&
+                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones'])
+                )
                 ->action(function ($record) {
                     $record->rechazar();
                     Notification::make()

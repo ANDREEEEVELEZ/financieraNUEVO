@@ -23,11 +23,17 @@ class PagoPolicy
      */
     public function view(User $user, Pago $pago): bool
     {
-        $grupo = optional($pago->cuotaGrupal?->prestamo?->grupo);
-        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            return true;
+        }
 
-        return $grupo && $asesor && $grupo->asesor_id === $asesor->id
-            || $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            $grupo = optional($pago->cuotaGrupal?->prestamo?->grupo);
+            return $asesor && $grupo && $grupo->asesor_id === $asesor->id;
+        }
+
+        return false;
     }
 
     /**
@@ -40,12 +46,28 @@ class PagoPolicy
 
     /**
      * Determine whether the user can update the model.
-     * CAMBIO: Ahora permite acceso a la vista pero el formulario controlará la edición
+     *
+     * En este método permitimos que:
+     * - Los asesores puedan acceder a la pantalla de edición (para ver el registro)
+     *   siempre que pertenezcan al grupo, sin importar el estado. La restricción real para editar
+     *   se impone en la lógica de la página (que deshabilita el formulario si el pago no está pendiente).
+     * - Los jefes y super_admin puedan ver el registro.
      */
     public function update(User $user, Pago $pago): bool
     {
-        // Solo verifica si puede VER el registro, no el estado
-        return $this->view($user, $pago);
+        // Para asesores: si pertenece al grupo, le permitimos acceder a la pantalla
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            $grupo = optional($pago->cuotaGrupal?->prestamo?->grupo);
+            return $asesor && $grupo && $grupo->asesor_id === $asesor->id;
+        }
+
+        // Para jefes y super_admin (acceso para ver la pantalla, sin edición en el formulario)
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -65,7 +87,7 @@ class PagoPolicy
     }
 
     /**
-     * Determine whether the user can permanently delete.
+     * Determine whether the user can permanently delete the model.
      */
     public function forceDelete(User $user, Pago $pago): bool
     {
@@ -81,7 +103,7 @@ class PagoPolicy
     }
 
     /**
-     * Determine whether the user can restore.
+     * Determine whether the user can restore the model.
      */
     public function restore(User $user, Pago $pago): bool
     {
@@ -97,7 +119,7 @@ class PagoPolicy
     }
 
     /**
-     * Determine whether the user can replicate.
+     * Determine whether the user can replicate the model.
      */
     public function replicate(User $user, Pago $pago): bool
     {
@@ -105,7 +127,7 @@ class PagoPolicy
     }
 
     /**
-     * Determine whether the user can reorder.
+     * Determine whether the user can reorder models.
      */
     public function reorder(User $user): bool
     {
