@@ -135,7 +135,7 @@ class EditPrestamo extends EditRecord
                     'monto_cuota_prestamo_individual' => round($cuotaSemanal, 2),
                     'monto_devolver_individual' => round($montoDevolver, 2),
                     'seguro' => $seguro,
-                    'interes' => $tasaInteres,  // Guardaría el porcentaje (17)
+                    'interes' => $interes,  // Guardamos el monto del interés calculado, no el porcentaje
                     'estado' => 'Pendiente',
                 ]);
             }

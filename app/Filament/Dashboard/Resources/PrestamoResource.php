@@ -143,7 +143,11 @@ class PrestamoResource extends Resource
 
                     TextInput::make('monto_prestado_individual')->label('Monto prestado')->prefix('S/.')->disabled(),
                     TextInput::make('seguro')->label('Seguro')->prefix('S/.')->disabled(),
-                    TextInput::make('interes')->label('Interés')->prefix('S/.')->disabled(),
+                    Forms\Components\TextInput::make('interes')
+                        ->label('Interés')
+                        ->prefix('S/.')
+                        ->disabled()
+                        ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
                     TextInput::make('monto_devolver_individual')->label('Total a devolver')->prefix('S/.')->disabled(),
                 ])
                 

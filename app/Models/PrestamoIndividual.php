@@ -29,7 +29,7 @@ class PrestamoIndividual extends Model
         'monto_cuota_prestamo_individual' => 'decimal:2',
         'monto_devolver_individual' => 'decimal:2',
         'seguro' => 'decimal:2',
-        'interes' => 'integer',  // Porcentaje como entero (17)
+        'interes' => 'decimal:2',  // Cambiado a decimal porque ahora guardamos el monto, no el porcentaje
     ];
 
     /**
