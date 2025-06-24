@@ -256,7 +256,8 @@ class PrestamoResource extends Resource
                 ->readOnly()
                 ->live()
                 ->reactive()
-                ->formatStateUsing(fn ($state) => number_format((float)$state, 2))
+                ->formatStateUsing(fn ($state) => $state ? number_format((float)$state, 2, '.', '') : '0.00')
+                ->dehydrateStateUsing(fn ($state) => (float)str_replace(',', '', $state))
                 ->disabled(fn() => !$puedeEditarCampos),
 
             TextInput::make('monto_devolver')
@@ -265,7 +266,8 @@ class PrestamoResource extends Resource
                 ->readOnly()
                 ->live()
                 ->reactive()
-                ->formatStateUsing(fn ($state) => number_format((float)$state, 2))
+                ->formatStateUsing(fn ($state) => $state ? number_format((float)$state, 2, '.', '') : '0.00')
+                ->dehydrateStateUsing(fn ($state) => (float)str_replace(',', '', $state))
                 ->extraInputAttributes(['id' => 'monto_devolver_field'])
                 ->disabled(fn() => !$puedeEditarCampos),
 
@@ -333,6 +335,28 @@ class PrestamoResource extends Resource
         }
         
         unset($data['nuevo_rol']);
+        return $data;
+    }
+
+    public static function mutateFormDataBeforeFill(array $data): array
+    {
+        // Asegurar que los montos totales se cargan correctamente
+        if (!empty($data['id'])) {
+            $prestamo = \App\Models\Prestamo::with('prestamoIndividual')->find($data['id']);
+            if ($prestamo && $prestamo->prestamoIndividual->count() > 0) {
+                // Recalcular los montos totales basados en los préstamos individuales
+                $montoTotal = $prestamo->prestamoIndividual->sum('monto_prestado_individual');
+                $montoDevolver = $prestamo->prestamoIndividual->sum('monto_devolver_individual');
+                
+                if ($montoTotal > 0) {
+                    $data['monto_prestado_total'] = $montoTotal;
+                }
+                if ($montoDevolver > 0) {
+                    $data['monto_devolver'] = $montoDevolver;
+                }
+            }
+        }
+        
         return $data;
     }
 

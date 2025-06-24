@@ -46,6 +46,15 @@ class EditPrestamo extends EditRecord
                     ->send();
             }
         }
+        
+        // Forzar la recarga de los datos para asegurar que los montos totales se muestren correctamente
+        $this->sincronizarMontosTotal();
+    }
+    
+    protected function sincronizarMontosTotal(): void
+    {
+        // Usar el método del modelo para sincronizar montos
+        $this->record = $this->record->sincronizarMontosTotal();
     }
 
     protected function getHeaderActions(): array
@@ -149,6 +158,24 @@ class EditPrestamo extends EditRecord
 
         // Verificar si ya debe finalizarse automáticamente (opcional)
         $prestamo->actualizarEstadoAutomaticamente();
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Asegurar que el monto_prestado_total se cargue correctamente
+        if (!empty($data['id'])) {
+            $prestamo = \App\Models\Prestamo::with('prestamoIndividual')->find($data['id']);
+            if ($prestamo) {
+                // Recalcular el monto total basado en los préstamos individuales
+                $montoTotal = $prestamo->prestamoIndividual->sum('monto_prestado_individual');
+                $montoDevolver = $prestamo->prestamoIndividual->sum('monto_devolver_individual');
+                
+                $data['monto_prestado_total'] = $montoTotal;
+                $data['monto_devolver'] = $montoDevolver;
+            }
+        }
+        
+        return $data;
     }
 
     protected function afterSaved(): void

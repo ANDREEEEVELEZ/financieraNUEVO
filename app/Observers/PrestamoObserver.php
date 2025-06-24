@@ -41,12 +41,11 @@ class PrestamoObserver
             // Crear cuotas grupales si no existen aún
             $yaTieneCuotas = CuotasGrupales::where('prestamo_id', $prestamo->id)->exists();
             if (!$yaTieneCuotas) {
-                $totalSeguro = $prestamo->prestamoIndividual()->sum('seguro');
-                $montoTotal = $prestamo->monto_devolver;
+                // Usar el monto_devolver que ya incluye el interés y seguro
+                $montoTotalDevolver = $prestamo->monto_devolver;
                 $cantidadCuotas = $prestamo->cantidad_cuotas;
-                $montoPorCuota = $montoTotal / $cantidadCuotas;
-                $seguroPorCuota = $totalSeguro / $cantidadCuotas;
-                $fechaInicio = Carbon::parse($prestamo->fecha_prestamo);
+                $montoPorCuota = $montoTotalDevolver / $cantidadCuotas;
+                $fechaInicio = Carbon::parse($prestamo->getRawOriginal('fecha_prestamo'));
                 $dias = match($prestamo->frecuencia) {
                     'mensual' => 30,
                     'quincenal' => 15,
@@ -54,12 +53,19 @@ class PrestamoObserver
                     default => 30,
                 };
 
+                Log::info('PrestamoObserver: Creando cuotas grupales', [
+                    'prestamo_id' => $prestamo->id,
+                    'monto_total_devolver' => $montoTotalDevolver,
+                    'cantidad_cuotas' => $cantidadCuotas,
+                    'monto_por_cuota' => $montoPorCuota
+                ]);
+
                 for ($i = 1; $i <= $cantidadCuotas; $i++) {
                     CuotasGrupales::create([
                         'prestamo_id' => $prestamo->id,
                         'numero_cuota' => $i,
-                        'monto_cuota_grupal' => round($montoPorCuota + $seguroPorCuota, 2),
-                        'saldo_pendiente' => round($montoPorCuota + $seguroPorCuota, 2),
+                        'monto_cuota_grupal' => round($montoPorCuota, 2),
+                        'saldo_pendiente' => round($montoPorCuota, 2),
                         'fecha_vencimiento' => $fechaInicio->copy()->addDays($dias * $i),
                         'estado_cuota_grupal' => 'vigente',
                         'estado_pago' => 'pendiente',

@@ -25,8 +25,8 @@ class Prestamo extends Model
 
     protected $casts = [
         'tasa_interes' => 'integer',
-        'monto_prestado_total' => 'float',
-        'monto_devolver' => 'float',
+        'monto_prestado_total' => 'decimal:2',
+        'monto_devolver' => 'decimal:2',
         'cantidad_cuotas' => 'integer',
         'fecha_prestamo' => 'date',
     ];
@@ -92,6 +92,17 @@ class Prestamo extends Model
         return $this->estado;
     }
 
+    // Accessor para asegurar que el monto total se calcule correctamente
+    public function getMontoTotalCalculadoAttribute()
+    {
+        return $this->prestamoIndividual()->sum('monto_prestado_individual');
+    }
+
+    public function getMontoTotalDevolverCalculadoAttribute()
+    {
+        return $this->prestamoIndividual()->sum('monto_devolver_individual');
+    }
+
     // Método para actualizar el estado automáticamente
     public function actualizarEstadoAutomaticamente()
     {
@@ -104,5 +115,23 @@ class Prestamo extends Model
                 $this->save();
             }
         }
+    }
+
+    // Método para sincronizar los montos totales basándose en los préstamos individuales
+    public function sincronizarMontosTotal()
+    {
+        if ($this->prestamoIndividual()->count() > 0) {
+            $montoTotal = $this->prestamoIndividual()->sum('monto_prestado_individual');
+            $montoDevolver = $this->prestamoIndividual()->sum('monto_devolver_individual');
+            
+            $this->updateQuietly([
+                'monto_prestado_total' => round($montoTotal, 2),
+                'monto_devolver' => round($montoDevolver, 2),
+            ]);
+            
+            return $this->fresh();
+        }
+        
+        return $this;
     }
 }
