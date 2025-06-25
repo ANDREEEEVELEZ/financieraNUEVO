@@ -16,12 +16,34 @@ class EditPrestamo extends EditRecord
     /** @var string|null */
     protected $oldEstado = null;
 
+    public function getTitle(): string
+    {
+        $titulo = parent::getTitle();
+        
+        // Si el préstamo no está en estado Pendiente, cambiar el título
+        if ($this->record->estado !== 'Pendiente') {
+            return $titulo . ' (Solo Lectura - Estado: ' . $this->record->estado . ')';
+        }
+        
+        return $titulo;
+    }
+
     public function mount(int | string $record): void
     {
         parent::mount($record);
         
         // Validar permisos antes de mostrar el formulario
         $user = \Illuminate\Support\Facades\Auth::user();
+        
+        // Si el préstamo NO está en estado Pendiente, mostrar notificación
+        if ($this->record->estado !== 'Pendiente') {
+            Notification::make()
+                ->title('Préstamo solo de lectura')
+                ->body('Este préstamo está en estado "' . $this->record->estado . '" y solo se puede visualizar. No se pueden realizar modificaciones.')
+                ->warning()
+                ->persistent()
+                ->send();
+        }
         
         if ($user->hasRole('Asesor')) {
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
@@ -30,20 +52,12 @@ class EditPrestamo extends EditRecord
             if (!$esCreador) {
                 Notification::make()
                     ->title('Sin permisos')
-                    ->body('No tienes permisos para editar este préstamo porque no eres el asesor que lo creó.')
+                    ->body('No tienes permisos para ver este préstamo porque no eres el asesor que lo creó.')
                     ->danger()
                     ->send();
                     
                 $this->redirect(static::getResource()::getUrl('index'));
                 return;
-            }
-            
-            if ($this->record->estado !== 'Pendiente') {
-                Notification::make()
-                    ->title('Préstamo no editable')
-                    ->body('Solo puedes editar préstamos que estén en estado "Pendiente".')
-                    ->warning()
-                    ->send();
             }
         }
         
@@ -60,14 +74,33 @@ class EditPrestamo extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Si el préstamo no está en estado Pendiente, no mostrar acciones de edición
             // Actions\DeleteAction::make()->icon('heroicon-o-trash'), BOTON DE ELIMINAR DESHABILITADO POR REQUERIMIENTO
         ];
+    }
+
+    protected function getFormActions(): array
+    {
+        // Si el préstamo no está en estado Pendiente, no mostrar el botón de guardar
+        if ($this->record->estado !== 'Pendiente') {
+            return [
+                $this->getCancelFormAction(),
+            ];
+        }
+
+        return parent::getFormActions();
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $this->oldEstado = $this->record->estado;
         $user = \Illuminate\Support\Facades\Auth::user();
+
+        // Si el préstamo NO está en estado Pendiente, no permitir ningún cambio
+        if ($this->record->estado !== 'Pendiente') {
+            // Retornar todos los datos originales sin modificaciones
+            return $this->record->toArray();
+        }
 
         // Validación de permisos para asesores
         if ($user->hasRole('Asesor')) {
@@ -76,15 +109,12 @@ class EditPrestamo extends EditRecord
             
             // Si no es el creador o el préstamo no está en Pendiente, no puede modificar
             if (!$esCreador || $this->record->estado !== 'Pendiente') {
-                // Conservar todos los datos originales excepto los permitidos
-                $data = [
-                    'id' => $this->record->id,
-                    'estado' => $this->record->estado, // No puede cambiar el estado
-                ];
+                // Conservar todos los datos originales
+                return $this->record->toArray();
             }
         }
         
-        // Validación para jefes - solo pueden cambiar el estado
+        // Validación para jefes - solo pueden cambiar el estado (y solo si está en Pendiente)
         if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             // Conservar todos los campos originales excepto el estado
             $allowedData = [

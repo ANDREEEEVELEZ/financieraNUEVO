@@ -25,28 +25,58 @@ class PrestamoResource extends Resource
         $prestamo = $record ? \App\Models\Prestamo::with('prestamoIndividual.cliente.persona')->find($record) : null;
         $user = request()->user();
         
+        // Si el préstamo existe y su estado NO es 'Pendiente', bloquear todo
+        $prestamoNoPendiente = $prestamo && $prestamo->estado !== 'Pendiente';
+        
         // Determinar si el usuario puede editar campos
         $puedeEditarCampos = false;
         
-        if ($user->hasRole('Asesor')) {
-            // Asesor solo puede editar si es creador y está en estado Pendiente
-            if ($prestamo) {
-                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-                $esCreador = $asesor && $prestamo->grupo && $prestamo->grupo->asesor_id == $asesor->id;
-                $puedeEditarCampos = $esCreador && $prestamo->estado === 'Pendiente';
-            } else {
-                // Si es creación, sí puede editar
-                $puedeEditarCampos = true;
+        if (!$prestamoNoPendiente) { // Solo si el préstamo está en estado Pendiente o es nuevo
+            if ($user->hasRole('Asesor')) {
+                // Asesor solo puede editar si es creador y está en estado Pendiente
+                if ($prestamo) {
+                    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                    $esCreador = $asesor && $prestamo->grupo && $prestamo->grupo->asesor_id == $asesor->id;
+                    $puedeEditarCampos = $esCreador && $prestamo->estado === 'Pendiente';
+                } else {
+                    // Si es creación, sí puede editar
+                    $puedeEditarCampos = true;
+                }
+            } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                // Jefes NO pueden editar campos de solicitud cuando el préstamo existe, solo el estado
+                $puedeEditarCampos = false;
             }
-        } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            // Jefes NO pueden editar campos de solicitud, solo el estado
-            $puedeEditarCampos = false;
         }
         
-        // Solo jefes pueden cambiar el estado
-        $puedeEditarEstado = $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
+        // Solo jefes pueden cambiar el estado Y solo si el préstamo está en estado Pendiente
+        $puedeEditarEstado = $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) && !$prestamoNoPendiente;
 
         return $form->schema([
+            // Mensaje informativo cuando el préstamo no está en estado Pendiente
+            Forms\Components\Placeholder::make('mensaje_bloqueado')
+                ->label('')
+                ->content(function () use ($prestamo) {
+                    if ($prestamo && $prestamo->estado !== 'Pendiente') {
+                        return new \Illuminate\Support\HtmlString(
+                            '<div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <svg style="width: 20px; height: 20px; color: #f59e0b;" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.485 3.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 3.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <strong style="color: #92400e;">MODO SOLO LECTURA</strong>
+                                </div>
+                                <p style="margin: 8px 0 0 0; color: #92400e; font-size: 14px;">
+                                    Este préstamo está en estado "<strong>' . $prestamo->estado . '</strong>" y no puede ser modificado. 
+                                    Todos los campos están bloqueados para preservar la integridad de los datos.
+                                </p>
+                            </div>'
+                        );
+                    }
+                    return '';
+                })
+                ->visible(fn() => $prestamo && $prestamo->estado !== 'Pendiente')
+                ->columnSpanFull(),
+
             Select::make('grupo_id')
                 ->label('Grupo')
                 ->prefixIcon('heroicon-o-rectangle-stack')
@@ -295,27 +325,39 @@ class PrestamoResource extends Resource
             TextInput::make('calificacion')
                 ->prefixIcon('heroicon-o-star')
                 ->numeric()
-                ->required(),
+                ->required()
+                ->disabled(fn() => !$puedeEditarCampos),
         ]);
     }
 
     public static function mutateFormDataBeforeSave(array $data): array
     {
         $user = \Illuminate\Support\Facades\Auth::user();
+        $record = request()->route('record');
         
-        // Solo los jefes pueden modificar el estado
+        // Si es un préstamo existente, verificar su estado
+        if ($record) {
+            $prestamo = \App\Models\Prestamo::find($record);
+            
+            // Si el préstamo existe y NO está en estado Pendiente, no permitir ningún cambio
+            if ($prestamo && $prestamo->estado !== 'Pendiente') {
+                // Retornar los datos originales sin cambios
+                return $prestamo->toArray();
+            }
+        }
+        
+        // Solo los jefes pueden modificar el estado (y solo si está en Pendiente)
         if (!$user->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])) {
             unset($data['estado']);
         }
         
         // Los asesores solo pueden editar si el préstamo está en estado Pendiente
         if ($user->hasRole('Asesor')) {
-            $record = request()->route('record');
             if ($record) {
                 $prestamo = \App\Models\Prestamo::find($record);
                 if ($prestamo && $prestamo->estado !== 'Pendiente') {
-                    // Si no está en Pendiente, preservar todos los campos excepto el estado
-                    $data = ['estado' => $prestamo->estado];
+                    // Si no está en Pendiente, preservar todos los campos
+                    return $prestamo->toArray();
                 }
             }
         }
