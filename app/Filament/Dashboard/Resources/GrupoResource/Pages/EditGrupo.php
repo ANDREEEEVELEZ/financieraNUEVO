@@ -20,21 +20,50 @@ class EditGrupo extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        // Solo mostrar el botón si el grupo está ACTIVO
-        if ($this->record->estado_grupo !== 'Activo') {
-            return [];
+        // Solo mostrar la acción de inactivar si el grupo está activo
+        if ($this->record->estado_grupo === 'Activo') {
+            return [
+                Actions\Action::make('inactivar')
+                    ->label('Inactivar Grupo')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('¿Inactivar Grupo?')
+                    ->modalDescription('Esta acción inactivará el grupo y todos sus integrantes. ¿Estás seguro?')
+                    ->action(function () {
+                        // Cambiar el estado del grupo
+                        $this->record->estado_grupo = 'Inactivo';
+                        $this->record->save();
+                        
+                        // Sincronizar el estado de todos los integrantes activos
+                        $integrantesActivos = $this->record->todosLosIntegrantes()
+                            ->wherePivot('estado_grupo_cliente', 'Activo')
+                            ->pluck('clientes.id')
+                            ->toArray();
+                        
+                        if (!empty($integrantesActivos)) {
+                            $this->record->todosLosIntegrantes()->updateExistingPivot(
+                                $integrantesActivos,
+                                [
+                                    'estado_grupo_cliente' => 'Inactivo',
+                                    'fecha_salida' => now()->toDateString(),
+                                    'updated_at' => now()
+                                ]
+                            );
+                        }
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Grupo inactivado')
+                            ->body('El grupo y todos sus integrantes han sido inactivados exitosamente.')
+                            ->send();
+                        
+                        $this->redirect($this->getRedirectUrl());
+                    }),
+            ];
         }
-        return [
-            Actions\Action::make('inactivar')
-                ->label('Inactivar Grupo')
-                ->color('danger')
-                ->requiresConfirmation()
-                ->action(function () {
-                    $this->record->estado_grupo = 'Inactivo';
-                    $this->record->save();
-                    $this->redirect($this->getRedirectUrl());
-                }),
-        ];
+        
+        // Los grupos inactivos no tienen acciones disponibles
+        return [];
     }
 
 
