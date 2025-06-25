@@ -49,158 +49,408 @@ $movimientos = collect([]);
 $user = auth()->user();
 
 // Verificar si el usuario puede ver toda la actividad o solo la suya
-$canViewAllActivity = in_array($user->rol, ['Jefe de operaciones', 'Jefe de creditos', 'super_admin']);
+$canViewAllActivity = $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
 
-// Obtener el asesor_id del usuario autenticado
-$asesorId = $user->asesor_id ?? $user->id; // Usar asesor_id si existe, sino usar el id del usuario
-
-// Clientes
-$clientesQuery = \App\Models\Cliente::with('persona');
-if (!$canViewAllActivity) {
-    $clientesQuery->where('asesor_id', $asesorId);
+// Obtener el asesor_id del usuario autenticado si es asesor
+$asesorId = null;
+if ($user->hasRole('Asesor')) {
+    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+    $asesorId = $asesor ? $asesor->id : null;
 }
-$clientes = $clientesQuery->select('id', 'created_at', 'updated_at', 'asesor_id')->get()->map(function($c) {
-    return [
-        'modulo' => 'Cliente',
-        'nombre' => optional($c->persona)->nombre . ' ' . optional($c->persona)->apellidos,
-        'accion' => $c->created_at == $c->updated_at ? 'Creado' : 'Modificado',
-        'fecha' => $c->created_at == $c->updated_at ? $c->created_at : $c->updated_at,
+
+// Filtro opcional por asesor (para jefes y super admin)
+$filtroAsesorId = request('filtro_asesor_id');
+if ($canViewAllActivity && $filtroAsesorId) {
+    $asesorId = $filtroAsesorId;
+}
+
+try {
+    // Clientes con más detalles
+    $clientesQuery = \App\Models\Cliente::with(['persona', 'asesor.persona']);
+    if (!$canViewAllActivity && $asesorId) {
+        $clientesQuery->where('asesor_id', $asesorId);
+    } elseif ($canViewAllActivity && $asesorId) {
+        $clientesQuery->where('asesor_id', $asesorId);
+    }
+    $clientes = $clientesQuery->select('id', 'created_at', 'updated_at', 'asesor_id', 'estado_cliente', 'persona_id')
+        ->orderBy('updated_at', 'desc')
+        ->limit(15)
+        ->get()->map(function($c) {
+        $nombreCliente = optional($c->persona)->nombre . ' ' . optional($c->persona)->apellidos;
+        $nombreAsesor = optional($c->asesor->persona ?? null)->nombre . ' ' . optional($c->asesor->persona ?? null)->apellidos;
+        $estado = $c->estado_cliente ?? 'Sin estado';
+        $dni = optional($c->persona)->DNI ?? 'Sin DNI';
+        
+        return [
+            'modulo' => 'Cliente',
+            'nombre' => $nombreCliente,
+            'detalle' => "DNI: {$dni} | Estado: {$estado}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
+            'accion' => $c->created_at == $c->updated_at ? 'Creado' : 'Modificado',
+            'fecha' => $c->created_at == $c->updated_at ? $c->created_at : $c->updated_at,
+            'icono' => 'user',
+            'color' => $c->created_at == $c->updated_at ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200',
+            'bg_gradient' => $c->created_at == $c->updated_at ? 'from-emerald-50 to-emerald-100' : 'from-amber-50 to-amber-100',
+            'url' => route('filament.dashboard.resources.clientes.edit', $c->id),
+        ];
+    });
+    $movimientos = $movimientos->concat($clientes);
+} catch (\Exception $e) {
+    \Log::error('Error loading clientes for dashboard: ' . $e->getMessage());
+}
+
+try {
+    // Grupos con más detalles
+    $gruposQuery = \App\Models\Grupo::with(['asesor.persona']);
+    if (!$canViewAllActivity && $asesorId) {
+        $gruposQuery->where('asesor_id', $asesorId);
+    } elseif ($canViewAllActivity && $asesorId) {
+        $gruposQuery->where('asesor_id', $asesorId);
+    }
+    $grupos = $gruposQuery->select('id', 'nombre_grupo', 'created_at', 'updated_at', 'asesor_id', 'numero_integrantes', 'estado_grupo')
+        ->orderBy('updated_at', 'desc')
+        ->limit(10)
+        ->get()->map(function($g) {
+        $nombreAsesor = optional($g->asesor->persona ?? null)->nombre . ' ' . optional($g->asesor->persona ?? null)->apellidos;
+        $integrantes = $g->numero_integrantes ?? 0;
+        $estado = $g->estado_grupo ?? 'Sin estado';
+        
+        return [
+            'modulo' => 'Grupo',
+            'nombre' => $g->nombre_grupo,
+            'detalle' => "{$integrantes} integrantes | Estado: {$estado}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
+            'accion' => $g->created_at == $g->updated_at ? 'Creado' : 'Modificado',
+            'fecha' => $g->created_at == $g->updated_at ? $g->created_at : $g->updated_at,
+            'icono' => 'users',
+            'color' => $g->created_at == $g->updated_at ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-amber-50 text-amber-600 border-amber-200',
+            'bg_gradient' => $g->created_at == $g->updated_at ? 'from-blue-50 to-blue-100' : 'from-amber-50 to-amber-100',
+            'url' => route('filament.dashboard.resources.grupos.edit', $g->id),
+        ];
+    });
+    $movimientos = $movimientos->concat($grupos);
+} catch (\Exception $e) {
+    \Log::error('Error loading grupos for dashboard: ' . $e->getMessage());
+}
+
+try {
+    // Pagos con más detalles
+    $pagosQuery = \App\Models\Pago::with(['cuotaGrupal.prestamo.grupo.asesor.persona']);
+    if (!$canViewAllActivity && $asesorId) {
+        $pagosQuery->whereHas('cuotaGrupal.prestamo.grupo', function($query) use ($asesorId) {
+            $query->where('asesor_id', $asesorId);
+        });
+    } elseif ($canViewAllActivity && $asesorId) {
+        $pagosQuery->whereHas('cuotaGrupal.prestamo.grupo', function($query) use ($asesorId) {
+            $query->where('asesor_id', $asesorId);
+        });
+    }
+    $pagos = $pagosQuery->select('id', 'cuota_grupal_id', 'created_at', 'updated_at', 'monto_pagado', 'monto_mora_pagada', 'estado_pago', 'tipo_pago', 'fecha_pago')
+        ->orderBy('updated_at', 'desc')
+        ->limit(15)
+        ->get()->map(function($p) {
+        $nombreGrupo = optional($p->cuotaGrupal->prestamo->grupo ?? null)->nombre_grupo ?? 'Grupo no encontrado';
+        $nombreAsesor = optional($p->cuotaGrupal->prestamo->grupo->asesor->persona ?? null)->nombre . ' ' . optional($p->cuotaGrupal->prestamo->grupo->asesor->persona ?? null)->apellidos;
+        $monto = $p->monto_pagado ? 'S/ ' . number_format($p->monto_pagado, 2) : 'Sin monto';
+        $monteMora = $p->monto_mora_pagada ? ' (Mora: S/ ' . number_format($p->monto_mora_pagada, 2) . ')' : '';
+        $estado = $p->estado_pago ?? 'Sin estado';
+        $tipo = $p->tipo_pago ?? 'Sin tipo';
+        $fecha_pago = $p->fecha_pago ? ' | Fecha: ' . \Carbon\Carbon::parse($p->fecha_pago)->format('d/m/Y') : '';
+        
+        return [
+            'modulo' => 'Pago',
+            'nombre' => "Pago - {$nombreGrupo}",
+            'detalle' => "{$monto}{$monteMora} | {$tipo} | Estado: {$estado}{$fecha_pago}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
+            'accion' => $p->created_at == $p->updated_at ? 'Creado' : 'Modificado',
+            'fecha' => $p->created_at == $p->updated_at ? $p->created_at : $p->updated_at,
+            'icono' => 'credit-card',
+            'color' => $p->created_at == $p->updated_at ? 'bg-violet-50 text-violet-600 border-violet-200' : 'bg-amber-50 text-amber-600 border-amber-200',
+            'bg_gradient' => $p->created_at == $p->updated_at ? 'from-violet-50 to-violet-100' : 'from-amber-50 to-amber-100',
+            'url' => route('filament.dashboard.resources.pagos.edit', $p->id),
+        ];
+    });
+    $movimientos = $movimientos->concat($pagos);
+} catch (\Exception $e) {
+    \Log::error('Error loading pagos for dashboard: ' . $e->getMessage());
+}
+
+try {
+    // Préstamos con más detalles
+    $prestamosQuery = \App\Models\Prestamo::with(['grupo.asesor.persona']);
+    if (!$canViewAllActivity && $asesorId) {
+        $prestamosQuery->whereHas('grupo', function($query) use ($asesorId) {
+            $query->where('asesor_id', $asesorId);
+        });
+    } elseif ($canViewAllActivity && $asesorId) {
+        $prestamosQuery->whereHas('grupo', function($query) use ($asesorId) {
+            $query->where('asesor_id', $asesorId);
+        });
+    }
+    $prestamos = $prestamosQuery->select('id', 'grupo_id', 'created_at', 'updated_at', 'monto_prestado_total', 'monto_devolver', 'tasa_interes', 'cantidad_cuotas', 'estado', 'fecha_prestamo')
+        ->orderBy('updated_at', 'desc')
+        ->limit(10)
+        ->get()->map(function($pr) {
+        $nombreGrupo = optional($pr->grupo)->nombre_grupo ?? 'Grupo no encontrado';
+        $nombreAsesor = optional($pr->grupo->asesor->persona ?? null)->nombre . ' ' . optional($pr->grupo->asesor->persona ?? null)->apellidos;
+        $monto = $pr->monto_prestado_total ? 'S/ ' . number_format($pr->monto_prestado_total, 2) : 'Sin monto';
+        $montoDevolver = $pr->monto_devolver ? ' (Devolver: S/ ' . number_format($pr->monto_devolver, 2) . ')' : '';
+        $tasa = $pr->tasa_interes ? $pr->tasa_interes . '%' : 'Sin tasa';
+        $cuotas = $pr->cantidad_cuotas ? $pr->cantidad_cuotas . ' cuotas' : 'Sin cuotas';
+        $estado = $pr->estado ?? 'Sin estado';
+        $fechaPrestamo = $pr->fecha_prestamo ? ' | Fecha: ' . \Carbon\Carbon::parse($pr->fecha_prestamo)->format('d/m/Y') : '';
+        
+        return [
+            'modulo' => 'Préstamo',
+            'nombre' => "Préstamo - {$nombreGrupo}",
+            'detalle' => "{$monto}{$montoDevolver} | Tasa: {$tasa} | {$cuotas} | Estado: {$estado}{$fechaPrestamo}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
+            'accion' => $pr->created_at == $pr->updated_at ? 'Creado' : 'Modificado',
+            'fecha' => $pr->created_at == $pr->updated_at ? $pr->created_at : $pr->updated_at,
+            'icono' => 'banknotes',
+            'color' => $pr->created_at == $pr->updated_at ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-amber-50 text-amber-600 border-amber-200',
+            'bg_gradient' => $pr->created_at == $pr->updated_at ? 'from-purple-50 to-purple-100' : 'from-amber-50 to-amber-100',
+            'url' => route('filament.dashboard.resources.prestamos.edit', $pr->id),
+        ];
+    });
+    $movimientos = $movimientos->concat($prestamos);
+} catch (\Exception $e) {
+    \Log::error('Error loading prestamos for dashboard: ' . $e->getMessage());
+}
+
+try {
+    // Personas - Solo para admins y cuando no haya filtro específico de asesor
+    if ($canViewAllActivity && !$asesorId) {
+        $personasQuery = \App\Models\Persona::query();
+        $personas = $personasQuery->select('id', 'nombre', 'apellidos', 'created_at', 'updated_at', 'DNI', 'celular')
+            ->orderBy('updated_at', 'desc')
+            ->limit(5)
+            ->get()->map(function($p) {
+            $dni = $p->DNI ?? 'Sin DNI';
+            $celular = $p->celular ?? 'Sin celular';
+            
+            return [
+                'modulo' => 'Persona',
+                'nombre' => trim($p->nombre . ' ' . $p->apellidos),
+                'detalle' => "DNI: {$dni} | Celular: {$celular}",
+                'accion' => $p->created_at == $p->updated_at ? 'Creado' : 'Modificado',
+                'fecha' => $p->created_at == $p->updated_at ? $p->created_at : $p->updated_at,
+                'icono' => 'id-card',
+                'color' => $p->created_at == $p->updated_at ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-amber-50 text-amber-600 border-amber-200',
+                'bg_gradient' => $p->created_at == $p->updated_at ? 'from-orange-50 to-orange-100' : 'from-amber-50 to-amber-100',
+                'url' => '#',
+            ];
+        });
+        $movimientos = $movimientos->concat($personas);
+    }
+} catch (\Exception $e) {
+    \Log::error('Error loading personas for dashboard: ' . $e->getMessage());
+}
+
+try {
+    // Retanqueos con más detalles
+    $retanqueosQuery = \App\Models\Retanqueo::with(['grupo.asesor.persona']);
+    if (!$canViewAllActivity && $asesorId) {
+        $retanqueosQuery->where('asesor_id', $asesorId);
+    } elseif ($canViewAllActivity && $asesorId) {
+        $retanqueosQuery->where('asesor_id', $asesorId);
+    }
+    $retanqueos = $retanqueosQuery->select('id', 'grupo_id', 'created_at', 'updated_at', 'asesor_id', 'monto_retanqueado', 'estado')
+        ->orderBy('updated_at', 'desc')
+        ->limit(10)
+        ->get()->map(function($r) {
+        $nombreGrupo = optional($r->grupo)->nombre_grupo ?? 'Grupo no encontrado';
+        $nombreAsesor = optional($r->grupo->asesor->persona ?? null)->nombre . ' ' . optional($r->grupo->asesor->persona ?? null)->apellidos;
+        $monto = $r->monto_retanqueado ? 'S/ ' . number_format($r->monto_retanqueado, 2) : 'Sin monto';
+        $estado = $r->estado ?? 'Sin estado';
+        
+        return [
+            'modulo' => 'Retanqueo',
+            'nombre' => "Retanqueo - {$nombreGrupo}",
+            'detalle' => "{$monto} | Estado: {$estado}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
+            'accion' => $r->created_at == $r->updated_at ? 'Creado' : 'Modificado',
+            'fecha' => $r->created_at == $r->updated_at ? $r->created_at : $r->updated_at,
+            'icono' => 'refresh',
+            'color' => $r->created_at == $r->updated_at ? 'bg-pink-50 text-pink-600 border-pink-200' : 'bg-amber-50 text-amber-600 border-amber-200',
+            'bg_gradient' => $r->created_at == $r->updated_at ? 'from-pink-50 to-pink-100' : 'from-amber-50 to-amber-100',
+            'url' => route('filament.dashboard.resources.retanqueos.edit', $r->id),
+        ];
+    });
+    $movimientos = $movimientos->concat($retanqueos);
+} catch (\Exception $e) {
+    \Log::error('Error loading retanqueos for dashboard: ' . $e->getMessage());
+}
+
+try {
+    // Préstamos Individuales con más detalles
+    $prestamosIndividualesQuery = \App\Models\PrestamoIndividual::with(['cliente.persona', 'cliente.asesor.persona', 'prestamo.grupo']);
+    if (!$canViewAllActivity && $asesorId) {
+        $prestamosIndividualesQuery->whereHas('cliente', function($query) use ($asesorId) {
+            $query->where('asesor_id', $asesorId);
+        });
+    } elseif ($canViewAllActivity && $asesorId) {
+        $prestamosIndividualesQuery->whereHas('cliente', function($query) use ($asesorId) {
+            $query->where('asesor_id', $asesorId);
+        });
+    }
+    $prestamosIndividuales = $prestamosIndividualesQuery->select('id', 'prestamo_id', 'cliente_id', 'created_at', 'updated_at', 'monto_prestado_individual', 'monto_devolver_individual', 'estado')
+        ->orderBy('updated_at', 'desc')
+        ->limit(10)
+        ->get()->map(function($pi) {
+        $nombreCliente = optional($pi->cliente->persona ?? null)->nombre . ' ' . optional($pi->cliente->persona ?? null)->apellidos;
+        $nombreGrupo = optional($pi->prestamo->grupo ?? null)->nombre_grupo ?? 'Grupo no encontrado';
+        $nombreAsesor = optional($pi->cliente->asesor->persona ?? null)->nombre . ' ' . optional($pi->cliente->asesor->persona ?? null)->apellidos;
+        $monto = $pi->monto_prestado_individual ? 'S/ ' . number_format($pi->monto_prestado_individual, 2) : 'Sin monto';
+        $montoDevolver = $pi->monto_devolver_individual ? ' (Devolver: S/ ' . number_format($pi->monto_devolver_individual, 2) . ')' : '';
+        $estado = $pi->estado ?? 'Sin estado';
+        
+        return [
+            'modulo' => 'Préstamo Individual',
+            'nombre' => "{$nombreCliente} - {$nombreGrupo}",
+            'detalle' => "{$monto}{$montoDevolver} | Estado: {$estado}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
+            'accion' => $pi->created_at == $pi->updated_at ? 'Creado' : 'Modificado',
+            'fecha' => $pi->created_at == $pi->updated_at ? $pi->created_at : $pi->updated_at,
+            'icono' => 'user-circle',
+            'color' => $pi->created_at == $pi->updated_at ? 'bg-cyan-50 text-cyan-600 border-cyan-200' : 'bg-amber-50 text-amber-600 border-amber-200',
+            'bg_gradient' => $pi->created_at == $pi->updated_at ? 'from-cyan-50 to-cyan-100' : 'from-amber-50 to-amber-100',
+            'url' => '#', // Aquí puedes agregar la URL si tienes un recurso para préstamos individuales
+        ];
+    });
+    $movimientos = $movimientos->concat($prestamosIndividuales);
+} catch (\Exception $e) {
+    \Log::error('Error loading prestamos individuales for dashboard: ' . $e->getMessage());
+}
+
+try {
+    // Retanqueos Individuales con más detalles
+    $retanqueosIndividualesQuery = \App\Models\RetanqueoIndividual::with(['cliente.persona', 'cliente.asesor.persona', 'retanqueo.grupo']);
+    if (!$canViewAllActivity && $asesorId) {
+        $retanqueosIndividualesQuery->whereHas('cliente', function($query) use ($asesorId) {
+            $query->where('asesor_id', $asesorId);
+        });
+    } elseif ($canViewAllActivity && $asesorId) {
+        $retanqueosIndividualesQuery->whereHas('cliente', function($query) use ($asesorId) {
+            $query->where('asesor_id', $asesorId);
+        });
+    }
+    $retanqueosIndividuales = $retanqueosIndividualesQuery->select('id', 'retanqueo_id', 'cliente_id', 'created_at', 'updated_at', 'monto_solicitado', 'monto_desembolsar', 'estado_retanqueo_individual')
+        ->orderBy('updated_at', 'desc')
+        ->limit(10)
+        ->get()->map(function($ri) {
+        $nombreCliente = optional($ri->cliente->persona ?? null)->nombre . ' ' . optional($ri->cliente->persona ?? null)->apellidos;
+        $nombreGrupo = optional($ri->retanqueo->grupo ?? null)->nombre_grupo ?? 'Grupo no encontrado';
+        $nombreAsesor = optional($ri->cliente->asesor->persona ?? null)->nombre . ' ' . optional($ri->cliente->asesor->persona ?? null)->apellidos;
+        $montoSolicitado = $ri->monto_solicitado ? 'Solicitado: S/ ' . number_format($ri->monto_solicitado, 2) : 'Sin monto solicitado';
+        $montoDesembolsar = $ri->monto_desembolsar ? ' | Desembolsar: S/ ' . number_format($ri->monto_desembolsar, 2) : '';
+        $estado = $ri->estado_retanqueo_individual ?? 'Sin estado';
+        
+        return [
+            'modulo' => 'Retanqueo Individual',
+            'nombre' => "{$nombreCliente} - {$nombreGrupo}",
+            'detalle' => "{$montoSolicitado}{$montoDesembolsar} | Estado: {$estado}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
+            'accion' => $ri->created_at == $ri->updated_at ? 'Creado' : 'Modificado',
+            'fecha' => $ri->created_at == $ri->updated_at ? $ri->created_at : $ri->updated_at,
+            'icono' => 'arrow-path',
+            'color' => $ri->created_at == $ri->updated_at ? 'bg-teal-50 text-teal-600 border-teal-200' : 'bg-amber-50 text-amber-600 border-amber-200',
+            'bg_gradient' => $ri->created_at == $ri->updated_at ? 'from-teal-50 to-teal-100' : 'from-amber-50 to-amber-100',
+            'url' => '#', // Aquí puedes agregar la URL si tienes un recurso para retanqueos individuales
+        ];
+    });
+    $movimientos = $movimientos->concat($retanqueosIndividuales);
+} catch (\Exception $e) {
+    \Log::error('Error loading retanqueos individuales for dashboard: ' . $e->getMessage());
+}
+
+// Ordenar por fecha descendente y tomar solo las últimas 20 (aumentamos a 20)
+$movimientos = $movimientos->sortByDesc('fecha')->take(20)->values(); // Agregamos values() para reindexar
+
+// Obtener lista de asesores para el filtro (solo para jefes y super admin)
+$asesores = collect([]);
+if ($canViewAllActivity) {
+    $asesores = \App\Models\Asesor::with('persona')
+        ->where('estado_asesor', 'Activo')
+        ->get()
+        ->map(function($asesor) {
+            return [
+                'id' => $asesor->id,
+                'nombre' => optional($asesor->persona)->nombre . ' ' . optional($asesor->persona)->apellidos
+            ];
+        });
+}
+
+// Debug mejorado: Verificar que el código se ejecuta y los datos están disponibles
+if (config('app.debug')) {
+    \Log::info('Dashboard: Actividad reciente cargada', [
+        'user_id' => $user->id,
+        'user_name' => $user->name,
+        'can_view_all' => $canViewAllActivity,
+        'asesor_id' => $asesorId,
+        'filtro_asesor_id' => $filtroAsesorId,
+        'movimientos_count' => $movimientos->count(),
+        'movimientos_sample' => $movimientos->take(3)->toArray(), // Muestra de datos
+        'movimientos_types' => $movimientos->groupBy('modulo')->map(fn($items) => $items->count())->toArray()
+    ]);
+}
+
+// Verificar que todos los elementos tienen los campos requeridos
+$movimientos = $movimientos->map(function($mov) {
+    return array_merge([
+        'modulo' => 'Sin definir',
+        'nombre' => 'Sin nombre',
+        'detalle' => 'Sin detalle',
+        'accion' => 'Sin acción',
+        'fecha' => now(),
         'icono' => 'user',
-        'color' => $c->created_at == $c->updated_at ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200',
-        'bg_gradient' => $c->created_at == $c->updated_at ? 'from-emerald-50 to-emerald-100' : 'from-amber-50 to-amber-100',
-    ];
+        'color' => 'bg-gray-50 text-gray-600 border-gray-200',
+        'bg_gradient' => 'from-gray-50 to-gray-100',
+        'url' => '#',
+    ], $mov);
 });
-$movimientos = $movimientos->concat($clientes);
-
-// Grupos
-$gruposQuery = \App\Models\Grupo::query();
-if (!$canViewAllActivity) {
-    $gruposQuery->where('asesor_id', $asesorId);
-}
-$grupos = $gruposQuery->select('id', 'nombre_grupo', 'created_at', 'updated_at', 'asesor_id')->get()->map(function($g) {
-    return [
-        'modulo' => 'Grupo',
-        'nombre' => $g->nombre_grupo,
-        'accion' => $g->created_at == $g->updated_at ? 'Creado' : 'Modificado',
-        'fecha' => $g->created_at == $g->updated_at ? $g->created_at : $g->updated_at,
-        'icono' => 'users',
-        'color' => $g->created_at == $g->updated_at ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-amber-50 text-amber-600 border-amber-200',
-        'bg_gradient' => $g->created_at == $g->updated_at ? 'from-blue-50 to-blue-100' : 'from-amber-50 to-amber-100',
-    ];
-});
-$movimientos = $movimientos->concat($grupos);
-
-// Pagos - CORREGIDO: usar cuota_grupal_id y hacer joins necesarios
-$pagosQuery = \App\Models\Pago::with(['cuotaGrupal.prestamo.grupo']);
-if (!$canViewAllActivity) {
-    // Para filtrar por asesor, necesitamos hacer join con las tablas relacionadas
-    $pagosQuery->whereHas('cuotaGrupal.prestamo.grupo', function($query) use ($asesorId) {
-        $query->where('asesor_id', $asesorId);
-    });
-}
-$pagos = $pagosQuery->select('id', 'cuota_grupal_id', 'created_at', 'updated_at')->get()->map(function($p) {
-    $nombreGrupo = optional($p->cuotaGrupal->prestamo->grupo ?? null)->nombre_grupo ?? 'Grupo no encontrado';
-    return [
-        'modulo' => 'Pago',
-        'nombre' => 'Pago del grupo: ' . $nombreGrupo,
-        'accion' => $p->created_at == $p->updated_at ? 'Creado' : 'Modificado',
-        'fecha' => $p->created_at == $p->updated_at ? $p->created_at : $p->updated_at,
-        'icono' => 'credit-card',
-        'color' => $p->created_at == $p->updated_at ? 'bg-violet-50 text-violet-600 border-violet-200' : 'bg-amber-50 text-amber-600 border-amber-200',
-        'bg_gradient' => $p->created_at == $p->updated_at ? 'from-violet-50 to-violet-100' : 'from-amber-50 to-amber-100',
-    ];
-});
-$movimientos = $movimientos->concat($pagos);
-
-// Préstamos - Con nombre del grupo que recibió el préstamo
-$prestamosQuery = \App\Models\Prestamo::with(['grupo:id,nombre_grupo']);
-if (!$canViewAllActivity) {
-    $prestamosQuery->whereHas('grupo', function($query) use ($asesorId) {
-        $query->where('asesor_id', $asesorId);
-    });
-}
-$prestamos = $prestamosQuery->select('id', 'grupo_id', 'created_at', 'updated_at')->get()->map(function($pr) {
-    $nombreGrupo = optional($pr->grupo)->nombre_grupo ?? 'Grupo no encontrado';
-    return [
-        'modulo' => 'Préstamo',
-        'nombre' => 'Préstamo al grupo: ' . $nombreGrupo,
-        'accion' => $pr->created_at == $pr->updated_at ? 'Creado' : 'Modificado',
-        'fecha' => $pr->created_at == $pr->updated_at ? $pr->created_at : $pr->updated_at,
-        'icono' => 'banknotes',
-        'color' => $pr->created_at == $pr->updated_at ? 'bg-purple-50 text-purple-600 border-purple-200' : 'bg-amber-50 text-amber-600 border-amber-200',
-        'bg_gradient' => $pr->created_at == $pr->updated_at ? 'from-purple-50 to-purple-100' : 'from-amber-50 to-amber-100',
-    ];
-});
-$movimientos = $movimientos->concat($prestamos);
-
-// Personas - CORREGIDO: La tabla personas no tiene asesor_id según la estructura
-$personasQuery = \App\Models\Persona::query();
-// Si necesitas filtrar personas por asesor, tendrías que hacerlo a través de clientes
-if (!$canViewAllActivity) {
-    // Opcional: filtrar solo personas que son clientes del asesor
-    $personasQuery->whereHas('clientes', function($query) use ($asesorId) {
-        $query->where('asesor_id', $asesorId);
-    });
-}
-$personas = $personasQuery->select('id', 'nombre', 'apellidos', 'created_at', 'updated_at')->get()->map(function($p) {
-    return [
-        'modulo' => 'Persona',
-        'nombre' => trim($p->nombre . ' ' . $p->apellidos),
-        'accion' => $p->created_at == $p->updated_at ? 'Creado' : 'Modificado',
-        'fecha' => $p->created_at == $p->updated_at ? $p->created_at : $p->updated_at,
-        'icono' => 'id-card',
-        'color' => $p->created_at == $p->updated_at ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-amber-50 text-amber-600 border-amber-200',
-        'bg_gradient' => $p->created_at == $p->updated_at ? 'from-orange-50 to-orange-100' : 'from-amber-50 to-amber-100',
-    ];
-});
-$movimientos = $movimientos->concat($personas);
-
-// Retanqueos - CORREGIDO: usar asesore_id (parece ser un typo en la tabla, debería ser asesor_id)
-$retanqueosQuery = \App\Models\Retanqueo::with(['grupo:id,nombre_grupo']);
-if (!$canViewAllActivity) {
-    // Usar 'asesore_id' como está en la estructura de la tabla (aunque parece un typo)
-    $retanqueosQuery->where('asesore_id', $asesorId);
-}
-$retanqueos = $retanqueosQuery->select('id', 'grupo_id', 'created_at', 'updated_at', 'asesore_id')->get()->map(function($r) {
-    $nombreGrupo = optional($r->grupo)->nombre_grupo ?? 'Grupo no encontrado';
-    return [
-        'modulo' => 'Retanqueo',
-        'nombre' => 'Retanqueo del grupo: ' . $nombreGrupo,
-        'accion' => $r->created_at == $r->updated_at ? 'Creado' : 'Modificado',
-        'fecha' => $r->created_at == $r->updated_at ? $r->created_at : $r->updated_at,
-        'icono' => 'refresh',
-        'color' => $r->created_at == $r->updated_at ? 'bg-pink-50 text-pink-600 border-pink-200' : 'bg-amber-50 text-amber-600 border-amber-200',
-        'bg_gradient' => $r->created_at == $r->updated_at ? 'from-pink-50 to-pink-100' : 'from-amber-50 to-amber-100',
-    ];
-});
-$movimientos = $movimientos->concat($retanqueos);
-
-// Ordenar por fecha descendente y tomar solo las últimas 10
-$movimientos = $movimientos->sortByDesc('fecha')->take(10);
 @endphp
 
 <div class="mb-8 transform transition-all duration-300 hover:scale-[1.01]">
-    <div class="bg-white dark:bg-gray-800/50 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">
-
-{{-- Header con gradiente --}}
-<div class="relative bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-6 py-4">
-    <!-- Overlay oscuro para mejorar contraste -->
-    <div class="absolute inset-0 bg-black/30"></div>
+    <div class="bg-white dark:bg-gray-800/50 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">        {{-- Header con gradiente y filtro --}}
+<div class="relative bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900 dark:via-indigo-900 dark:to-purple-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+    <!-- Overlay para mejorar contraste -->
+    <div class="absolute inset-0 bg-white/80 dark:bg-black/30"></div>
 
     <div class="relative z-10 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <div class="p-2 bg-indigo-100 dark:bg-white/20 rounded-xl backdrop-blur-sm border border-indigo-200 dark:border-white/30">
+                <svg class="w-6 h-6 text-indigo-600 dark:text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
             </div>
-            <h3 class="text-xl font-bold text-black drop-shadow-lg">
+            <h3 class="text-xl font-bold text-gray-900 drop-shadow-lg">
                 {{ $canViewAllActivity ? 'Actividad Reciente del Sistema' : 'Mi Actividad Reciente' }}
             </h3>
         </div>
-        <div class="flex items-center gap-2">
-            <span class="text-black text-sm drop-shadow-md">Últimas {{ $movimientos->count() }} actividades</span>
-            <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+        <div class="flex items-center gap-4">
+            {{-- Filtro por asesor (solo para jefes y super admin) --}}
+            @if($canViewAllActivity && $asesores->count() > 0)
+                <form method="GET" class="flex items-center gap-2">
+                    <select name="filtro_asesor_id" onchange="this.form.submit()" 
+                            class="text-sm bg-white border border-gray-300 text-gray-800 rounded-lg px-3 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium shadow-sm">
+                        <option value="" {{ !request('filtro_asesor_id') ? 'selected' : '' }} style="color: #374151; background-color: #ffffff;">Todos los asesores</option>
+                        @foreach($asesores as $asesorOption)
+                            <option value="{{ $asesorOption['id'] }}" 
+                                    {{ request('filtro_asesor_id') == $asesorOption['id'] ? 'selected' : '' }}
+                                    style="color: #1f2937; background-color: #ffffff;">
+                                {{ $asesorOption['nombre'] }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @if(request('filtro_asesor_id'))
+                        <a href="{{ request()->url() }}" 
+                           class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors text-sm bg-gray-100 dark:bg-gray-700 rounded-full p-1 shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </a>
+                    @endif
+                </form>
+            @endif
+            
+            <div class="flex items-center gap-2">
+                <span class="text-gray-900 text-sm drop-shadow-md font-semibold">Últimas {{ $movimientos->count() }} actividades</span>
+                <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -252,6 +502,16 @@ $movimientos = $movimientos->sortByDesc('fecha')->take(10);
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                         </svg>
                                         @break
+                                    @case('user-circle')
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        @break
+                                    @case('arrow-path')
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                        </svg>
+                                        @break
                                 @endswitch
                             </div>
                             {{-- Punto de estado --}}
@@ -277,17 +537,30 @@ $movimientos = $movimientos->sortByDesc('fecha')->take(10);
                                     {{ $mov['accion'] }}
                                 </span>
                             </div>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 truncate font-medium">{{ $mov['nombre'] }}</p>
+                            {{-- Nombre del registro --}}
+                            <p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{{ $mov['nombre'] }}</p>
+                            {{-- Detalles adicionales --}}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{{ $mov['detalle'] ?? '' }}</p>
                         </div>
 
-                        {{-- Fecha con formato mejorado --}}
-                        <div class="text-right flex-shrink-0">
+                        {{-- Fecha con formato mejorado y enlace --}}
+                        <div class="text-right flex-shrink-0 flex flex-col items-end gap-2">
                             <div class="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-3 py-1 rounded-full font-medium">
                                 {{ \Carbon\Carbon::parse($mov['fecha'])->diffForHumans() }}
                             </div>
-                            <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            <div class="text-xs text-gray-400 dark:text-gray-500">
                                 {{ \Carbon\Carbon::parse($mov['fecha'])->format('d/m H:i') }}
                             </div>
+                            {{-- Enlace para ver detalles --}}
+                            @if(isset($mov['url']) && $mov['url'] !== '#')
+                                <a href="{{ $mov['url'] }}" 
+                                   class="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                    Ver
+                                </a>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -343,6 +616,56 @@ $movimientos = $movimientos->sortByDesc('fecha')->take(10);
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: rgba(156, 163, 175, 0.8);
+}
+
+/* Mejora para el select de filtro de asesores */
+select[name="filtro_asesor_id"] option {
+    color: #1f2937 !important;
+    background-color: #ffffff !important;
+    padding: 8px !important;
+}
+
+select[name="filtro_asesor_id"] option:hover {
+    background-color: #f3f4f6 !important;
+    color: #1a357e !important;
+}
+
+select[name="filtro_asesor_id"] option:checked {
+    background-color: #247fa8 !important;
+    color: #ffffff !important;
+}
+
+/* Mejora para textos largos en detalles */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+    max-height: 2.8em;
+}
+
+/* Efecto hover mejorado */
+.group:hover .line-clamp-2 {
+    -webkit-line-clamp: unset;
+    max-height: none;
+    overflow: visible;
+}
+
+/* Animación suave para elementos de actividad reciente */
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.group {
+    animation: slideInLeft 0.3s ease-out;
 }
 </style>
 {{-- Bloque de Mapa/Distribución Geográfica de Clientes por Distrito
