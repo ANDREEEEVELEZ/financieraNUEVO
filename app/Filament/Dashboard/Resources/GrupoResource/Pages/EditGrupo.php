@@ -14,6 +14,8 @@ use App\Models\Cliente;
 class EditGrupo extends EditRecord
 {
     protected static string $resource = GrupoResource::class;
+    
+    protected bool $skipAfterSave = false;
 
 
     protected function getHeaderActions(): array
@@ -40,6 +42,7 @@ class EditGrupo extends EditRecord
     {
         // Procesar remoción de integrantes
         if (!empty($data['remover_integrantes_form']) && !$this->record->tienePrestamosActivos()) {
+            $this->skipAfterSave = true;
             try {
                 $clientesRemovidosNombres = [];
                 foreach ($data['remover_integrantes_form'] as $clienteId) {
@@ -72,18 +75,28 @@ class EditGrupo extends EditRecord
 
         // Procesar transferencia de integrante
         if (!empty($data['cliente_transferir']) && !empty($data['grupo_destino_form']) && !$this->record->tienePrestamosActivos()) {
+            $this->skipAfterSave = true;
             try {
                 $cliente = \App\Models\Cliente::with('persona')->find($data['cliente_transferir']);
                 $grupoDestino = \App\Models\Grupo::find($data['grupo_destino_form']);
                 
                 if ($cliente && $grupoDestino) {
-                    $this->record->transferirClienteAGrupo($data['cliente_transferir'], $data['grupo_destino_form']);
+                    // Ejecutar la transferencia
+                    $this->record->transferirClienteAGrupo(
+                        $data['cliente_transferir'], 
+                        $data['grupo_destino_form'],
+                        now()->format('Y-m-d')
+                    );
                     
                     \Filament\Notifications\Notification::make()
                         ->success()
                         ->title('Integrante transferido exitosamente')
                         ->body("El cliente {$cliente->persona->nombre} {$cliente->persona->apellidos} ha sido transferido al grupo {$grupoDestino->nombre_grupo}.")
                         ->send();
+                        
+                    // Recargar la página para reflejar los cambios
+                    $this->redirect($this->getRedirectUrl());
+                    return $data;
                 }
                     
             } catch (\Exception $e) {
@@ -124,6 +137,11 @@ class EditGrupo extends EditRecord
 
     protected function afterSave(): void
     {
+        // Si se procesaron transferencias o remociones, no ejecutar la sincronización automática
+        if ($this->skipAfterSave) {
+            return;
+        }
+        
         $clientes = $this->data['clientes'] ?? [];
         $liderId = $this->data['lider_grupal'] ?? null;
         $fechaHoy = now()->toDateString();
@@ -151,6 +169,7 @@ class EditGrupo extends EditRecord
                     'fecha_ingreso' => $cliente->pivot->fecha_ingreso ?? $fechaHoy,
                     'estado_grupo_cliente' => 'Activo',
                     'fecha_salida' => null,
+                    'updated_at' => now()
                 ];
             } else {
                 // Cliente ya no está en la selección - marcar como inactivo (ex-integrante)
@@ -159,6 +178,7 @@ class EditGrupo extends EditRecord
                     'fecha_ingreso' => $cliente->pivot->fecha_ingreso ?? $fechaHoy,
                     'estado_grupo_cliente' => 'Inactivo',
                     'fecha_salida' => $cliente->pivot->fecha_salida ?? $fechaHoy,
+                    'updated_at' => now()
                 ];
             }
         }
@@ -171,6 +191,8 @@ class EditGrupo extends EditRecord
                     'fecha_ingreso' => $fechaHoy,
                     'estado_grupo_cliente' => 'Activo',
                     'fecha_salida' => null,
+                    'created_at' => now(),
+                    'updated_at' => now()
                 ];
             }
         }
@@ -182,6 +204,7 @@ class EditGrupo extends EditRecord
                 if ($pivotData['fecha_salida'] === null) {
                     $pivotData['fecha_salida'] = $fechaHoy;
                 }
+                $pivotData['updated_at'] = now();
             }
             unset($pivotData);
         }

@@ -106,7 +106,8 @@ class Grupo extends Model
         // Actualizar la tabla pivot con fecha de salida
         $this->todosLosIntegrantes()->updateExistingPivot($clienteId, [
             'fecha_salida' => $fechaSalida ?? now()->format('Y-m-d'),
-            'estado_grupo_cliente' => 'Inactivo'
+            'estado_grupo_cliente' => 'Inactivo',
+            'updated_at' => now()
         ]);
 
         // Verificar si el grupo se queda sin integrantes activos
@@ -140,16 +141,16 @@ class Grupo extends Model
             throw new \Exception('No se puede agregar integrantes a un grupo con préstamos activos.');
         }
 
-        // Verificar que el cliente existe en el grupo actual
+        // Verificar que el cliente existe en el grupo actual (ACTIVO)
         $cliente = $this->clientes()->where('clientes.id', $clienteId)->first();
         if (!$cliente) {
             throw new \Exception('El cliente no pertenece a este grupo o ya fue removido.');
         }
 
-        // Verificar que el cliente no esté ya en el grupo destino
-        $yaEstaEnDestino = $nuevoGrupo->clientes()->where('clientes.id', $clienteId)->exists();
-        if ($yaEstaEnDestino) {
-            throw new \Exception('El cliente ya pertenece al grupo destino.');
+        // Verificar que el cliente no esté ya ACTIVO en el grupo destino
+        $yaEstaActivoEnDestino = $nuevoGrupo->clientes()->where('clientes.id', $clienteId)->exists();
+        if ($yaEstaActivoEnDestino) {
+            throw new \Exception('El cliente ya pertenece activamente al grupo destino.');
         }
 
         // Verificar si el cliente es el líder grupal
@@ -161,19 +162,38 @@ class Grupo extends Model
             }
         }
 
+        $fechaTransferencia = $fechaSalida ?? now()->format('Y-m-d');
+
         // Actualizar el cliente en el grupo actual (marcar como ex-integrante)
         $this->todosLosIntegrantes()->updateExistingPivot($clienteId, [
-            'fecha_salida' => $fechaSalida ?? now()->format('Y-m-d'),
-            'estado_grupo_cliente' => 'Inactivo'
+            'fecha_salida' => $fechaTransferencia,
+            'estado_grupo_cliente' => 'Inactivo',
+            'updated_at' => now()
         ]);
 
-        // Agregar al nuevo grupo
-        $nuevoGrupo->todosLosIntegrantes()->attach($clienteId, [
-            'fecha_ingreso' => now()->format('Y-m-d'),
-            'fecha_salida' => null,
-            'estado_grupo_cliente' => 'Activo',
-            'rol' => 'Miembro' // Por defecto como miembro, el líder se asigna después
-        ]);
+        // Verificar si el cliente ya estuvo en el grupo destino antes (ex-integrante)
+        $existeEnDestino = $nuevoGrupo->todosLosIntegrantes()->where('clientes.id', $clienteId)->exists();
+        
+        if ($existeEnDestino) {
+            // El cliente ya estuvo en este grupo antes, actualizar su registro a activo
+            $nuevoGrupo->todosLosIntegrantes()->updateExistingPivot($clienteId, [
+                'fecha_ingreso' => $fechaTransferencia,
+                'fecha_salida' => null,
+                'estado_grupo_cliente' => 'Activo',
+                'rol' => 'Miembro',
+                'updated_at' => now()
+            ]);
+        } else {
+            // Es la primera vez que el cliente entra a este grupo
+            $nuevoGrupo->todosLosIntegrantes()->attach($clienteId, [
+                'fecha_ingreso' => $fechaTransferencia,
+                'fecha_salida' => null,
+                'estado_grupo_cliente' => 'Activo',
+                'rol' => 'Miembro',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
 
         // Verificar si el grupo origen se queda sin integrantes activos
         $integrantesActivosOrigen = $this->clientes()->count();

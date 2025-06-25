@@ -50,12 +50,18 @@ class CreateGrupo extends CreateRecord
         $liderId = $this->data['lider_grupal'] ?? null;
         if (!empty($clientes)) {
             $syncData = [];
+            $fechaHoy = now()->toDateString();
             foreach ($clientes as $clienteId) {
                 $syncData[$clienteId] = [
                     'rol' => ($clienteId == $liderId) ? 'Líder Grupal' : 'Miembro',
+                    'fecha_ingreso' => $fechaHoy,
+                    'estado_grupo_cliente' => 'Activo',
+                    'fecha_salida' => null,
+                    'created_at' => now(),
+                    'updated_at' => now()
                 ];
             }
-            $this->record->clientes()->sync($syncData);
+            $this->record->todosLosIntegrantes()->sync($syncData);
         }
         // Actualizar el número de integrantes en la tabla grupos
         $this->record->numero_integrantes = count($clientes);
