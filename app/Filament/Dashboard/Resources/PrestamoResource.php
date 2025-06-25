@@ -8,10 +8,12 @@ use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 
 class PrestamoResource extends Resource
@@ -444,13 +446,47 @@ class PrestamoResource extends Resource
                 }),
         ])
             ->actions([
-                Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
-                Tables\Actions\Action::make('imprimir_contrato')
-                    ->label('Imprimir Contrato')
-                    ->icon('heroicon-o-printer')
-                    ->color('success')
-                    ->url(fn($record) => route('contratos.grupo.imprimir', $record->grupo_id))
-                    ->visible(fn($record) => $record->grupo_id !== null),
+                ActionGroup::make([
+                    Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
+                    Tables\Actions\Action::make('aprobar')
+                        ->label('Aprobar')
+                        ->icon('heroicon-m-check-circle')
+                        ->color('success')
+                        ->visible(fn ($record) => 
+                            in_array(strtolower($record->estado), ['pendiente']) && 
+                            \Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
+                        )
+                        ->action(function ($record) {
+                            $record->aprobar();
+                            Notification::make()
+                                ->title('Préstamo aprobado')
+                                ->body('El préstamo ha sido aprobado exitosamente.')
+                                ->success()
+                                ->send();
+                        }),
+                    Tables\Actions\Action::make('rechazar')
+                        ->label('Rechazar')
+                        ->icon('heroicon-m-x-circle')
+                        ->color('danger')
+                        ->visible(fn ($record) => 
+                            in_array(strtolower($record->estado), ['pendiente']) && 
+                            \Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
+                        )
+                        ->action(function ($record) {
+                            $record->rechazar();
+                            Notification::make()
+                                ->title('Préstamo rechazado')
+                                ->body('El préstamo ha sido rechazado.')
+                                ->danger()
+                                ->send();
+                        }),
+                    Tables\Actions\Action::make('imprimir_contrato')
+                        ->label('Imprimir Contrato')
+                        ->icon('heroicon-o-printer')
+                        ->color('success')
+                        ->url(fn($record) => route('contratos.grupo.imprimir', $record->grupo_id))
+                        ->visible(fn($record) => $record->grupo_id !== null),
+                ]),
             ]);
     }
 

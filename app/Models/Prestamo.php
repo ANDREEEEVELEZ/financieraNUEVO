@@ -117,6 +117,50 @@ class Prestamo extends Model
         }
     }
 
+    /**
+     * Método para aprobar un préstamo
+     */
+    public function aprobar()
+    {
+        if (strtolower($this->estado) !== 'pendiente') {
+            return;
+        }
+
+        $this->estado = 'Aprobado';
+        $this->save();
+
+        // Actualizar el estado del grupo asociado
+        if ($this->grupo) {
+            $this->grupo->estado_grupo = 'Activo';
+            $this->grupo->save();
+        }
+
+        // Actualizar el estado de los préstamos individuales
+        $this->prestamoIndividual()->update(['estado' => 'Aprobado']);
+    }
+
+    /**
+     * Método para rechazar un préstamo
+     */
+    public function rechazar()
+    {
+        if (strtolower($this->estado) !== 'pendiente') {
+            return;
+        }
+
+        $this->estado = 'Rechazado';
+        $this->save();
+
+        // Actualizar el estado del grupo asociado
+        if ($this->grupo) {
+            $this->grupo->estado_grupo = 'Activo';
+            $this->grupo->save();
+        }
+
+        // Actualizar el estado de los préstamos individuales
+        $this->prestamoIndividual()->update(['estado' => 'Rechazado']);
+    }
+
     // Método para sincronizar los montos totales basándose en los préstamos individuales
     public function sincronizarMontosTotal()
     {
