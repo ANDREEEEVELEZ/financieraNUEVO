@@ -17,6 +17,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 
 class GrupoResource extends Resource
@@ -75,7 +76,6 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                     ->label('Integrantes')
                     ->prefixIcon('heroicon-o-user-group')
                     ->multiple()
-                    ->relationship('clientes', 'id')
                     ->options(function (callable $get) use ($user) {
                         // Si es asesor, mostrar solo sus clientes
                         if ($user->hasRole('Asesor')) {
@@ -131,24 +131,42 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                     ->reactive()
                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                         if (!empty($state)) {
+                            // Obtener el record actual (grupo en edición)
+                            $record = request()->route('record');
+                            $grupo = $record ? \App\Models\Grupo::find($record) : null;
+                            
+                            // Verificar si hay clientes con grupo activo (excluyendo el grupo actual si estamos editando)
                             $clientesConGrupo = Cliente::whereIn('clientes.id', $state)
                                 ->get()
-                                ->filter(function ($cliente) {
-                                    return $cliente->tieneGrupoActivo();
+                                ->filter(function ($cliente) use ($grupo) {
+                                    if (!$cliente->tieneGrupoActivo()) {
+                                        return false;
+                                    }
+                                    // Si estamos editando, permitir clientes que ya pertenecen a este grupo
+                                    if ($grupo) {
+                                        $grupoActivo = $cliente->grupoActivo;
+                                        return $grupoActivo->id !== $grupo->id;
+                                    }
+                                    return true;
                                 });
+                            
                             if ($clientesConGrupo->isNotEmpty()) {
                                 $mensajesError = $clientesConGrupo->map(function ($cliente) {
                                     $grupoActivo = $cliente->grupoActivo;
                                     return "{$cliente->persona->nombre} {$cliente->persona->apellidos} ya pertenece al grupo {$grupoActivo->nombre_grupo}";
                                 })->join("\n");
+                                
                                 Notification::make()
                                     ->danger()
                                     ->title('Error al agregar clientes')
                                     ->body($mensajesError)
                                     ->persistent()
                                     ->send();
-                                // Remover los clientes que ya tienen grupo ACTIVO
-                                $set('clientes', array_values(array_diff($state, $clientesConGrupo->pluck('id')->toArray())));
+                                
+                                // Solo remover los clientes conflictivos, mantener los demás
+                                $clientesConflictivos = $clientesConGrupo->pluck('id')->toArray();
+                                $clientesValidos = array_diff($state, $clientesConflictivos);
+                                $set('clientes', array_values($clientesValidos));
                             }
                         }
                     })
@@ -188,6 +206,149 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                     ->afterStateUpdated(function ($state, $set, $get) {
                         $set('numero_integrantes', is_array($get('clientes')) ? count($get('clientes')) : 0);
                     }),
+
+                // Campo para mostrar información sobre restricciones de préstamos
+                Forms\Components\Placeholder::make('restriccion_prestamos')
+                    ->label('Información importante')
+                    ->content(function ($record) {
+                        if ($record && $record->tienePrestamosActivos()) {
+                            return '⚠️ Este grupo tiene préstamos activos. No se pueden realizar cambios en los integrantes usando las acciones de la tabla.';
+                        }
+                        return '✅ Este grupo no tiene préstamos activos. Se pueden realizar cambios en los integrantes usando las acciones de la tabla.';
+                    })
+                    ->visible(fn ($record) => $record !== null)
+                    ->extraAttributes(['class' => 'font-semibold']),
+
+                // Campo para mostrar ex-integrantes
+                Forms\Components\Placeholder::make('ex_integrantes_info')
+                    ->label('Ex-integrantes')
+                    ->content(function ($record) {
+                        if (!$record) return 'Ninguno';
+                        $exIntegrantes = $record->exIntegrantes;
+                        if ($exIntegrantes->isEmpty()) {
+                            return 'Ninguno';
+                        }
+                        return $exIntegrantes->map(function($cliente) {
+                            $fechaSalida = $cliente->pivot->fecha_salida ? 
+                                ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
+                            return '• ' . $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
+                        })->implode("\n");
+                    })
+                    ->visible(fn ($record) => $record !== null)
+                    ->extraAttributes(['style' => 'white-space: pre-line;']),
+
+                // Sección para gestión rápida de integrantes (solo en edición)
+                Forms\Components\Section::make('Gestión Rápida de Integrantes')
+                    ->schema([
+                        Forms\Components\Placeholder::make('gestion_info')
+                            ->content('Utiliza estos campos para realizar cambios rápidos. Los cambios se aplicarán al guardar el formulario.')
+                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos()),
+                        
+                        Forms\Components\Placeholder::make('gestion_bloqueada')
+                            ->content('⚠️ No se pueden realizar cambios porque el grupo tiene préstamos activos.')
+                            ->visible(fn ($record) => $record !== null && $record->tienePrestamosActivos())
+                            ->extraAttributes(['class' => 'text-red-600 font-semibold']),
+
+                        Forms\Components\Select::make('remover_integrantes_form')
+                            ->label('Remover Integrantes')
+                            ->multiple()
+                            ->options(function ($record) {
+                                if (!$record) return [];
+                                return $record->clientes()
+                                    ->with('persona')
+                                    ->get()
+                                    ->mapWithKeys(function($cliente) {
+                                        $esLider = $cliente->pivot->rol === 'Líder Grupal' ? ' (LÍDER GRUPAL)' : '';
+                                        return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')' . $esLider];
+                                    });
+                            })
+                            ->helperText('⚠️ No se puede remover al líder grupal sin antes cambiar el liderazgo')
+                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos())
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, callable $set, $record) {
+                                if (!empty($state) && $record) {
+                                    // Verificar si se está intentando remover al líder grupal
+                                    $lider = $record->clientes()->wherePivot('rol', 'Líder Grupal')->first();
+                                    if ($lider && in_array($lider->id, $state)) {
+                                        $integrantesRestantes = $record->clientes()->whereNotIn('clientes.id', $state)->count();
+                                        if ($integrantesRestantes > 0) {
+                                            Notification::make()
+                                                ->danger()
+                                                ->title('No se puede remover al líder grupal')
+                                                ->body('Debe cambiar el líder grupal antes de removerlo')
+                                                ->send();
+                                            // Remover el líder de la selección
+                                            $set('remover_integrantes_form', array_values(array_diff($state, [$lider->id])));
+                                        }
+                                    }
+                                }
+                            })
+                            ->dehydrated(true),
+
+                        Forms\Components\Fieldset::make('transferir_integrante_form')
+                            ->label('Transferir Integrante')
+                            ->schema([
+                                Forms\Components\Select::make('cliente_transferir')
+                                    ->label('Cliente a transferir')
+                                    ->options(function ($record) {
+                                        if (!$record) return [];
+                                        return $record->clientes()
+                                            ->with('persona')
+                                            ->get()
+                                            ->mapWithKeys(function($cliente) {
+                                                $esLider = $cliente->pivot->rol === 'Líder Grupal' ? ' (LÍDER GRUPAL)' : '';
+                                                return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')' . $esLider];
+                                            });
+                                    })
+                                    ->helperText('⚠️ Si transfiere al líder grupal, debe asignar un nuevo líder')
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $set, $record) {
+                                        if ($state && $record) {
+                                            $cliente = $record->clientes()->where('clientes.id', $state)->first();
+                                            if ($cliente && $cliente->pivot->rol === 'Líder Grupal') {
+                                                $integrantesRestantes = $record->clientes()->where('clientes.id', '!=', $state)->count();
+                                                if ($integrantesRestantes > 0) {
+                                                    Notification::make()
+                                                        ->warning()
+                                                        ->title('Transfiriendo al líder grupal')
+                                                        ->body('El grupo se quedará sin líder. Asegúrese de asignar un nuevo líder.')
+                                                        ->send();
+                                                }
+                                            }
+                                        }
+                                    })
+                                    ->dehydrated(true),
+                                Forms\Components\Select::make('grupo_destino_form')
+                                    ->label('Grupo destino')
+                                    ->options(function ($record) use ($user) {
+                                        if (!$record) return [];
+                                        
+                                        $query = \App\Models\Grupo::where('id', '!=', $record->id)
+                                            ->where('estado_grupo', 'Activo');
+                                        
+                                        // Filtrar por asesor si es necesario
+                                        if ($user->hasRole('Asesor')) {
+                                            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                                            if ($asesor) {
+                                                $query->where('asesor_id', $asesor->id);
+                                            }
+                                        }
+                                        
+                                        return $query->get()
+                                            ->filter(function($grupo) {
+                                                return !$grupo->tienePrestamosActivos();
+                                            })
+                                            ->mapWithKeys(function($grupo) {
+                                                return [$grupo->id => $grupo->nombre_grupo . ' (' . $grupo->clientes()->count() . ' integrantes)'];
+                                            });
+                                    })
+                                    ->helperText('Solo grupos sin préstamos activos')
+                                    ->dehydrated(true),
+                            ])
+                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos()),
+                    ])
+                    ->visible(fn ($record) => $record !== null)
+                    ->collapsible(),
             ]);
     }
 
@@ -216,6 +377,38 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                 ->getStateUsing(function($record) {
                     $lider = $record->clientes()->wherePivot('rol', 'Líder Grupal')->with('persona')->first();
                     return $lider ? ($lider->persona->nombre . ' ' . $lider->persona->apellidos) : '-';
+                }),
+            Tables\Columns\TextColumn::make('ex_integrantes')
+                ->label('Ex-integrantes')
+                ->getStateUsing(function($record) {
+                    $count = $record->exIntegrantes()->count();
+                    return $count > 0 ? $count . ' ex-integrantes' : '-';
+                })
+                ->badge()
+                ->color(fn($state) => $state === '-' ? 'gray' : 'warning')
+                ->tooltip(function($record) {
+                    $exIntegrantes = $record->exIntegrantes()->with('persona')->get();
+                    if ($exIntegrantes->isEmpty()) {
+                        return 'No hay ex-integrantes';
+                    }
+                    return $exIntegrantes->map(function($cliente) {
+                        $fechaSalida = $cliente->pivot->fecha_salida ? 
+                            ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
+                        return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
+                    })->implode("\n");
+                }),
+            Tables\Columns\IconColumn::make('tiene_prestamos_activos')
+                ->label('Préstamos')
+                ->getStateUsing(fn($record) => $record->tienePrestamosActivos())
+                ->boolean()
+                ->trueIcon('heroicon-o-lock-closed')
+                ->falseIcon('heroicon-o-lock-open')
+                ->trueColor('danger')
+                ->falseColor('success')
+                ->tooltip(function($record) {
+                    return $record->tienePrestamosActivos() ? 
+                        'Grupo con préstamos activos - No se pueden modificar integrantes' : 
+                        'Grupo sin préstamos activos - Se pueden modificar integrantes';
                 })
         ];
 
@@ -254,7 +447,181 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
+                
+                // Acción para remover integrantes
+                Tables\Actions\Action::make('remover_integrantes')
+                    ->label('Remover Integrantes')
+                    ->icon('heroicon-o-user-minus')
+                    ->color('danger')
+                    ->visible(fn($record) => !$record->tienePrestamosActivos() && $record->clientes()->count() > 0)
+                    ->form([
+                        Forms\Components\Placeholder::make('info')
+                            ->content('Selecciona los integrantes que deseas remover del grupo. Esta acción establecerá una fecha de salida y los moverá a ex-integrantes.'),
+                        Forms\Components\Select::make('clientes_a_remover')
+                            ->label('Seleccionar integrantes a remover')
+                            ->multiple()
+                            ->required()
+                            ->options(function ($record) {
+                                return $record->clientes()
+                                    ->with('persona')
+                                    ->get()
+                                    ->mapWithKeys(function($cliente) {
+                                        $esLider = $cliente->pivot->rol === 'Líder Grupal' ? ' (LÍDER GRUPAL)' : '';
+                                        return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')' . $esLider];
+                                    });
+                            })
+                            ->helperText('⚠️ No se puede remover al líder grupal sin antes cambiar el liderazgo')
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, callable $set, $record) {
+                                if (!empty($state) && $record) {
+                                    // Verificar si se está intentando remover al líder grupal
+                                    $lider = $record->clientes()->wherePivot('rol', 'Líder Grupal')->first();
+                                    if ($lider && in_array($lider->id, $state)) {
+                                        $integrantesRestantes = $record->clientes()->whereNotIn('clientes.id', $state)->count();
+                                        if ($integrantesRestantes > 0) {
+                                            Notification::make()
+                                                ->danger()
+                                                ->title('No se puede remover al líder grupal')
+                                                ->body('Debe asignar un nuevo líder antes de remover al líder actual')
+                                                ->send();
+                                            // Remover el líder de la selección
+                                            $set('clientes_a_remover', array_values(array_diff($state, [$lider->id])));
+                                        }
+                                    }
+                                }
+                            }),
+                        Forms\Components\DatePicker::make('fecha_salida')
+                            ->label('Fecha de salida')
+                            ->default(now())
+                            ->required()
+                            ->helperText('Fecha en que el integrante sale del grupo'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        try {
+                            $clientesRemovidosNombres = [];
+                            
+                            foreach ($data['clientes_a_remover'] as $clienteId) {
+                                $cliente = \App\Models\Cliente::with('persona')->find($clienteId);
+                                $clientesRemovidosNombres[] = $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
+                                
+                                $record->removerCliente($clienteId, $data['fecha_salida']);
+                            }
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('Integrantes removidos exitosamente')
+                                ->body('Se removieron ' . count($data['clientes_a_remover']) . ' integrantes: ' . implode(', ', $clientesRemovidosNombres))
+                                ->send();
+                                
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Error al remover integrantes')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar remoción de integrantes')
+                    ->modalDescription('¿Estás seguro de que deseas remover estos integrantes del grupo? Esta acción los moverá a ex-integrantes.'),
 
+                // Acción para transferir integrantes
+                Tables\Actions\Action::make('transferir_integrante')
+                    ->label('Transferir Integrante')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('warning')
+                    ->visible(fn($record) => !$record->tienePrestamosActivos() && $record->clientes()->count() > 0)
+                    ->form([
+                        Forms\Components\Placeholder::make('info')
+                            ->content('Transfiere un integrante de este grupo a otro grupo. El integrante aparecerá como ex-integrante en este grupo y como integrante activo en el grupo destino.'),
+                        Forms\Components\Select::make('cliente_a_transferir')
+                            ->label('Cliente a transferir')
+                            ->required()
+                            ->options(function ($record) {
+                                return $record->clientes()
+                                    ->with('persona')
+                                    ->get()
+                                    ->mapWithKeys(function($cliente) {
+                                        $esLider = $cliente->pivot->rol === 'Líder Grupal' ? ' (LÍDER GRUPAL)' : '';
+                                        return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')' . $esLider];
+                                    });
+                            })
+                            ->helperText('⚠️ Si transfiere al líder grupal, el grupo se quedará sin líder')
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, callable $set, $record) {
+                                if ($state && $record) {
+                                    $cliente = $record->clientes()->where('clientes.id', $state)->first();
+                                    if ($cliente && $cliente->pivot->rol === 'Líder Grupal') {
+                                        $integrantesRestantes = $record->clientes()->where('clientes.id', '!=', $state)->count();
+                                        if ($integrantesRestantes > 0) {
+                                            Notification::make()
+                                                ->warning()
+                                                ->title('Transfiriendo al líder grupal')
+                                                ->body('El grupo se quedará sin líder. Asegúrese de asignar un nuevo líder después.')
+                                                ->send();
+                                        }
+                                    }
+                                }
+                            }),
+                        Forms\Components\Select::make('grupo_destino')
+                            ->label('Grupo destino')
+                            ->required()
+                            ->options(function ($record) {
+                                $user = request()->user();
+                                $query = \App\Models\Grupo::where('id', '!=', $record->id)
+                                    ->where('estado_grupo', 'Activo');
+                                
+                                // Filtrar por asesor si es necesario
+                                if ($user->hasRole('Asesor')) {
+                                    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                                    if ($asesor) {
+                                        $query->where('asesor_id', $asesor->id);
+                                    }
+                                }
+                                
+                                return $query->get()
+                                    ->filter(function($grupo) {
+                                        return !$grupo->tienePrestamosActivos();
+                                    })
+                                    ->mapWithKeys(function($grupo) {
+                                        return [$grupo->id => $grupo->nombre_grupo . ' (' . $grupo->clientes()->count() . ' integrantes)'];
+                                    });
+                            })
+                            ->helperText('Solo se muestran grupos sin préstamos activos'),
+                        Forms\Components\DatePicker::make('fecha_transferencia')
+                            ->label('Fecha de transferencia')
+                            ->default(now())
+                            ->required()
+                            ->helperText('Fecha en que se realiza la transferencia'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        try {
+                            $cliente = \App\Models\Cliente::with('persona')->find($data['cliente_a_transferir']);
+                            $grupoDestino = \App\Models\Grupo::find($data['grupo_destino']);
+                            
+                            $record->transferirClienteAGrupo(
+                                $data['cliente_a_transferir'], 
+                                $data['grupo_destino'], 
+                                $data['fecha_transferencia']
+                            );
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('Integrante transferido exitosamente')
+                                ->body("El cliente {$cliente->persona->nombre} {$cliente->persona->apellidos} ha sido transferido al grupo {$grupoDestino->nombre_grupo}.")
+                                ->send();
+                                
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Error al transferir integrante')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar transferencia de integrante')
+                    ->modalDescription('¿Estás seguro de que deseas transferir este integrante al grupo seleccionado?'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

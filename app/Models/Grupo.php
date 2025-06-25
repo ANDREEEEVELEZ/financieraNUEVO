@@ -3,6 +3,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Grupo extends Model
 {
@@ -32,9 +33,169 @@ class Grupo extends Model
     {
         return $this->belongsToMany(Cliente::class, 'grupo_cliente', 'grupo_id', 'cliente_id')
             ->withTimestamps()
-             ->join('personas', 'clientes.persona_id', '=', 'personas.id')
-                ->orderBy('personas.apellidos')
-                ->orderBy('personas.nombre');
+            ->withPivot('fecha_ingreso', 'fecha_salida', 'rol', 'estado_grupo_cliente')
+            ->whereNull('grupo_cliente.fecha_salida'); // Solo clientes activos
+    }
+
+    /**
+     * Relación para obtener ex-integrantes (clientes que salieron del grupo)
+     */
+    public function exIntegrantes()
+    {
+        return $this->belongsToMany(Cliente::class, 'grupo_cliente', 'grupo_id', 'cliente_id')
+            ->withTimestamps()
+            ->withPivot('fecha_ingreso', 'fecha_salida', 'rol', 'estado_grupo_cliente')
+            ->whereNotNull('grupo_cliente.fecha_salida'); // Solo ex-integrantes
+    }
+
+    /**
+     * Relación para obtener todos los integrantes (activos e inactivos)
+     */
+    public function todosLosIntegrantes()
+    {
+        return $this->belongsToMany(Cliente::class, 'grupo_cliente', 'grupo_id', 'cliente_id')
+            ->withTimestamps()
+            ->withPivot('fecha_ingreso', 'fecha_salida', 'rol', 'estado_grupo_cliente');
+    }
+
+    /**
+     * Verifica si el grupo tiene préstamos activos o pendientes
+     */
+    public function tienePrestamosActivos(): bool
+    {
+        return $this->prestamos()
+            ->whereIn('estado', ['Pendiente', 'Aprobado'])
+            ->exists();
+    }
+
+    /**
+     * Obtiene los nombres de ex-integrantes para mostrar
+     */
+    public function getExIntegrantesNombresAttribute()
+    {
+        return $this->exIntegrantes()->with('persona')->get()->map(function($cliente) {
+            $fechaSalida = $cliente->pivot->fecha_salida ? 
+                ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
+            return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
+        })->implode(', ');
+    }
+
+    /**
+     * Remueve un cliente del grupo estableciendo fecha de salida
+     */
+    public function removerCliente($clienteId, $fechaSalida = null)
+    {
+        if ($this->tienePrestamosActivos()) {
+            throw new \Exception('No se puede remover integrantes de un grupo con préstamos activos.');
+        }
+
+        // Verificar que el cliente existe en el grupo (activo)
+        $cliente = $this->clientes()->where('clientes.id', $clienteId)->first();
+        if (!$cliente) {
+            throw new \Exception('El cliente no pertenece a este grupo o ya fue removido.');
+        }
+
+        // Verificar si el cliente es el líder grupal
+        if ($cliente->pivot->rol === 'Líder Grupal') {
+            $integrantesActivos = $this->clientes()->where('clientes.id', '!=', $clienteId)->count();
+            if ($integrantesActivos > 0) {
+                throw new \Exception('No se puede remover al líder grupal. Primero debe asignar un nuevo líder.');
+            }
+        }
+
+        // Actualizar la tabla pivot con fecha de salida
+        $this->todosLosIntegrantes()->updateExistingPivot($clienteId, [
+            'fecha_salida' => $fechaSalida ?? now()->format('Y-m-d'),
+            'estado_grupo_cliente' => 'Inactivo'
+        ]);
+
+        // Verificar si el grupo se queda sin integrantes activos
+        $integrantesActivosRestantes = $this->clientes()->count();
+        if ($integrantesActivosRestantes === 0) {
+            $this->estado_grupo = 'Inactivo';
+        }
+
+        // Actualizar el contador de integrantes
+        $this->numero_integrantes = $integrantesActivosRestantes;
+        $this->save();
+
+        return true;
+    }
+
+    /**
+     * Transfiere un cliente a otro grupo
+     */
+    public function transferirClienteAGrupo($clienteId, $nuevoGrupoId, $fechaSalida = null)
+    {
+        if ($this->tienePrestamosActivos()) {
+            throw new \Exception('No se puede transferir integrantes de un grupo con préstamos activos.');
+        }
+
+        $nuevoGrupo = self::find($nuevoGrupoId);
+        if (!$nuevoGrupo) {
+            throw new \Exception('El grupo destino no existe.');
+        }
+
+        if ($nuevoGrupo->tienePrestamosActivos()) {
+            throw new \Exception('No se puede agregar integrantes a un grupo con préstamos activos.');
+        }
+
+        // Verificar que el cliente existe en el grupo actual
+        $cliente = $this->clientes()->where('clientes.id', $clienteId)->first();
+        if (!$cliente) {
+            throw new \Exception('El cliente no pertenece a este grupo o ya fue removido.');
+        }
+
+        // Verificar que el cliente no esté ya en el grupo destino
+        $yaEstaEnDestino = $nuevoGrupo->clientes()->where('clientes.id', $clienteId)->exists();
+        if ($yaEstaEnDestino) {
+            throw new \Exception('El cliente ya pertenece al grupo destino.');
+        }
+
+        // Verificar si el cliente es el líder grupal
+        $esLider = ($cliente->pivot->rol === 'Líder Grupal');
+        if ($esLider) {
+            $integrantesActivos = $this->clientes()->where('clientes.id', '!=', $clienteId)->count();
+            if ($integrantesActivos > 0) {
+                throw new \Exception('No se puede transferir al líder grupal sin antes asignar un nuevo líder.');
+            }
+        }
+
+        // Actualizar el cliente en el grupo actual (marcar como ex-integrante)
+        $this->todosLosIntegrantes()->updateExistingPivot($clienteId, [
+            'fecha_salida' => $fechaSalida ?? now()->format('Y-m-d'),
+            'estado_grupo_cliente' => 'Inactivo'
+        ]);
+
+        // Agregar al nuevo grupo
+        $nuevoGrupo->todosLosIntegrantes()->attach($clienteId, [
+            'fecha_ingreso' => now()->format('Y-m-d'),
+            'fecha_salida' => null,
+            'estado_grupo_cliente' => 'Activo',
+            'rol' => 'Miembro' // Por defecto como miembro, el líder se asigna después
+        ]);
+
+        // Verificar si el grupo origen se queda sin integrantes activos
+        $integrantesActivosOrigen = $this->clientes()->count();
+        if ($integrantesActivosOrigen === 0) {
+            $this->estado_grupo = 'Inactivo';
+        }
+
+        // Actualizar contadores
+        $this->numero_integrantes = $integrantesActivosOrigen;
+        $this->save();
+
+        $nuevoGrupo->numero_integrantes = $nuevoGrupo->clientes()->count();
+        $nuevoGrupo->save();
+
+        // Actualizar el asesor del cliente al del nuevo grupo
+        $clienteModel = \App\Models\Cliente::find($clienteId);
+        if ($clienteModel) {
+            $clienteModel->asesor_id = $nuevoGrupo->asesor_id;
+            $clienteModel->save();
+        }
+
+        return true;
     }
 
     public function prestamos()
@@ -44,7 +205,7 @@ class Grupo extends Model
 
     public function getIntegrantesNombresAttribute()
     {
-        return $this->clientes->map(function($cliente) {
+        return $this->clientes()->with('persona')->get()->map(function($cliente) {
             return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
         })->implode(', ');
     }
