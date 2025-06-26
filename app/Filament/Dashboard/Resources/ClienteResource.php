@@ -256,10 +256,13 @@ class ClienteResource extends Resource
                         ->modalSubmitActionLabel('Sí, desactivar')
                         ->action(function ($records) {
                             $count = 0;
-                            $records->each(function ($record) use (&$count) {
+                            $inactivos = 0;
+                            $records->each(function ($record) use (&$count, &$inactivos) {
                                 if ($record->estado_cliente === 'Activo') {
                                     $record->update(['estado_cliente' => 'Inactivo']);
                                     $count++;
+                                } else {
+                                    $inactivos++;
                                 }
                             });
 
@@ -267,7 +270,13 @@ class ClienteResource extends Resource
                                 \Filament\Notifications\Notification::make()
                                     ->success()
                                     ->title('Clientes Desactivados')
-                                    ->body("Se han desactivado $count clientes exitosamente.")
+                                    ->body("Se han desactivado $count clientes exitosamente." . ($inactivos > 0 ? " $inactivos ya estaban inactivos." : ""))
+                                    ->send();
+                            } elseif ($inactivos > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('Sin cambios')
+                                    ->body("Los clientes seleccionados ya están inactivos.")
                                     ->send();
                             }
                         }),
@@ -281,10 +290,13 @@ class ClienteResource extends Resource
                         ->modalSubmitActionLabel('Sí, activar')
                         ->action(function ($records) {
                             $count = 0;
-                            $records->each(function ($record) use (&$count) {
+                            $activos = 0;
+                            $records->each(function ($record) use (&$count, &$activos) {
                                 if ($record->estado_cliente === 'Inactivo') {
                                     $record->update(['estado_cliente' => 'Activo']);
                                     $count++;
+                                } else {
+                                    $activos++;
                                 }
                             });
 
@@ -292,12 +304,18 @@ class ClienteResource extends Resource
                                 \Filament\Notifications\Notification::make()
                                     ->success()
                                     ->title('Clientes Activados')
-                                    ->body("Se han activado $count clientes exitosamente.")
+                                    ->body("Se han activado $count clientes exitosamente." . ($activos > 0 ? " $activos ya estaban activos." : ""))
+                                    ->send();
+                            } elseif ($activos > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('Sin cambios')
+                                    ->body("Los clientes seleccionados ya están activos.")
                                     ->send();
                             }
                         })
-                        ->deselectRecordsAfterCompletion()
-                        ->hidden(fn ($records) => !$records || !$records->contains('estado_cliente', 'Inactivo')),
+                        ->deselectRecordsAfterCompletion(),
+                        // ->hidden(fn ($records) => !$records || !$records->contains('estado_cliente', 'Inactivo')), // Removido para permitir siempre la reactivación
                 ]),
             ]);
     }

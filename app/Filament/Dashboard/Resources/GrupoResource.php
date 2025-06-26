@@ -242,12 +242,17 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                     ->schema([
                         Forms\Components\Placeholder::make('gestion_info')
                             ->content('Utiliza estos campos para realizar cambios rápidos. Los cambios se aplicarán al guardar el formulario.')
-                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos()),
+                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos() && $record->estado_grupo === 'Activo'),
                         
                         Forms\Components\Placeholder::make('gestion_bloqueada')
                             ->content('⚠️ No se pueden realizar cambios porque el grupo tiene préstamos activos.')
                             ->visible(fn ($record) => $record !== null && $record->tienePrestamosActivos())
                             ->extraAttributes(['class' => 'text-red-600 font-semibold']),
+
+                        Forms\Components\Placeholder::make('gestion_inactivo')
+                            ->content('⚠️ Este grupo está inactivo. Solo se puede visualizar, no modificar.')
+                            ->visible(fn ($record) => $record !== null && $record->estado_grupo === 'Inactivo')
+                            ->extraAttributes(['class' => 'text-orange-600 font-semibold']),
 
                         Forms\Components\Select::make('remover_integrantes_form')
                             ->label('Remover Integrantes')
@@ -263,7 +268,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                     });
                             })
                             ->helperText('⚠️ No se puede remover al líder grupal sin antes cambiar el liderazgo')
-                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos())
+                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos() && $record->estado_grupo === 'Activo')
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set, $record) {
                                 if (!empty($state) && $record) {
@@ -345,7 +350,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                     ->helperText('Solo grupos sin préstamos activos')
                                     ->dehydrated(true),
                             ])
-                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos()),
+                            ->visible(fn ($record) => $record !== null && !$record->tienePrestamosActivos() && $record->estado_grupo === 'Activo'),
                     ])
                     ->visible(fn ($record) => $record !== null)
                     ->collapsible(),
@@ -457,7 +462,8 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                         ->modalSubmitActionLabel('Sí, desactivar')
                         ->action(function ($records) {
                             $count = 0;
-                            $records->each(function ($record) use (&$count) {
+                            $inactivos = 0;
+                            $records->each(function ($record) use (&$count, &$inactivos) {
                                 if ($record->estado_grupo === 'Activo') {
                                     // Desactivar el grupo
                                     $record->update(['estado_grupo' => 'Inactivo']);
@@ -469,6 +475,8 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                     );
                                     
                                     $count++;
+                                } else {
+                                    $inactivos++;
                                 }
                             });
 
@@ -476,7 +484,13 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                 \Filament\Notifications\Notification::make()
                                     ->success()
                                     ->title('Grupos Desactivados')
-                                    ->body("Se han desactivado $count grupos exitosamente. También se actualizó el estado de los integrantes.")
+                                    ->body("Se han desactivado $count grupos exitosamente. También se actualizó el estado de los integrantes." . ($inactivos > 0 ? " $inactivos ya estaban inactivos." : ""))
+                                    ->send();
+                            } elseif ($inactivos > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('Sin cambios')
+                                    ->body("Los grupos seleccionados ya están inactivos.")
                                     ->send();
                             }
                         }),

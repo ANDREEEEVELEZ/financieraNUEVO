@@ -191,7 +191,8 @@ class AsesorResource extends Resource
                         ->modalSubmitActionLabel('Sí, desactivar')
                         ->action(function ($records) {
                             $count = 0;
-                            $records->each(function ($record) use (&$count) {
+                            $inactivos = 0;
+                            $records->each(function ($record) use (&$count, &$inactivos) {
                                 if ($record->estado_asesor === 'Activo') {
                                     // Desactivar el asesor y su cuenta de usuario
                                     $record->update(['estado_asesor' => 'Inactivo']);
@@ -200,6 +201,8 @@ class AsesorResource extends Resource
                                         $record->user->update(['active' => false]);
                                     }
                                     $count++;
+                                } else {
+                                    $inactivos++;
                                 }
                             });
 
@@ -207,7 +210,13 @@ class AsesorResource extends Resource
                                 \Filament\Notifications\Notification::make()
                                     ->success()
                                     ->title('Asesores Desactivados')
-                                    ->body("Se han desactivado $count asesores exitosamente.")
+                                    ->body("Se han desactivado $count asesores exitosamente." . ($inactivos > 0 ? " $inactivos ya estaban inactivos." : ""))
+                                    ->send();
+                            } elseif ($inactivos > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('Sin cambios')
+                                    ->body("Los asesores seleccionados ya están inactivos.")
                                     ->send();
                             }
                         }),
@@ -221,7 +230,8 @@ class AsesorResource extends Resource
                         ->modalSubmitActionLabel('Sí, activar')
                         ->after(function ($records) {
                             $count = 0;
-                            $records->each(function ($record) use (&$count) {
+                            $activos = 0;
+                            $records->each(function ($record) use (&$count, &$activos) {
                                 if ($record->estado_asesor === 'Inactivo') {
                                     // Activar el asesor y su cuenta de usuario
                                     $record->update(['estado_asesor' => 'Activo']);
@@ -241,6 +251,8 @@ class AsesorResource extends Resource
                                         }
                                     }
                                     $count++;
+                                } else {
+                                    $activos++;
                                 }
                             });
 
@@ -248,12 +260,18 @@ class AsesorResource extends Resource
                                 \Filament\Notifications\Notification::make()
                                     ->success()
                                     ->title('Asesores Activados')
-                                    ->body("Se han activado $count asesores exitosamente.")
+                                    ->body("Se han activado $count asesores exitosamente." . ($activos > 0 ? " $activos ya estaban activos." : ""))
+                                    ->send();
+                            } elseif ($activos > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('Sin cambios')
+                                    ->body("Los asesores seleccionados ya están activos.")
                                     ->send();
                             }
                         })
-                        ->deselectRecordsAfterCompletion()
-                        ->hidden(fn ($records) => !$records || !$records->contains('estado_asesor', 'Inactivo')),
+                        ->deselectRecordsAfterCompletion(),
+                        // ->hidden(fn ($records) => !$records || !$records->contains('estado_asesor', 'Inactivo')), // Removido para permitir siempre la reactivación
                 ]),
             ]);
     }

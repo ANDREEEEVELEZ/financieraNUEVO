@@ -35,17 +35,17 @@ class EditGrupo extends EditRecord
                         $this->record->save();
                         
                         // Sincronizar el estado de todos los integrantes activos
-                        $integrantesActivos = $this->record->todosLosIntegrantes()
+                        // SOLO cambiar estado, NO agregar fecha_salida (no son ex-integrantes)
+                        $integrantesActivos = $this->record->clientes()
                             ->wherePivot('estado_grupo_cliente', 'Activo')
                             ->pluck('clientes.id')
                             ->toArray();
                         
                         if (!empty($integrantesActivos)) {
-                            $this->record->todosLosIntegrantes()->updateExistingPivot(
+                            $this->record->clientes()->updateExistingPivot(
                                 $integrantesActivos,
                                 [
                                     'estado_grupo_cliente' => 'Inactivo',
-                                    'fecha_salida' => now()->toDateString(),
                                     'updated_at' => now()
                                 ]
                             );
