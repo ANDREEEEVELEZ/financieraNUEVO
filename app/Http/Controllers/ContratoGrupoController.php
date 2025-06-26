@@ -36,7 +36,8 @@ class ContratoGrupoController extends Controller
             $total = $prestamoIndividual->monto_devolver_individual ?? 0;
             $seguro = $prestamoIndividual->seguro ?? 0;
 
-            // Generar cronograma desde cuotas_grupales
+            // Generar cronograma individual basado en las fechas de cuotas grupales
+            // pero usando el monto individual de cada cliente
             $cuotas = CuotasGrupales::where('prestamo_id', $prestamoGrupal->id ?? null)
                 ->orderBy('numero_cuota')
                 ->get();
@@ -44,7 +45,7 @@ class ContratoGrupoController extends Controller
             foreach ($cuotas as $c) {
                 $cronograma[] = [
                     'fecha' => $c->fecha_vencimiento,
-                    'monto' => $c->monto_cuota_grupal,
+                    'monto' => $prestamoIndividual->monto_cuota_prestamo_individual ?? 0,
                 ];
             }
 
