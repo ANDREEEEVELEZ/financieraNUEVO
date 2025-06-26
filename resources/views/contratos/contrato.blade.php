@@ -46,7 +46,7 @@
             </tr>
         </table>
         <br>
-        <span class="section-title">CRONOGRAMA DE PAGOS</span>
+        <span class="section-title">CRONOGRAMA DE PAGOS INDIVIDUALES</span>
         <table>
             <tr>
                 <th>CUOTA</th>
@@ -54,6 +54,22 @@
                 <th>TOTAL A PAGAR</th>
             </tr>
             @foreach($cronograma as $i => $cuota)
+            <tr>
+                <td>{{ $i+1 }}</td>
+                <td>{{ \Carbon\Carbon::parse($cuota['fecha'])->format('d/m/Y') }}</td>
+                <td>S/. {{ number_format($cuota['monto'], 2) }}</td>
+            </tr>
+            @endforeach
+        </table>
+        <br>
+        <span class="section-title">CUOTAS GRUPALES A PAGAR</span>
+        <table>
+            <tr>
+                <th>CUOTA</th>
+                <th>FECHA</th>
+                <th>TOTAL A PAGAR (GRUPAL)</th>
+            </tr>
+            @foreach($cronograma_grupal as $i => $cuota)
             <tr>
                 <td>{{ $i+1 }}</td>
                 <td>{{ \Carbon\Carbon::parse($cuota['fecha'])->format('d/m/Y') }}</td>

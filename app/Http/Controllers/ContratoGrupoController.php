@@ -42,10 +42,15 @@ class ContratoGrupoController extends Controller
                 ->orderBy('numero_cuota')
                 ->get();
             $cronograma = [];
+            $cronograma_grupal = [];
             foreach ($cuotas as $c) {
                 $cronograma[] = [
                     'fecha' => $c->fecha_vencimiento,
                     'monto' => $prestamoIndividual->monto_cuota_prestamo_individual ?? 0,
+                ];
+                $cronograma_grupal[] = [
+                    'fecha' => $c->fecha_vencimiento,
+                    'monto' => $c->monto_cuota_grupal,
                 ];
             }
 
@@ -58,6 +63,7 @@ class ContratoGrupoController extends Controller
                 'seguro' => $seguro,
                 'ciclo' => $cliente->ciclo ?? '',
                 'cronograma' => $cronograma,
+                'cronograma_grupal' => $cronograma_grupal,
             ])->render();
             $contratosHtml .= '<div style="page-break-after: always;"></div>';
         }
