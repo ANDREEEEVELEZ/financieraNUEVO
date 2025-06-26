@@ -3,25 +3,184 @@
 namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
 
 use App\Filament\Dashboard\Resources\PagoResource;
-use App\Filament\Dashboard\Resources\PagoResource\Widgets\PagosStatsWidget;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables;
+use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
+use App\Models\Grupo;
+use App\Models\Pago;
 
 class ListPagos extends ListRecords
 {
     protected static string $resource = PagoResource::class;
+
+    protected function getTableQuery(): Builder
+    {
+        $user = Auth::user();
+
+        // Crear query base para grupos que tienen pagos
+        $query = Grupo::query()
+            ->whereHas('prestamos.cuotasGrupales.pagos')
+            ->with(['prestamos.cuotasGrupales.pagos' => function($q) {
+                $q->orderBy('created_at', 'desc');
+            }]);
+
+        // Filtrar por asesor si es necesario
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                $query->where('asesor_id', $asesor->id);
+            } else {
+                return $query->whereRaw('1 = 0'); // No mostrar nada si no tiene asesor
+            }
+        }
+
+        return $query;
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query($this->getTableQuery())
+            ->columns([
+                Tables\Columns\TextColumn::make('nombre_grupo')
+                    ->label('Grupo')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('medium')
+                    ->size('sm'),
+
+                Tables\Columns\TextColumn::make('total_pagos')
+                    ->label('Total Pagos')
+                    ->getStateUsing(function ($record) {
+                        return $record->prestamos->sum(function ($prestamo) {
+                            return $prestamo->cuotasGrupales->sum(function ($cuota) {
+                                return $cuota->pagos->count();
+                            });
+                        });
+                    })
+                    ->alignCenter()
+                    ->badge()
+                    ->color('primary'),
+
+                Tables\Columns\TextColumn::make('pagos_pendientes')
+                    ->label('Pendientes')
+                    ->getStateUsing(function ($record) {
+                        return $record->prestamos->sum(function ($prestamo) {
+                            return $prestamo->cuotasGrupales->sum(function ($cuota) {
+                                return $cuota->pagos->where('estado_pago', 'Pendiente')->count();
+                            });
+                        });
+                    })
+                    ->alignCenter()
+                    ->badge()
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
+
+                Tables\Columns\TextColumn::make('pagos_aprobados')
+                    ->label('Aprobados')
+                    ->getStateUsing(function ($record) {
+                        return $record->prestamos->sum(function ($prestamo) {
+                            return $prestamo->cuotasGrupales->sum(function ($cuota) {
+                                return $cuota->pagos->where('estado_pago', 'aprobado')->count();
+                            });
+                        });
+                    })
+                    ->alignCenter()
+                    ->badge()
+                    ->color('success'),
+
+                Tables\Columns\TextColumn::make('ultimo_pago')
+                    ->label('Último Pago')
+                    ->getStateUsing(function ($record) {
+                        $ultimoPago = null;
+                        $fechaMasReciente = null;
+
+                        foreach ($record->prestamos as $prestamo) {
+                            foreach ($prestamo->cuotasGrupales as $cuota) {
+                                foreach ($cuota->pagos as $pago) {
+                                    if (!$fechaMasReciente || $pago->created_at > $fechaMasReciente) {
+                                        $fechaMasReciente = $pago->created_at;
+                                        $ultimoPago = $pago;
+                                    }
+                                }
+                            }
+                        }
+
+                        return $ultimoPago ? $ultimoPago->created_at->format('d/m/Y H:i') : 'Sin pagos';
+                    })
+                    ->alignCenter()
+                    ->size('sm'),
+
+                Tables\Columns\TextColumn::make('monto_total_pagado')
+                    ->label('Total Pagado')
+                    ->getStateUsing(function ($record) {
+                        return $record->prestamos->sum(function ($prestamo) {
+                            return $prestamo->cuotasGrupales->sum(function ($cuota) {
+                                return $cuota->pagos->where('estado_pago', 'aprobado')->sum('monto_pagado');
+                            });
+                        });
+                    })
+                    ->money('PEN')
+                    ->alignRight()
+                    ->weight('medium'),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('estado_pagos')
+                    ->label('Filtrar por Estado')
+                    ->options([
+                        'con_pendientes' => 'Con Pagos Pendientes',
+                        'solo_aprobados' => 'Solo Aprobados',
+                        'todos' => 'Todos',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (!isset($data['value']) || $data['value'] === 'todos') {
+                            return $query;
+                        }
+
+                        if ($data['value'] === 'con_pendientes') {
+                            return $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) {
+                                $q->where('estado_pago', 'Pendiente');
+                            });
+                        }
+
+                        if ($data['value'] === 'solo_aprobados') {
+                            return $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) {
+                                $q->where('estado_pago', 'aprobado');
+                            })->whereDoesntHave('prestamos.cuotasGrupales.pagos', function ($q) {
+                                $q->where('estado_pago', 'Pendiente');
+                            });
+                        }
+                    }),
+            ])
+            ->actions([
+                Tables\Actions\Action::make('ver_pagos')
+                    ->label('Ver Pagos')
+                    ->icon('heroicon-m-eye')
+                    ->color('primary')
+                    // CAMBIO PRINCIPAL: Usar la URL correcta de Filament
+                    ->url(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->id]))
+                    ->openUrlInNewTab(false),
+            ])
+            ->defaultSort('nombre_grupo')
+            ->striped()
+            ->paginated([10, 25, 50, 100]);
+    }
 
     protected function getHeaderActions(): array
     {
         $user = Auth::user();
 
         return [
-            Actions\CreateAction::make()->icon('heroicon-o-plus-circle'),
+            Actions\CreateAction::make()
+                ->icon('heroicon-o-plus-circle')
+                ->label('Crear Pago'),
+
             Actions\Action::make('exportar_pdf')
                 ->label('Exportar PDF')
                 ->icon('heroicon-o-document-arrow-down')
-                ->color('primary') // Mejor contraste en modo claro
+                ->color('primary')
                 ->form([
                     \Filament\Forms\Components\Select::make('grupo')
                         ->label('Nombre del grupo')
@@ -33,10 +192,10 @@ class ListPagos extends ListRecords
                                 if ($asesor) {
                                     $query->where('asesor_id', $asesor->id);
                                 } else {
-                                    return []; // Si el asesor no existe, retornar vacío
+                                    return [];
                                 }
                             } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                                return []; // Si no tiene roles permitidos, retornar vacío
+                                return [];
                             }
 
                             return $query->orderBy('nombre_grupo')->pluck('nombre_grupo', 'id')->toArray();
@@ -64,13 +223,6 @@ class ListPagos extends ListRecords
                     $url = route('pagos.exportar.pdf', $params);
                     return redirect($url);
                 }),
-        ];
-    }
-
-    protected function getHeaderWidgets(): array
-    {
-        return [
-            PagosStatsWidget::class,
         ];
     }
 }

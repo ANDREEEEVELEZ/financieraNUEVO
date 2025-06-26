@@ -625,6 +625,7 @@ public static function form(Form $form): Form
             'index' => Pages\ListPagos::route('/'),
             'create' => Pages\CreatePago::route('/crear'),
             'edit' => Pages\EditPago::route('/{record}/editar'),
+             'grupo-detalle' => Pages\GrupoDetallePagos::route('/grupo/{grupo}'),
         ];
     }
 }
