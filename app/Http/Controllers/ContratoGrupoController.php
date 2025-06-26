@@ -17,6 +17,11 @@ class ContratoGrupoController extends Controller
 
         $grupo = Grupo::with(['clientes.persona', 'prestamos'])->findOrFail($grupoId);
         $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first(); // Toma el préstamo grupal más reciente
+        
+        // Validar que el préstamo esté aprobado
+        if (!$prestamoGrupal || strtolower($prestamoGrupal->estado) !== 'aprobado') {
+            abort(403, 'Solo se pueden imprimir contratos de préstamos aprobados.');
+        }
 
         $contratosHtml = '';
 

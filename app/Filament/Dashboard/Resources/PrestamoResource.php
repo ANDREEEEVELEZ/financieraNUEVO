@@ -485,7 +485,7 @@ class PrestamoResource extends Resource
                         ->icon('heroicon-o-printer')
                         ->color('success')
                         ->url(fn($record) => route('contratos.grupo.imprimir', $record->grupo_id))
-                        ->visible(fn($record) => $record->grupo_id !== null),
+                        ->visible(fn($record) => $record->grupo_id !== null && strtolower($record->estado) === 'aprobado'),
                 ]),
             ]);
     }
