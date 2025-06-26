@@ -453,6 +453,19 @@ public static function form(Form $form): Form
                     ->alignLeft()
                     ->searchable()
                     ->width('65px'),
+                Tables\Columns\TextColumn::make('codigo_operacion')
+                    ->label('Cód. Oper')
+                    ->alignLeft()
+                    ->searchable()
+                    ->width('100px'),
+                Tables\Columns\TextColumn::make('fecha_pago')
+                    ->label('F. Pago')
+                    ->dateTime('d/m/Y')
+
+                    ->sortable()
+                    ->alignLeft()
+                    ->default(now())
+                    ->width('75px'),
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.fecha_vencimiento')
                     ->label('F.Venc.')
@@ -502,16 +515,10 @@ public static function form(Form $form): Form
                     ->money('PEN')
                     ->width('65px'),
 
-                Tables\Columns\TextColumn::make('fecha_pago')
-                    ->label('F. Pago')
-                    ->dateTime('d/m/Y')
-                    ->sortable()
-                    ->alignLeft()
-                    ->default(now())
-                    ->width('75px'),
+
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
-                    ->label('Saldo Pendiente')
+                    ->label('Saldo')
                     ->formatStateUsing(fn($record) => 'S/. ' . number_format($record->cuotaGrupal->saldoPendiente(), 2))
                     ->sortable()
                     ->formatStateUsing(function ($state, $record) {

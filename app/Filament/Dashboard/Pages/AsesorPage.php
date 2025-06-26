@@ -29,7 +29,24 @@ class AsesorPage  extends Page
 
         $clientesQuery = Cliente::query();
         $prestamosQuery = Prestamo::query();
-        $gruposQuery = Grupo::query();
+        if ($desde) {
+            $clientesQuery->whereDate('created_at', '>=', $desde);
+        }
+        if ($hasta) {
+            $clientesQuery->whereDate('created_at', '<=', $hasta);
+        }
+
+        $gruposQueryBase = Grupo::query(); // ← esta será la base SIN filtro por fecha
+
+        $gruposQuery = (clone $gruposQueryBase); // ← esta sí tendrá filtro para totalGrupos
+
+        if ($desde) {
+            $gruposQuery->whereDate('created_at', '>=', $desde);
+        }
+        if ($hasta) {
+            $gruposQuery->whereDate('created_at', '<=', $hasta);
+        }
+
 
         // Si es un asesor, filtrar por su ID
         if ($user->hasRole('Asesor')) {
@@ -128,7 +145,7 @@ class AsesorPage  extends Page
             });
 
         // Optimizar consulta de grupos con filtro de fechas en cuotas vencidas
-        $gruposEnMoraQuery = $gruposQuery->with([
+        $gruposEnMoraQuery = $gruposQueryBase->with([
             'clientes',
             'prestamos' => function($query) {
                 $query->orderByDesc('id');
@@ -206,7 +223,7 @@ class AsesorPage  extends Page
         })->sortByDesc('monto_mora');
 
         // Calcular mora por grupo con filtro de fechas
-        $moraPorGrupo = $gruposQuery->with(['prestamos.cuotasGrupales' => function($query) use ($desde, $hasta) {
+        $moraPorGrupo = $gruposQueryBase->with(['prestamos.cuotasGrupales' => function($query) use ($desde, $hasta) {
                 if ($desde) {
                     $query->whereDate('fecha_vencimiento', '>=', $desde);
                 }

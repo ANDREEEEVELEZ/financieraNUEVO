@@ -24,34 +24,33 @@ class EditPago extends EditRecord
     /**
      * Verifica si el formulario debe estar deshabilitado
      */
-    
+
 private function shouldDisableForm(): bool
 {
     $user = Auth::user();
 
-    // 🔓 Si el pago no está pendiente, todos pueden ver (formulario deshabilitado = solo lectura)
     if (strtolower($this->record->estado_pago) !== 'pendiente') {
         return true;
     }
 
-    // ❌ Jefes y admin no pueden editar nunca
+
     if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
         return true;
     }
 
-    // ✅ Asesor solo puede editar su grupo y solo si el pago está pendiente
+
     if ($user->hasRole('Asesor')) {
         $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
         $grupo = optional($this->record->cuotaGrupal?->prestamo?->grupo);
 
         if (!$asesor || !$grupo || $grupo->asesor_id !== $asesor->id) {
-            return true; // no es su grupo
+            return true;
         }
 
-        return false; // puede editar (porque el estado es pendiente)
+        return false;
     }
 
-    return true; // todos los demás: bloqueado
+    return true;
 }
 
 
@@ -62,7 +61,7 @@ private function shouldDisableForm(): bool
     {
         parent::mount($record);
 
-        // Si es super_admin o jefe y intenta editar, mostrar notificación
+        
         $user = Auth::user();
         if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) &&
             strtolower($this->record->estado_pago) === 'pendiente') {

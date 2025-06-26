@@ -43,4 +43,15 @@ class Egreso extends Model
     {
         return $this->belongsTo(Grupo::class);
     }
+    public function getMontoAttribute($value)
+{
+    // Asegurar que siempre retorne un decimal correcto
+    return is_null($value) ? null : (float)$value;
+}
+
+public function setMontoAttribute($value)
+{
+    // Asegurar que siempre se guarde como decimal
+    $this->attributes['monto'] = is_null($value) ? null : (float)$value;
+}
 }

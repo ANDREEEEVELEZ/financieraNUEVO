@@ -310,30 +310,45 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="px-4 py-2 text-gray-800 dark:text-white">
-                            @if($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcial']))
-                                <a href="{{ route('filament.dashboard.resources.pagos.create', ['cuota_grupal_id' => $cuota->id]) }}"
-                                    class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow
-                                        bg-blue-100 hover:bg-blue-200 text-black
-                                        dark:bg-blue-500 dark:hover:bg-blue-600
-                                        border border-blue-700 dark:border-blue-400
-                                        transition duration-150 ease-in-out">
-                                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span class="text-black dark:text-white align-middle">Registrar pago</span>
-                                </a>
-                            @elseif($cuota->mora && $cuota->mora->estado_mora === 'pagada')
-                                <span class="inline-flex items-center px-3 py-1 rounded bg-green-100 text-green-800 font-semibold text-xs">
-                                    <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Pagada
-                                </span>
-                            @else
-                                <span class="text-gray-400 text-xs">Sin acciones</span>
-                            @endif
-                        </td>
+                        <!-- Reemplaza la columna de Acciones en tu vista -->
+                <td class="px-4 py-2 text-gray-800 dark:text-white">
+                    @if($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcial']))
+                        @if(auth()->user()->hasRole('Jefe de creditos'))
+                            <!-- Mensaje para Jefe de Crédito -->
+                            <div class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow
+                                        bg-yellow-100 text-yellow-800
+                                        dark:bg-yellow-600 dark:text-yellow-100
+                                        border border-yellow-300 dark:border-yellow-500">
+                                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.866-.833-2.598 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                                <span class="align-middle">Solo visualización</span>
+                            </div>
+                        @else
+                            <!-- Botón normal para otros roles -->
+                            <a href="{{ route('filament.dashboard.resources.pagos.create', ['cuota_grupal_id' => $cuota->id]) }}"
+                                class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow
+                                    bg-blue-100 hover:bg-blue-200 text-black
+                                    dark:bg-blue-500 dark:hover:bg-blue-600
+                                    border border-blue-700 dark:border-blue-400
+                                    transition duration-150 ease-in-out">
+                                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-black dark:text-white align-middle">Registrar pago</span>
+                            </a>
+                        @endif
+                    @elseif($cuota->mora && $cuota->mora->estado_mora === 'pagada')
+                        <span class="inline-flex items-center px-3 py-1 rounded bg-green-100 text-green-800 font-semibold text-xs">
+                            <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Pagada
+                        </span>
+                    @else
+                        <span class="text-gray-400 text-xs">Sin acciones</span>
+                    @endif
+                </td>
                     </tr>
                 @empty
                     <tr>

@@ -17,6 +17,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Filament\Notifications\Notification;
 
 class EgresosResource extends Resource
 {
@@ -105,11 +106,26 @@ class EgresosResource extends Resource
                             ->maxLength(255),
                     ])
                     ->createOptionUsing(function (array $data, Get $get) {
-                        $data['categoria_id'] = $get('categoria_id');
+                        $categoriaId = $get('categoria_id');
+
+                        if (!$categoriaId) {
+                            Notification::make()
+                                ->title('Categoría Requerida')
+                                ->body('Debe seleccionar una categoría antes de crear una subcategoría')
+                                ->warning()
+                                ->send();
+
+                            return null;
+                        }
+
+                        $data['categoria_id'] = $categoriaId;
                         return Subcategoria::create($data)->id;
                     })
                     ->createOptionAction(fn ($action) =>
-                        $action->modalHeading('Crear Nueva Subcategoría')->modalSubmitActionLabel('Crear')->modalWidth('lg')
+                        $action
+                            ->modalHeading('Crear Nueva Subcategoría')
+                            ->modalSubmitActionLabel('Crear')
+                            ->modalWidth('lg')
                     ),
 
                 // Campo para mostrar grupo en desembolsos
@@ -138,18 +154,36 @@ class EgresosResource extends Resource
                 Forms\Components\Hidden::make('grupo_id'),
 
                 // Monto
-                Forms\Components\TextInput::make('monto')
-                    ->label('Monto')
-                    ->numeric()
-                    ->prefix('S/.')
-                    ->step(0.01)
-                    ->required()
-                    ->disabled($isEditing)
-                    ->dehydrated(true)
-                    ->minValue(0.01)
-                    ->rule('numeric|min:0.01')
-                    ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
-                    ->mask('999999.99'),
+Forms\Components\TextInput::make('monto')
+    ->label('Monto')
+    ->numeric()
+    ->prefix('S/.')
+    ->step(0.01)
+    ->required()
+    ->disabled($isEditing)
+    ->dehydrated(true)
+    ->minValue(0.01)
+    ->rule('numeric|min:0.01')
+    ->extraAttributes(['inputmode' => 'decimal', 'pattern' => '[0-9]*(\.[0-9]{0,2})?'])
+    ->formatStateUsing(function ($state) {
+        // Formatear correctamente para mostrar en el campo al editar
+        if (is_null($state) || $state === '') {
+            return null;
+        }
+
+        $numericValue = (float)$state;
+        return number_format($numericValue, 2, '.', '');
+    })
+    ->dehydrateStateUsing(function ($state) {
+        // Convertir a float al guardar
+        if (is_null($state) || $state === '') {
+            return null;
+        }
+
+        // Remover cualquier separador de miles y convertir a float
+        $cleanValue = str_replace([',', ' '], '', $state);
+        return (float)$cleanValue;
+    }),
 
                 // Descripción
                 Forms\Components\Textarea::make('descripcion')
@@ -215,6 +249,7 @@ class EgresosResource extends Resource
         }
     }
 
+
     public static function table(Table $table): Table
     {
         return $table
@@ -236,7 +271,7 @@ class EgresosResource extends Resource
                     ->formatStateUsing(fn ($state, $record) =>
                         $record->tipo_egreso === 'desembolso' ? 'N/A' : ($state ?? 'N/A')
                     ),
-                */
+
                 Tables\Columns\TextColumn::make('grupo_nombre')
                     ->label('Grupo')
                     ->getStateUsing(function ($record) {
@@ -251,6 +286,7 @@ class EgresosResource extends Resource
                         return 'Sin grupo';
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
+                    */
                 Tables\Columns\TextColumn::make('monto')->label('Monto')->money('PEN')->sortable(),
             ])
             ->filters([
