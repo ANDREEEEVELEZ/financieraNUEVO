@@ -184,7 +184,33 @@ class AsesorResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Desactivar Seleccionados')
+                        ->modalHeading('Desactivar Asesores Seleccionados')
+                        ->modalDescription('¿Estás seguro de que quieres desactivar los asesores seleccionados? Se deshabilitará su acceso al sistema.')
+                        ->modalSubmitActionLabel('Sí, desactivar')
+                        ->action(function ($records) {
+                            $count = 0;
+                            $records->each(function ($record) use (&$count) {
+                                if ($record->estado_asesor === 'Activo') {
+                                    // Desactivar el asesor y su cuenta de usuario
+                                    $record->update(['estado_asesor' => 'Inactivo']);
+
+                                    if ($record->user) {
+                                        $record->user->update(['active' => false]);
+                                    }
+                                    $count++;
+                                }
+                            });
+
+                            if ($count > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Asesores Desactivados')
+                                    ->body("Se han desactivado $count asesores exitosamente.")
+                                    ->send();
+                            }
+                        }),
                     Tables\Actions\BulkAction::make('activarSeleccionados')
                         ->label('Activar Seleccionados')
                         ->icon('heroicon-o-check-circle')

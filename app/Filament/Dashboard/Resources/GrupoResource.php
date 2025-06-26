@@ -450,7 +450,36 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Desactivar Seleccionados')
+                        ->modalHeading('Desactivar Grupos Seleccionados')
+                        ->modalDescription('¿Estás seguro de que quieres desactivar los grupos seleccionados? Los grupos pasarán a estado Inactivo.')
+                        ->modalSubmitActionLabel('Sí, desactivar')
+                        ->action(function ($records) {
+                            $count = 0;
+                            $records->each(function ($record) use (&$count) {
+                                if ($record->estado_grupo === 'Activo') {
+                                    // Desactivar el grupo
+                                    $record->update(['estado_grupo' => 'Inactivo']);
+                                    
+                                    // Actualizar estado_grupo_cliente en la tabla pivot para todos los integrantes
+                                    $record->clientes()->updateExistingPivot(
+                                        $record->clientes->pluck('id')->toArray(),
+                                        ['estado_grupo_cliente' => 'Inactivo']
+                                    );
+                                    
+                                    $count++;
+                                }
+                            });
+
+                            if ($count > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Grupos Desactivados')
+                                    ->body("Se han desactivado $count grupos exitosamente. También se actualizó el estado de los integrantes.")
+                                    ->send();
+                            }
+                        }),
                     Tables\Actions\BulkAction::make('cambiar_asesor')
                         ->label('Cambiar Asesor')
                         ->icon('heroicon-o-user')

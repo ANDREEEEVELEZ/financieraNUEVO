@@ -246,6 +246,59 @@ class ClienteResource extends Resource
                     ->modalDescription('¿Estás seguro de que quieres activar este cliente?')
                     ->modalSubmitActionLabel('Sí, activar')
                     ->modalCancelActionLabel('No, cancelar'),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Desactivar Seleccionados')
+                        ->modalHeading('Desactivar Clientes Seleccionados')
+                        ->modalDescription('¿Estás seguro de que quieres desactivar los clientes seleccionados? Se deshabilitará su acceso al sistema.')
+                        ->modalSubmitActionLabel('Sí, desactivar')
+                        ->action(function ($records) {
+                            $count = 0;
+                            $records->each(function ($record) use (&$count) {
+                                if ($record->estado_cliente === 'Activo') {
+                                    $record->update(['estado_cliente' => 'Inactivo']);
+                                    $count++;
+                                }
+                            });
+
+                            if ($count > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Clientes Desactivados')
+                                    ->body("Se han desactivado $count clientes exitosamente.")
+                                    ->send();
+                            }
+                        }),
+                    Tables\Actions\BulkAction::make('activarSeleccionados')
+                        ->label('Activar Seleccionados')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Activar Clientes Seleccionados')
+                        ->modalDescription('¿Estás seguro de que quieres activar los clientes seleccionados?')
+                        ->modalSubmitActionLabel('Sí, activar')
+                        ->action(function ($records) {
+                            $count = 0;
+                            $records->each(function ($record) use (&$count) {
+                                if ($record->estado_cliente === 'Inactivo') {
+                                    $record->update(['estado_cliente' => 'Activo']);
+                                    $count++;
+                                }
+                            });
+
+                            if ($count > 0) {
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Clientes Activados')
+                                    ->body("Se han activado $count clientes exitosamente.")
+                                    ->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion()
+                        ->hidden(fn ($records) => !$records || !$records->contains('estado_cliente', 'Inactivo')),
+                ]),
             ]);
     }
 
