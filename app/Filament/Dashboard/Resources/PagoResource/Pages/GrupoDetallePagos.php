@@ -189,6 +189,75 @@ class GrupoDetallePagos extends Page implements HasTable
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
+                    ->form([
+                        \Filament\Forms\Components\Select::make('grupo_id')
+                            ->label('Grupo')
+                            ->options(function ($record) {
+                                if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
+                                    return [$record->cuotaGrupal->prestamo->grupo->id => $record->cuotaGrupal->prestamo->grupo->nombre_grupo];
+                                }
+                                return [];
+                            })
+                            ->disabled()
+                            ->dehydrated(false),
+
+                        \Filament\Forms\Components\TextInput::make('numero_cuota')
+                            ->label('Número de Cuota')
+                            ->disabled()
+                            ->dehydrated(false),
+
+                        \Filament\Forms\Components\TextInput::make('monto_cuota')
+                            ->label('Monto de la Cuota')
+                            ->prefix('S/.')
+                            ->disabled()
+                            ->dehydrated(false),
+
+                        \Filament\Forms\Components\TextInput::make('monto_mora_pagada')
+                            ->label('Monto de Mora')
+                            ->prefix('S/.')
+                            ->disabled()
+                            ->dehydrated(false),
+
+                        \Filament\Forms\Components\Select::make('tipo_pago')
+                            ->label('Tipo de Pago')
+                            ->options([
+                                'pago_completo' => 'Pago Completo',
+                                'pago_parcial' => 'Pago Parcial',
+                            ])
+                            ->required()
+                            ->reactive(),
+
+                        \Filament\Forms\Components\TextInput::make('monto_pagado')
+                            ->label('Monto Pagado')
+                            ->prefix('S/.')
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.01),
+
+                        \Filament\Forms\Components\TextInput::make('codigo_operacion')
+                            ->label('Código de Operación')
+                            ->required()
+                            ->maxLength(255),
+
+                        \Filament\Forms\Components\DateTimePicker::make('fecha_pago')
+                            ->label('Fecha del Pago')
+                            ->required()
+                            ->default(now()),
+
+                        \Filament\Forms\Components\Textarea::make('observaciones')
+                            ->label('Observaciones')
+                            ->maxLength(500)
+                            ->rows(3),
+                    ])
+                    ->mutateRecordDataUsing(function (array $data, $record): array {
+                        $data['grupo_id'] = $record->cuotaGrupal?->prestamo?->grupo?->id;
+                        $data['numero_cuota'] = $record->cuotaGrupal?->numero_cuota;
+                        $data['monto_cuota'] = $record->cuotaGrupal?->monto_cuota_grupal;
+                        $data['monto_mora_pagada'] = $record->cuotaGrupal && $record->cuotaGrupal->mora 
+                            ? abs($record->cuotaGrupal->mora->monto_mora_calculado) 
+                            : 0;
+                        return $data;
+                    })
                     ->visible(function ($record) {
                         $user = Auth::user();
 
