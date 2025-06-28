@@ -190,165 +190,199 @@ class GrupoDetallePagos extends Page implements HasTable
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->form([
-                        \Filament\Forms\Components\Select::make('grupo_id')
-                            ->label('Grupo')
-                            ->options(function ($record) {
-                                if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
-                                    return [$record->cuotaGrupal->prestamo->grupo->id => $record->cuotaGrupal->prestamo->grupo->nombre_grupo];
-                                }
-                                return [];
-                            })
-                            ->disabled()
-                            ->dehydrated(false),
+                        \Filament\Forms\Components\Section::make('Información de la Cuota')
+                            ->description('Datos de la cuota y saldos')
+                            ->icon('heroicon-o-information-circle')
+                            ->schema([
+                                \Filament\Forms\Components\Grid::make(3)
+                                    ->schema([
+                                        \Filament\Forms\Components\Select::make('grupo_id')
+                                            ->label('Grupo')
+                                            ->prefixIcon('heroicon-o-user-group')
+                                            ->options(function ($record) {
+                                                if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
+                                                    return [$record->cuotaGrupal->prestamo->grupo->id => $record->cuotaGrupal->prestamo->grupo->nombre_grupo];
+                                                }
+                                                return [];
+                                            })
+                                            ->disabled()
+                                            ->dehydrated(false),
 
-                        \Filament\Forms\Components\TextInput::make('numero_cuota')
-                            ->label('Número de Cuota')
-                            ->disabled()
-                            ->dehydrated(false),
+                                        \Filament\Forms\Components\TextInput::make('numero_cuota')
+                                            ->label('N° Cuota')
+                                            ->prefixIcon('heroicon-o-hashtag')
+                                            ->disabled()
+                                            ->dehydrated(false),
 
-                        \Filament\Forms\Components\TextInput::make('monto_cuota')
-                            ->label('Monto de la Cuota')
-                            ->prefix('S/.')
-                            ->disabled()
-                            ->dehydrated(false),
+                                        \Filament\Forms\Components\TextInput::make('monto_cuota')
+                                            ->label('Monto Cuota')
+                                            ->prefix('S/.')
+                                            ->prefixIcon('heroicon-o-banknotes')
+                                            ->disabled()
+                                            ->dehydrated(false),
+                                    ]),
+                                
+                                \Filament\Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        \Filament\Forms\Components\TextInput::make('monto_mora_pagada')
+                                            ->label('Mora Aplicada')
+                                            ->prefix('S/.')
+                                            ->prefixIcon('heroicon-o-exclamation-triangle')
+                                            ->disabled()
+                                            ->dehydrated(false),
 
-                        \Filament\Forms\Components\TextInput::make('monto_mora_pagada')
-                            ->label('Monto de Mora')
-                            ->prefix('S/.')
-                            ->disabled()
-                            ->dehydrated(false),
-
-                        \Filament\Forms\Components\TextInput::make('saldo_pendiente_actual')
-                            ->label('Saldo Pendiente')
-                            ->prefix('S/.')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->helperText('Este es el saldo que queda por pagar de esta cuota'),
-
-                        \Filament\Forms\Components\Select::make('tipo_pago')
-                            ->label('Tipo de Pago')
-                            ->options([
-                                'pago_completo' => 'Pago Completo',
-                                'pago_parcial' => 'Pago Parcial',
+                                        \Filament\Forms\Components\TextInput::make('saldo_pendiente_actual')
+                                            ->label('Saldo Pendiente')
+                                            ->prefix('S/.')
+                                            ->prefixIcon('heroicon-o-clock')
+                                            ->disabled()
+                                            ->dehydrated(false)
+                                            ->extraAttributes(['class' => 'font-bold text-red-600'])
+                                            ->helperText('💡 Saldo que queda por pagar de esta cuota'),
+                                    ]),
                             ])
-                            ->required()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
-                                if (!$record || !$record->cuotaGrupal) return;
-                                
-                                $cuota = $record->cuotaGrupal;
-                                $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                
-                                // Calcular pagos aprobados existentes (excluyendo el pago actual que se está editando)
-                                $pagosAprobados = $cuota->pagos()
-                                    ->where('estado_pago', 'aprobado')
-                                    ->where('id', '!=', $record->id)
-                                    ->sum('monto_pagado');
-                                
-                                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                                
-                                if ($state === 'pago_completo') {
-                                    $set('monto_pagado', $saldoPendiente);
-                                } elseif ($state === 'pago_parcial') {
-                                    // En pago parcial, limpiar el monto para que el usuario lo ingrese
-                                    $set('monto_pagado', null);
-                                }
-                            }),
+                            ->collapsible()
+                            ->collapsed(false),
 
-                        \Filament\Forms\Components\TextInput::make('monto_pagado')
-                            ->label('Monto Pagado')
-                            ->prefix('S/.')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0.01)
-                            ->disabled(function (callable $get) {
-                                return $get('tipo_pago') === 'pago_completo';
-                            })
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
-                                if (!$record || !$record->cuotaGrupal || $get('tipo_pago') === 'pago_completo') return;
-                                
-                                $cuota = $record->cuotaGrupal;
-                                $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                
-                                // Calcular pagos aprobados existentes (excluyendo el pago actual)
-                                $pagosAprobados = $cuota->pagos()
-                                    ->where('estado_pago', 'aprobado')
-                                    ->where('id', '!=', $record->id)
-                                    ->sum('monto_pagado');
-                                
-                                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                                $montoPagado = floatval($state ?? 0);
+                        \Filament\Forms\Components\Section::make('Detalles del Pago')
+                            ->description('Información del pago a editar')
+                            ->icon('heroicon-o-credit-card')
+                            ->schema([
+                                \Filament\Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        \Filament\Forms\Components\Select::make('tipo_pago')
+                                            ->label('Tipo de Pago')
+                                            ->prefixIcon('heroicon-o-adjustments-horizontal')
+                                            ->options([
+                                                'pago_completo' => '💰 Pago Completo',
+                                                'pago_parcial' => '📊 Pago Parcial',
+                                            ])
+                                            ->required()
+                                            ->reactive()
+                                            ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
+                                                if (!$record || !$record->cuotaGrupal) return;
+                                                
+                                                $cuota = $record->cuotaGrupal;
+                                                $montoCuota = floatval($cuota->monto_cuota_grupal);
+                                                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                                                
+                                                $pagosAprobados = $cuota->pagos()
+                                                    ->where('estado_pago', 'aprobado')
+                                                    ->where('id', '!=', $record->id)
+                                                    ->sum('monto_pagado');
+                                                
+                                                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                
+                                                if ($state === 'pago_completo') {
+                                                    $set('monto_pagado', $saldoPendiente);
+                                                } elseif ($state === 'pago_parcial') {
+                                                    $set('monto_pagado', null);
+                                                }
+                                            }),
 
-                                // Validar que no exceda el saldo pendiente
-                                if ($montoPagado > $saldoPendiente && $saldoPendiente > 0) {
-                                    $set('monto_pagado', $saldoPendiente);
-                                }
-                            })
-                            ->helperText(function (callable $get, $record) {
-                                if (!$record || !$record->cuotaGrupal) return null;
-                                
-                                $cuota = $record->cuotaGrupal;
-                                $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                
-                                // Calcular pagos aprobados existentes (excluyendo el pago actual)
-                                $pagosAprobados = $cuota->pagos()
-                                    ->where('estado_pago', 'aprobado')
-                                    ->where('id', '!=', $record->id)
-                                    ->sum('monto_pagado');
-                                
-                                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                                
-                                if ($saldoPendiente > 0) {
-                                    return 'Máximo a pagar: S/. ' . number_format($saldoPendiente, 2);
-                                }
-                                return null;
-                            })
-                            ->rules([
-                                function (callable $get, $record) {
-                                    return function (string $attribute, $value, \Closure $fail) use ($get, $record) {
-                                        if (!$record || !$record->cuotaGrupal) return;
-                                        
-                                        $cuota = $record->cuotaGrupal;
-                                        $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                        $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                        
-                                        // Calcular pagos aprobados existentes (excluyendo el pago actual)
-                                        $pagosAprobados = $cuota->pagos()
-                                            ->where('estado_pago', 'aprobado')
-                                            ->where('id', '!=', $record->id)
-                                            ->sum('monto_pagado');
-                                        
-                                        $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                                        
-                                        if (floatval($value) > $saldoPendiente) {
-                                            $fail("El monto pagado no puede ser mayor al saldo pendiente (S/. " . number_format($saldoPendiente, 2) . ")");
-                                        }
-                                        
-                                        if (floatval($value) <= 0) {
-                                            $fail("El monto pagado debe ser mayor a 0");
-                                        }
-                                    };
-                                },
-                            ]),
+                                        \Filament\Forms\Components\TextInput::make('monto_pagado')
+                                            ->label('Monto a Pagar')
+                                            ->prefix('S/.')
+                                            ->prefixIcon('heroicon-o-currency-dollar')
+                                            ->numeric()
+                                            ->required()
+                                            ->minValue(0.01)
+                                            ->disabled(function (callable $get) {
+                                                return $get('tipo_pago') === 'pago_completo';
+                                            })
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
+                                                if (!$record || !$record->cuotaGrupal || $get('tipo_pago') === 'pago_completo') return;
+                                                
+                                                $cuota = $record->cuotaGrupal;
+                                                $montoCuota = floatval($cuota->monto_cuota_grupal);
+                                                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                                                
+                                                $pagosAprobados = $cuota->pagos()
+                                                    ->where('estado_pago', 'aprobado')
+                                                    ->where('id', '!=', $record->id)
+                                                    ->sum('monto_pagado');
+                                                
+                                                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                $montoPagado = floatval($state ?? 0);
 
-                        \Filament\Forms\Components\TextInput::make('codigo_operacion')
-                            ->label('Código de Operación')
-                            ->required()
-                            ->maxLength(255),
+                                                if ($montoPagado > $saldoPendiente && $saldoPendiente > 0) {
+                                                    $set('monto_pagado', $saldoPendiente);
+                                                }
+                                            })
+                                            ->helperText(function (callable $get, $record) {
+                                                if (!$record || !$record->cuotaGrupal) return null;
+                                                
+                                                $cuota = $record->cuotaGrupal;
+                                                $montoCuota = floatval($cuota->monto_cuota_grupal);
+                                                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                                                
+                                                $pagosAprobados = $cuota->pagos()
+                                                    ->where('estado_pago', 'aprobado')
+                                                    ->where('id', '!=', $record->id)
+                                                    ->sum('monto_pagado');
+                                                
+                                                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                
+                                                if ($saldoPendiente > 0) {
+                                                    return '💡 Máximo: S/. ' . number_format($saldoPendiente, 2);
+                                                }
+                                                return null;
+                                            })
+                                            ->rules([
+                                                function (callable $get, $record) {
+                                                    return function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                                                        if (!$record || !$record->cuotaGrupal) return;
+                                                        
+                                                        $cuota = $record->cuotaGrupal;
+                                                        $montoCuota = floatval($cuota->monto_cuota_grupal);
+                                                        $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                                                        
+                                                        $pagosAprobados = $cuota->pagos()
+                                                            ->where('estado_pago', 'aprobado')
+                                                            ->where('id', '!=', $record->id)
+                                                            ->sum('monto_pagado');
+                                                        
+                                                        $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                        
+                                                        if (floatval($value) > $saldoPendiente) {
+                                                            $fail("❌ El monto no puede ser mayor al saldo pendiente (S/. " . number_format($saldoPendiente, 2) . ")");
+                                                        }
+                                                        
+                                                        if (floatval($value) <= 0) {
+                                                            $fail("❌ El monto debe ser mayor a 0");
+                                                        }
+                                                    };
+                                                },
+                                            ]),
+                                    ]),
 
-                        \Filament\Forms\Components\DateTimePicker::make('fecha_pago')
-                            ->label('Fecha del Pago')
-                            ->required()
-                            ->default(now()),
+                                \Filament\Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        \Filament\Forms\Components\TextInput::make('codigo_operacion')
+                                            ->label('Código de Operación')
+                                            ->prefixIcon('heroicon-o-qr-code')
+                                            ->required()
+                                            ->maxLength(255)
+                                            ->placeholder('Ej: OP-12345678'),
 
-                        \Filament\Forms\Components\Textarea::make('observaciones')
-                            ->label('Observaciones')
-                            ->maxLength(500)
-                            ->rows(3),
+                                        \Filament\Forms\Components\DateTimePicker::make('fecha_pago')
+                                            ->label('Fecha del Pago')
+                                            ->prefixIcon('heroicon-o-calendar-days')
+                                            ->required()
+                                            ->default(now())
+                                            ->displayFormat('d/m/Y H:i')
+                                            ->seconds(false),
+                                    ]),
+
+                                \Filament\Forms\Components\Textarea::make('observaciones')
+                                    ->label('💬 Observaciones')
+                                    ->maxLength(500)
+                                    ->rows(2)
+                                    ->placeholder('Agregar observaciones adicionales (opcional)...'),
+                            ])
+                            ->collapsible()
+                            ->collapsed(false),
                     ])
                     ->mutateRecordDataUsing(function (array $data, $record): array {
                         $data['grupo_id'] = $record->cuotaGrupal?->prestamo?->grupo?->id;
