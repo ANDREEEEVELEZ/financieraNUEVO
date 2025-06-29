@@ -338,6 +338,16 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
         return $table->columns($columns)
             ->filters([
+                // Filtro por Estado (visible para todos los roles)
+                Tables\Filters\SelectFilter::make('estado_grupo')
+                    ->label('Estado del Grupo')
+                    ->options([
+                        'Activo' => 'Activo',
+                        'Inactivo' => 'Inactivo',
+                    ])
+                    ->default('Activo'),
+                
+                // Filtro por Asesor (visible solo para roles administrativos, NO para Asesor)
                 Tables\Filters\SelectFilter::make('asesor')
                     ->label('Asesor')
                     ->options(function () {
@@ -345,18 +355,16 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             ->with('persona')
                             ->get()
                             ->mapWithKeys(function ($asesor) {
-                                return [$asesor->persona->nombre . ' ' . $asesor->persona->apellidos => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
                             });
                     })
                     ->query(function (Builder $query, array $data) {
                         if (!empty($data['value'])) {
-                            $query->whereHas('asesor.persona', function ($q) use ($data) {
-                                $q->whereRaw("CONCAT(nombre, ' ', apellidos) = ?", [$data['value']]);
-                            });
+                            $query->where('asesor_id', $data['value']);
                         }
                         return $query;
                     })
-                    ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])),
+                    ->visible(fn () => request()->user() && !request()->user()->hasRole('Asesor')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),

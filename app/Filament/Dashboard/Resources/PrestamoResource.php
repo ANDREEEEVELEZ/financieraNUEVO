@@ -556,6 +556,45 @@ class PrestamoResource extends Resource
                     return $html;
                 }),
         ])
+            ->filters([
+                // Filtro por Estado (visible para todos los roles)
+                Tables\Filters\SelectFilter::make('estado')
+                    ->label('Estado del Préstamo')
+                    ->options([
+                        'Pendiente' => 'Pendiente',
+                        'Aprobado' => 'Aprobado',
+                        'Activo' => 'Activo',
+                        'Rechazado' => 'Rechazado',
+                        'Finalizado' => 'Finalizado',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            $query->where('estado', $data['value']);
+                        }
+                        return $query;
+                    }),
+                
+                // Filtro por Asesor (visible solo para roles administrativos, NO para Asesor)
+                Tables\Filters\SelectFilter::make('asesor')
+                    ->label('Asesor')
+                    ->options(function () {
+                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                            ->with('persona')
+                            ->get()
+                            ->mapWithKeys(function ($asesor) {
+                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                            });
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            $query->whereHas('grupo', function ($q) use ($data) {
+                                $q->where('asesor_id', $data['value']);
+                            });
+                        }
+                        return $query;
+                    })
+                    ->visible(fn () => request()->user() && !request()->user()->hasRole('Asesor')),
+            ])
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
