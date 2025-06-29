@@ -59,7 +59,7 @@ class Mora extends Model
         return self::calcularMontoMora($this->cuotaGrupal, $this->fecha_atraso ?? now(), $this->estado_mora);
     }
 
-    // Método central de cálculo de mora - SIN CAMBIOS
+    // Método central de cálculo de mora 
     public static function calcularMontoMora($cuota, $fechaAtraso = null, $estadoMora = null)
     {
         if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
@@ -76,7 +76,7 @@ class Mora extends Model
 
                 $diasAtraso = 0;
                 if ($fechaAtrasoCongelada->greaterThan($fechaVencimiento)) {
-                    // CORRECCIÓN: Invertir el orden para obtener diferencia positiva
+                    
                     $diasAtraso = $fechaVencimiento->diffInDays($fechaAtrasoCongelada);
                 }
 
@@ -133,7 +133,7 @@ class Mora extends Model
         }
     }
 
-    // Filtro de visibilidad por usuario - SIN CAMBIOS
+    // Filtro de visibilidad por usuario 
     public function scopeVisiblePorUsuario($query, $user)
     {
         if ($user->hasRole('Asesor')) {
