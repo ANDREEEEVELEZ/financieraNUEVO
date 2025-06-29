@@ -79,6 +79,30 @@ class PrestamoResource extends Resource
                 ->visible(fn() => $prestamo && $prestamo->estado !== 'Pendiente')
                 ->columnSpanFull(),
 
+            // Información sobre límites de frecuencias
+            Forms\Components\Placeholder::make('info_frecuencias')
+                ->label('📋 Información sobre Frecuencias de Pago')
+                ->content(new \Illuminate\Support\HtmlString(
+                    '<div style="background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                            <svg style="width: 20px; height: 20px; color: #0ea5e9;" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                            </svg>
+                            <strong style="color: #0c4a6e;">Límites Máximos por Frecuencia (1 año)</strong>
+                        </div>
+                        <ul style="margin: 0; padding-left: 24px; color: #0c4a6e;">
+                            <li><strong>📅 Semanal:</strong> Máximo 52 cuotas (52 semanas = 1 año)</li>
+                            <li><strong>📅 Quincenal:</strong> Máximo 26 cuotas (26 quincenas = 1 año)</li>
+                            <li><strong>📅 Mensual:</strong> Máximo 12 cuotas (12 meses = 1 año)</li>
+                        </ul>
+                        <p style="margin: 8px 0 0 0; color: #0c4a6e; font-size: 14px; font-style: italic;">
+                            ⚠️ El sistema ajustará automáticamente las cuotas si exceden el límite de la frecuencia seleccionada.
+                        </p>
+                    </div>'
+                ))
+                ->visible(fn() => !$prestamo || $prestamo->estado === 'Pendiente')
+                ->columnSpanFull(),
+
             Select::make('grupo_id')
                 ->label('Grupo')
                 ->prefixIcon('heroicon-o-rectangle-stack')
@@ -303,14 +327,101 @@ class PrestamoResource extends Resource
                 ->extraInputAttributes(['id' => 'monto_devolver_field'])
                 ->disabled(fn() => !$puedeEditarCampos),
 
-            TextInput::make('cantidad_cuotas')->numeric()->required()->minValue(1)->mask('999')->disabled(fn() => !$puedeEditarCampos),
+            Select::make('frecuencia')
+                ->label('Frecuencia de Pago')
+                ->options([
+                    'semanal' => 'Semanal',
+                    'quincenal' => 'Quincenal', 
+                    'mensual' => 'Mensual'
+                ])
+                ->default('semanal')
+                ->reactive()
+                ->required()
+                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                    // Definir límites máximos según frecuencia
+                    $limites = [
+                        'semanal' => 52,
+                        'quincenal' => 26,
+                        'mensual' => 12
+                    ];
+                    
+                    $maxCuotas = $limites[$state] ?? 52;
+                    $cuotasActuales = $get('cantidad_cuotas');
+                    
+                    // Si las cuotas actuales exceden el límite, ajustar
+                    if ($cuotasActuales && $cuotasActuales > $maxCuotas) {
+                        $set('cantidad_cuotas', $maxCuotas);
+                        
+                        Notification::make()
+                            ->warning()
+                            ->title('Cantidad de cuotas ajustada')
+                            ->body("Se ajustó a {$maxCuotas} cuotas (máximo para frecuencia {$state})")
+                            ->send();
+                    }
+                })
+                ->disabled(fn() => !$puedeEditarCampos),
+
+            TextInput::make('cantidad_cuotas')
+                ->label('Cantidad de Cuotas')
+                ->numeric()
+                ->required()
+                ->minValue(1)
+                ->reactive()
+                ->rules(function (callable $get) {
+                    $frecuencia = $get('frecuencia') ?? 'semanal';
+                    $limites = [
+                        'semanal' => 52,
+                        'quincenal' => 26,
+                        'mensual' => 12
+                    ];
+                    $maxCuotas = $limites[$frecuencia];
+                    
+                    return ['max:' . $maxCuotas];
+                })
+                ->validationMessages([
+                    'max' => function (callable $get) {
+                        $frecuencia = $get('frecuencia') ?? 'semanal';
+                        $limites = [
+                            'semanal' => 52,
+                            'quincenal' => 26,
+                            'mensual' => 12
+                        ];
+                        $maxCuotas = $limites[$frecuencia];
+                        return "El máximo para frecuencia {$frecuencia} es {$maxCuotas} cuotas (1 año).";
+                    }
+                ])
+                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                    $frecuencia = $get('frecuencia') ?? 'semanal';
+                    $limites = [
+                        'semanal' => 52,
+                        'quincenal' => 26,
+                        'mensual' => 12
+                    ];
+                    $maxCuotas = $limites[$frecuencia];
+                    
+                    if ($state && $state > $maxCuotas) {
+                        $set('cantidad_cuotas', $maxCuotas);
+                        
+                        Notification::make()
+                            ->warning()
+                            ->title('Límite de cuotas excedido')
+                            ->body("Se ajustó a {$maxCuotas} cuotas (máximo para frecuencia {$frecuencia} - 1 año)")
+                            ->send();
+                    }
+                })
+                ->helperText(function (callable $get) {
+                    $frecuencia = $get('frecuencia') ?? 'semanal';
+                    $limites = [
+                        'semanal' => 52,
+                        'quincenal' => 26,
+                        'mensual' => 12
+                    ];
+                    $maxCuotas = $limites[$frecuencia];
+                    return "💡 Máximo {$maxCuotas} cuotas para frecuencia {$frecuencia} (equivale a 1 año)";
+                })
+                ->disabled(fn() => !$puedeEditarCampos),
 
             DatePicker::make('fecha_prestamo')->required()->disabled(fn() => !$puedeEditarCampos),
-
-            Select::make('frecuencia')
-                ->options(['semanal' => 'Semanal', 'mensual' => 'Mensual (bloqueado)', 'quincenal' => 'Quincenal (bloqueado)'])
-                ->default('semanal')
-                ->disabled(fn() => !$puedeEditarCampos),
 
             Select::make('estado')
                 ->prefixIcon('heroicon-o-check-circle')
