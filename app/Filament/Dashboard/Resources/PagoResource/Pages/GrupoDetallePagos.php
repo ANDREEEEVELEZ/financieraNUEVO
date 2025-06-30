@@ -62,6 +62,8 @@ class GrupoDetallePagos extends Page implements HasTable
     {
         return $table
             ->query($this->getTableQuery())
+            // ===== HACER TODA LA FILA CLICKEABLE =====
+            ->recordAction('edit')
             ->columns([
                 Tables\Columns\TextColumn::make('cuotaGrupal.numero_cuota')
                     ->label('Cuota')
@@ -69,6 +71,17 @@ class GrupoDetallePagos extends Page implements HasTable
                     ->alignCenter()
                     ->badge()
                     ->color('primary'),
+                Tables\Columns\TextColumn::make('estado_pago')
+                    ->label('Estado')
+                    ->alignCenter()
+                    ->badge()
+                    ->color(fn ($state) => match(strtolower($state)) {
+                        'pendiente' => 'warning',
+                        'aprobado' => 'success',
+                        'rechazado' => 'danger',
+                        default => 'gray'
+                    }),
+
 
                 Tables\Columns\TextColumn::make('tipo_pago')
                     ->label('Tipo')
@@ -141,16 +154,6 @@ class GrupoDetallePagos extends Page implements HasTable
                     ->formatStateUsing(fn ($state) => $state === 'N/A' ? $state : 'S/. ' . number_format($state, 2))
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
 
-                Tables\Columns\TextColumn::make('estado_pago')
-                    ->label('Estado')
-                    ->alignCenter()
-                    ->badge()
-                    ->color(fn ($state) => match(strtolower($state)) {
-                        'pendiente' => 'warning',
-                        'aprobado' => 'success',
-                        'rechazado' => 'danger',
-                        default => 'gray'
-                    }),
 
                 Tables\Columns\TextColumn::make('observaciones')
                     ->label('Observaciones')
@@ -188,8 +191,61 @@ class GrupoDetallePagos extends Page implements HasTable
                     }),
             ])
             ->actions([
+                // ===== CAMBIO PRINCIPAL: SIEMPRE MOSTRAR LA ACCIÓN DE EDITAR =====
                 Tables\Actions\EditAction::make()
+                    ->label(function ($record) {
+                        // Cambiar el label dependiendo del estado
+                        return strtolower($record->estado_pago) === 'pendiente' ? 'Editar' : 'Ver Detalles';
+                    })
+                    ->icon(function ($record) {
+                        // Cambiar el icono dependiendo del estado
+                        return strtolower($record->estado_pago) === 'pendiente' ? 'heroicon-m-pencil-square' : 'heroicon-m-eye';
+                    })
+                    ->color(function ($record) {
+                        // Cambiar el color dependiendo del estado
+                        return strtolower($record->estado_pago) === 'pendiente' ? 'primary' : 'gray';
+                    })
                     ->form([
+                        \Filament\Forms\Components\Actions::make([
+    \Filament\Forms\Components\Actions\Action::make('aprobarPago')
+        ->label('Aprobar')
+        ->color('success')
+        ->visible(function ($livewire, $record) {
+            $user = Auth::user();
+            return strtolower($record->estado_pago) === 'pendiente' &&
+                   $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+        })
+       ->action(function ($livewire, $record) {
+    $record->aprobar(); // o rechazar()
+
+    \Filament\Notifications\Notification::make()
+        ->title('Pago aprobado correctamente') // o rechazado
+        ->success() // o danger()
+        ->send();
+
+   $livewire->dispatch('closeEditModal');
+}),
+
+
+    \Filament\Forms\Components\Actions\Action::make('rechazarPago')
+        ->label('Rechazar')
+        ->color('danger')
+        ->visible(function ($livewire, $record) {
+            $user = Auth::user();
+            return strtolower($record->estado_pago) === 'pendiente' &&
+                   $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+        })
+        ->action(function ($livewire, $record) {
+            $record->rechazar();
+            \Filament\Notifications\Notification::make()
+                ->title('Pago rechazado correctamente')
+                ->danger()
+                ->send();
+
+         $livewire->dispatch('closeEditModal');
+        }),
+])->columnSpanFull(),
+
                         \Filament\Forms\Components\Section::make('Información de la Cuota')
                             ->description('Datos de la cuota y saldos')
                             ->icon('heroicon-o-information-circle')
@@ -221,7 +277,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ->disabled()
                                             ->dehydrated(false),
                                     ]),
-                                
+
                                 \Filament\Forms\Components\Grid::make(2)
                                     ->schema([
                                         \Filament\Forms\Components\TextInput::make('monto_mora_pagada')
@@ -245,7 +301,12 @@ class GrupoDetallePagos extends Page implements HasTable
                             ->collapsed(false),
 
                         \Filament\Forms\Components\Section::make('Detalles del Pago')
-                            ->description('Información del pago a editar')
+                            ->description(function ($record) {
+                                // Cambiar la descripción según el estado
+                                return strtolower($record->estado_pago) === 'pendiente'
+                                    ? 'Información del pago a editar'
+                                    : 'Información del pago (Solo lectura)';
+                            })
                             ->icon('heroicon-o-credit-card')
                             ->schema([
                                 \Filament\Forms\Components\Grid::make(2)
@@ -259,20 +320,24 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ])
                                             ->required()
                                             ->reactive()
+                                            // ===== DESHABILITAR SI NO ESTÁ PENDIENTE =====
+                                            ->disabled(function ($record) {
+                                                return strtolower($record->estado_pago) !== 'pendiente';
+                                            })
                                             ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
                                                 if (!$record || !$record->cuotaGrupal) return;
-                                                
+
                                                 $cuota = $record->cuotaGrupal;
                                                 $montoCuota = floatval($cuota->monto_cuota_grupal);
                                                 $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                                
+
                                                 $pagosAprobados = $cuota->pagos()
                                                     ->where('estado_pago', 'aprobado')
                                                     ->where('id', '!=', $record->id)
                                                     ->sum('monto_pagado');
-                                                
+
                                                 $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                                                
+
                                                 if ($state === 'pago_completo') {
                                                     $set('monto_pagado', $saldoPendiente);
                                                 } elseif ($state === 'pago_parcial') {
@@ -287,22 +352,23 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ->numeric()
                                             ->required()
                                             ->minValue(0.01)
-                                            ->disabled(function (callable $get) {
-                                                return $get('tipo_pago') === 'pago_completo';
+                                            ->disabled(function (callable $get, $record) {
+                                                // Deshabilitar si no está pendiente O si es pago completo
+                                                return strtolower($record->estado_pago) !== 'pendiente' || $get('tipo_pago') === 'pago_completo';
                                             })
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
                                                 if (!$record || !$record->cuotaGrupal || $get('tipo_pago') === 'pago_completo') return;
-                                                
+
                                                 $cuota = $record->cuotaGrupal;
                                                 $montoCuota = floatval($cuota->monto_cuota_grupal);
                                                 $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                                
+
                                                 $pagosAprobados = $cuota->pagos()
                                                     ->where('estado_pago', 'aprobado')
                                                     ->where('id', '!=', $record->id)
                                                     ->sum('monto_pagado');
-                                                
+
                                                 $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
                                                 $montoPagado = floatval($state ?? 0);
 
@@ -312,19 +378,19 @@ class GrupoDetallePagos extends Page implements HasTable
                                             })
                                             ->helperText(function (callable $get, $record) {
                                                 if (!$record || !$record->cuotaGrupal) return null;
-                                                
+
                                                 $cuota = $record->cuotaGrupal;
                                                 $montoCuota = floatval($cuota->monto_cuota_grupal);
                                                 $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                                
+
                                                 $pagosAprobados = $cuota->pagos()
                                                     ->where('estado_pago', 'aprobado')
                                                     ->where('id', '!=', $record->id)
                                                     ->sum('monto_pagado');
-                                                
+
                                                 $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                                                
-                                                if ($saldoPendiente > 0) {
+
+                                                if ($saldoPendiente > 0 && strtolower($record->estado_pago) === 'pendiente') {
                                                     return '💡 Máximo: S/. ' . number_format($saldoPendiente, 2);
                                                 }
                                                 return null;
@@ -333,24 +399,24 @@ class GrupoDetallePagos extends Page implements HasTable
                                                 function (callable $get, $record) {
                                                     return function (string $attribute, $value, \Closure $fail) use ($get, $record) {
                                                         if (!$record || !$record->cuotaGrupal) return;
-                                                        
+
                                                         $cuota = $record->cuotaGrupal;
                                                         $montoCuota = floatval($cuota->monto_cuota_grupal);
                                                         $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                                        
+
                                                         $pagosAprobados = $cuota->pagos()
                                                             ->where('estado_pago', 'aprobado')
                                                             ->where('id', '!=', $record->id)
                                                             ->sum('monto_pagado');
-                                                        
+
                                                         $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                                                        
+
                                                         if (floatval($value) > $saldoPendiente) {
-                                                            $fail("❌ El monto no puede ser mayor al saldo pendiente (S/. " . number_format($saldoPendiente, 2) . ")");
+                                                            $fail("El monto no puede ser mayor al saldo pendiente (S/. " . number_format($saldoPendiente, 2) . ")");
                                                         }
-                                                        
+
                                                         if (floatval($value) <= 0) {
-                                                            $fail("❌ El monto debe ser mayor a 0");
+                                                            $fail("El monto debe ser mayor a 0");
                                                         }
                                                     };
                                                 },
@@ -364,7 +430,11 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ->prefixIcon('heroicon-o-qr-code')
                                             ->required()
                                             ->maxLength(255)
-                                            ->placeholder('Ej: OP-12345678'),
+                                            ->placeholder('Ej: OP-12345678')
+                                            // ===== DESHABILITAR SI NO ESTÁ PENDIENTE =====
+                                            ->disabled(function ($record) {
+                                                return strtolower($record->estado_pago) !== 'pendiente';
+                                            }),
 
                                         \Filament\Forms\Components\DateTimePicker::make('fecha_pago')
                                             ->label('Fecha del Pago')
@@ -372,14 +442,32 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ->required()
                                             ->default(now())
                                             ->displayFormat('d/m/Y H:i')
-                                            ->seconds(false),
+                                            ->seconds(false)
+                                            // ===== DESHABILITAR SI NO ESTÁ PENDIENTE =====
+                                            ->disabled(function ($record) {
+                                                return strtolower($record->estado_pago) !== 'pendiente';
+                                            }),
                                     ]),
 
                                 \Filament\Forms\Components\Textarea::make('observaciones')
                                     ->label('💬 Observaciones')
                                     ->maxLength(500)
                                     ->rows(2)
-                                    ->placeholder('Agregar observaciones adicionales (opcional)...'),
+                                    ->placeholder('Agregar observaciones adicionales (opcional)...')
+                                    // ===== DESHABILITAR SI NO ESTÁ PENDIENTE =====
+                                    ->disabled(function ($record) {
+                                        return strtolower($record->estado_pago) !== 'pendiente';
+                                    }),
+                                // ===== MOSTRAR ESTADO ACTUAL =====
+                                \Filament\Forms\Components\TextInput::make('estado_pago')
+                                    ->label('Estado Actual')
+                                    ->prefixIcon('heroicon-o-flag')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->visible(function ($record) {
+                                        return strtolower($record->estado_pago) !== 'pendiente';
+                                    }),
+
                             ])
                             ->collapsible()
                             ->collapsed(false),
@@ -388,42 +476,38 @@ class GrupoDetallePagos extends Page implements HasTable
                         $data['grupo_id'] = $record->cuotaGrupal?->prestamo?->grupo?->id;
                         $data['numero_cuota'] = $record->cuotaGrupal?->numero_cuota;
                         $data['monto_cuota'] = $record->cuotaGrupal?->monto_cuota_grupal;
-                        $data['monto_mora_pagada'] = $record->cuotaGrupal && $record->cuotaGrupal->mora 
-                            ? abs($record->cuotaGrupal->mora->monto_mora_calculado) 
+                        $data['monto_mora_pagada'] = $record->cuotaGrupal && $record->cuotaGrupal->mora
+                            ? abs($record->cuotaGrupal->mora->monto_mora_calculado)
                             : 0;
-                        
+
                         // Calcular saldo pendiente (excluyendo el pago actual que se está editando)
                         if ($record->cuotaGrupal) {
                             $cuota = $record->cuotaGrupal;
                             $montoCuota = floatval($cuota->monto_cuota_grupal);
                             $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                            
+
                             $pagosAprobados = $cuota->pagos()
                                 ->where('estado_pago', 'aprobado')
                                 ->where('id', '!=', $record->id)
                                 ->sum('monto_pagado');
-                            
+
                             $data['saldo_pendiente_actual'] = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
                         } else {
                             $data['saldo_pendiente_actual'] = 0;
                         }
-                        
+
                         return $data;
                     })
+                    // ===== CAMBIO: MOSTRAR SIEMPRE, PERO CONTROLAR PERMISOS =====
                     ->visible(function ($record) {
                         $user = Auth::user();
 
-                        // Solo mostrar si el pago está pendiente
-                        if (strtolower($record->estado_pago) !== 'pendiente') {
-                            return false;
+                        // Super admin y jefes pueden ver todos los pagos
+                        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones'])) {
+                            return true;
                         }
 
-                        // Super admin y jefes no pueden editar
-                        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                            return false;
-                        }
-
-                        // Asesores solo pueden editar sus propios pagos
+                        // Asesores pueden ver/editar sus propios pagos
                         if ($user->hasRole('Asesor')) {
                             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
                             $grupo = $record->cuotaGrupal?->prestamo?->grupo;
@@ -431,6 +515,25 @@ class GrupoDetallePagos extends Page implements HasTable
                         }
 
                         return false;
+                    })
+                    // ===== PREVENIR GUARDADO SI NO ESTÁ PENDIENTE =====
+                    ->action(function ($record, array $data) {
+                        // Solo permitir edición si el pago está pendiente
+                        if (strtolower($record->estado_pago) === 'pendiente') {
+                            $record->update($data);
+
+                            Notification::make()
+                                ->title('Pago actualizado correctamente')
+                                ->success()
+                                ->send();
+                        } else {
+                            // Si no está pendiente, no hacer nada (solo mostrar información)
+                            Notification::make()
+                                ->title('Información mostrada')
+                                ->body('Este pago ya fue procesado y no se puede editar.')
+                                ->info()
+                                ->send();
+                        }
                     }),
 
                 Tables\Actions\Action::make('aprobar')
@@ -449,7 +552,9 @@ class GrupoDetallePagos extends Page implements HasTable
                             ->title('Pago aprobado correctamente')
                             ->success()
                             ->send();
+
                     }),
+
 
                 Tables\Actions\Action::make('rechazar')
                     ->label('Rechazar')
@@ -520,6 +625,13 @@ class GrupoDetallePagos extends Page implements HasTable
                 }),
         ];
     }
+
+    protected $listeners = ['closeEditModal' => 'closeEditActionModal'];
+
+public function closeEditActionModal()
+{
+    $this->dispatch('closeEditAction');
+}
 
     public function getTitle(): string
     {
