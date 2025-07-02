@@ -22,7 +22,7 @@ use App\Models\Retanqueo;
 use App\Models\RetanqueoIndividual;
 use App\Models\CuotasGrupales;
 use App\Models\GrupoCliente;
-use App\Models\Asesor; 
+use App\Models\Asesor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Filament\Forms\Components\View;
@@ -418,6 +418,21 @@ Reglas clave para responder sobre pagos:
 - Si no hay pagos aprobados en el mes consultado, responde “Tus grupos no registran pagos aprobados en ese mes.”
 EOT;
 
+$reglasGenerales = <<<EOT
+⚠️ Reglas estrictas:
+- Nunca inventes nombres de columnas. Usa únicamente los que aparecen exactamente en el esquema.
+- No utilices campos genéricos como "monto", "valor", "nombre_cliente", si no están definidos.
+- Usa las siguientes equivalencias para evitar confusión:
+    - "monto prestado" → `monto_prestado_individual`
+    - "monto total del préstamo grupal" → `monto_prestado_total`
+    - "monto de la cuota grupal" → `monto_cuota_grupal`
+    - "monto pagado" → `monto_pagado`
+- Si el usuario tiene rol asesor, no muestres datos de otros asesores.
+- No uses `ORDER BY ... LIMIT 1` si hay posibilidad de empate en el valor máximo.
+- Usa una subconsulta con `WHERE campo = (SELECT MAX(...))` para incluir todos los registros empatados.
+
+EOT;
+
 
  $ejemplosSQL = <<<EOT
 Ejemplos de consultas SQL:
@@ -544,6 +559,7 @@ Reglas de uso:
 - Las respuestas deben ser breves, claras y enfocadas en el objetivo del usuario.
 
 {$guiaRoles}
+{$reglasGenerales}
 
 {$comentario}
 

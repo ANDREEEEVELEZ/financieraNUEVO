@@ -199,9 +199,9 @@ class ListPagos extends ListRecords
                     ->label('Filtrar por Estado de Pagos')
                     ->options([
                         '' => 'Todos',
-                        'con_pendientes' => 'Con Pagos Pendientes',
-                        'solo_aprobados' => 'Solo Aprobados',
-                        'con_rechazados' => 'Con Rechazados',
+                        'solo_aprobados' => 'Aprobados',
+                        'con_pendientes' => 'Pendientes',
+                        'con_rechazados' => 'Rechazados',
                     ])
                     ->query(function (Builder $query, array $data) {
                         if (!isset($data['value']) || $data['value'] === '') {

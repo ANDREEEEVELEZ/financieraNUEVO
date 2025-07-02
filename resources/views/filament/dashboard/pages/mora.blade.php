@@ -112,9 +112,10 @@
                 <select name="estado_mora"
                     class="rounded-lg border border-blue-200 dark:border-blue-500 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 dark:bg-gray-900 dark:text-white transition">
                     <option value="">Todos</option>
+                       <option value="pagada" {{ request('estado_mora') == 'pagada' ? 'selected' : '' }}>Pagada</option>
+                        <option value="parcial" {{ request('estado_mora') == 'parcial' ? 'selected' : '' }}>Parcial</option>
                     <option value="pendiente" {{ request('estado_mora') == 'pendiente' ? 'selected' : '' }}>Pendiente</option>
-                    <option value="pagada" {{ request('estado_mora') == 'pagada' ? 'selected' : '' }}>Pagada</option>
-                    <option value="parcial" {{ request('estado_mora') == 'parcial' ? 'selected' : '' }}>Parcial</option>
+
                 </select>
             </div>
 
@@ -181,9 +182,10 @@
                     <label class="text-xs font-semibold mb-1 text-blue-700 dark:text-blue-200">Estado de mora</label>
                     <select name="estado_mora" class="rounded-lg border border-blue-200 dark:border-blue-500 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 dark:bg-gray-900 dark:text-white transition">
                         <option value="">Todos</option>
+                         <option value="pagada">Pagado</option>
+                         <option value="parcial">Parcial</option>
                         <option value="pendiente">Pendiente</option>
-                        <option value="pagada">Pagado</option>
-                        <option value="parcial">Parcial</option>
+
                     </select>
                 </div>
 
@@ -326,17 +328,47 @@
                             </div>
                         @else
                             <!-- Botón normal para otros roles -->
-                            <a href="{{ route('filament.dashboard.resources.pagos.create', ['cuota_grupal_id' => $cuota->id]) }}"
-                                class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow
-                                    bg-blue-100 hover:bg-blue-200 text-black
-                                    dark:bg-blue-500 dark:hover:bg-blue-600
-                                    border border-blue-700 dark:border-blue-400
-                                    transition duration-150 ease-in-out">
-                                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span class="text-black dark:text-white align-middle">Registrar pago</span>
-                            </a>
+                            @php
+                                // Validación: solo permitir registrar pago si no hay cuotas anteriores con saldo pendiente
+                                $puedeRegistrarPago = true;
+                                if ($cuota->prestamo) {
+                                    $cuotasAnteriores = $cuota->prestamo->cuotasGrupales
+                                        ->where('numero_cuota', '<', $cuota->numero_cuota)
+                                        ->sortBy('numero_cuota');
+                                    foreach ($cuotasAnteriores as $anterior) {
+                                        if ($anterior->saldoPendiente() > 0) {
+                                            $puedeRegistrarPago = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                            @endphp
+                            @if($puedeRegistrarPago)
+                                <a href="{{ route('filament.dashboard.resources.pagos.create', ['cuota_grupal_id' => $cuota->id]) }}"
+                                    class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow
+                                        bg-blue-100 hover:bg-blue-200 text-black
+                                        dark:bg-blue-500 dark:hover:bg-blue-600
+                                        border border-blue-700 dark:border-blue-400
+                                        transition duration-150 ease-in-out">
+                                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-black dark:text-white align-middle">Registrar pago</span>
+                                </a>
+                            @else
+                                <button type="button"
+                                    onclick="alert('No puedes registrar el pago de esta cuota porque existen cuotas anteriores con saldo pendiente. Debes pagar primero la cuota anterior.')"
+                                    class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg shadow
+                                        bg-gray-200 text-gray-500 cursor-not-allowed
+                                        border border-gray-400 dark:border-gray-600
+                                        transition duration-150 ease-in-out"
+                                    disabled>
+                                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-black dark:text-white align-middle">Registrar pago</span>
+                                </button>
+                            @endif
                         @endif
                     @elseif($cuota->mora && $cuota->mora->estado_mora === 'pagada')
                         <span class="inline-flex items-center px-3 py-1 rounded bg-green-100 text-green-800 font-semibold text-xs">

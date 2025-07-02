@@ -164,8 +164,8 @@ public function table(Table $table): Table
             Tables\Filters\SelectFilter::make('estado_pago')
                 ->label('Estado')
                 ->options([
-                    'Pendiente' => 'Pendiente',
                     'aprobado' => 'Aprobado',
+                    'Pendiente' => 'Pendiente',
                     'Rechazado' => 'Rechazado',
                 ]),
 

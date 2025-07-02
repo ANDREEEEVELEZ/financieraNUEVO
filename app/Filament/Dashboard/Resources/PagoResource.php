@@ -103,6 +103,33 @@ public static function form(Form $form): Form
                     ->orderBy('numero_cuota', 'asc')
                     ->get();
 
+                // Buscar la primera cuota con saldo pendiente
+                $primeraPendiente = $cuotas->first(function ($c) { return $c->saldoPendiente() > 0; });
+
+                // Si se está llegando desde el módulo de moras y ya hay una cuota seleccionada (por ejemplo, la 4), validar si hay anteriores pendientes
+                $cuotaSeleccionadaId = $get('cuota_grupal_id');
+                if ($cuotaSeleccionadaId) {
+                    $cuotaSeleccionada = $cuotas->firstWhere('id', $cuotaSeleccionadaId);
+                    if ($cuotaSeleccionada && $primeraPendiente && $cuotaSeleccionada->id != $primeraPendiente->id) {
+                        Notification::make()
+                            ->title('No puedes registrar el pago de esta cuota')
+                            ->body('Debes pagar primero la cuota anterior en mora o con saldo pendiente.')
+                            ->danger()
+                            ->persistent()
+                            ->send();
+                        $set('grupo_id', null);
+                        $set('cuota_grupal_id', null);
+                        $set('numero_cuota', null);
+                        $set('monto_cuota', null);
+                        $set('monto_mora_pagada', 0.00);
+                        $set('saldo_pendiente_actual', 0.00);
+                        $set('monto_pagado', 0.00);
+                        $set('tipo_pago', null);
+                        return;
+                    }
+                }
+
+                // Si no hay cuota seleccionada, o es la primera pendiente, setear normalmente
                 foreach ($cuotas as $cuota) {
                     if ($cuota->saldoPendiente() > 0) {
                         $set('cuota_grupal_id', $cuota->id);
@@ -110,18 +137,16 @@ public static function form(Form $form): Form
                         $set('monto_cuota', $cuota->monto_cuota_grupal);
                         $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
                         $set('saldo_pendiente_actual', $cuota->saldoPendiente());
-
                         $tipoPago = $get('tipo_pago');
                         if ($tipoPago === 'pago_completo') {
                             $set('monto_pagado', $cuota->saldoPendiente());
                         } else {
                             $set('monto_pagado', 0.00);
                         }
-
                         return;
                     }
                 }
-
+                // Si no hay cuotas pendientes
                 $set('cuota_grupal_id', null);
                 $set('numero_cuota', null);
                 $set('monto_cuota', null);
@@ -131,7 +156,7 @@ public static function form(Form $form): Form
                 $set('tipo_pago', null);
             })
             ->searchable()
-            ->required()
+           ->required()
             ->reactive()
             ->disabled(function ($record) {
                 $user = request()->user();
@@ -145,22 +170,7 @@ public static function form(Form $form): Form
 
         TextInput::make('numero_cuota')
             ->label('Número de Cuota')
-            ->disabled(function ($record, callable $get) {
-                $user = request()->user();
-
-                // Si es super_admin o jefe, siempre deshabilitar
-                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                    return true;
-                }
-
-                // Si estamos editando un registro existente, siempre deshabilitar
-                if ($record !== null) {
-                    return true;
-                }
-
-                // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
-                return $get('grupo_id') !== null;
-            })
+            ->disabled(true)
             ->prefixIcon('heroicon-o-hashtag')
             ->numeric()
             ->required()
@@ -175,22 +185,7 @@ public static function form(Form $form): Form
             ->label('Monto de la Cuota')
             ->prefix('S/.')
             ->numeric()
-            ->disabled(function ($record, callable $get) {
-                $user = request()->user();
-
-                // Si es super_admin o jefe, siempre deshabilitar
-                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                    return true;
-                }
-
-                // Si estamos editando un registro existente, siempre deshabilitar
-                if ($record !== null) {
-                    return true;
-                }
-
-                // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
-                return $get('grupo_id') !== null;
-            })
+            ->disabled(true)
             ->required()
             ->dehydrated()
             ->afterStateHydrated(function ($component, $state, $record) {
@@ -199,55 +194,36 @@ public static function form(Form $form): Form
                 }
             }),
 
-          TextInput::make('monto_mora_pagada')
+        TextInput::make('monto_mora_pagada')
             ->label('Monto de Mora Aplicado')
             ->prefix('S/.')
             ->numeric()
-            ->disabled(function ($record, callable $get) {
-                $user = request()->user();
-
-                // Si es super_admin o jefe, siempre deshabilitar
-                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                    return true;
-                }
-
-                // Si estamos editando un registro existente, siempre deshabilitar
-                if ($record !== null) {
-                    return true;
-                }
-
-                // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
-                return $get('grupo_id') !== null;
-            })
+            ->disabled(true)
             ->dehydrated(true)
-            ->default(0.00)
-            ->afterStateHydrated(function ($component, $state, $record) {
+            ->default(function (callable $get) {
+                $cuotaId = $get('cuota_grupal_id');
+                if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
+                    return $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0.00;
+                }
+                return 0.00;
+            })
+            ->afterStateHydrated(function ($component, $state, $record, callable $get) {
                 if ($record && $record->cuotaGrupal && $record->cuotaGrupal->mora) {
                     $component->state(abs($record->cuotaGrupal->mora->monto_mora_calculado));
                 } else {
-                    $component->state(0.00);
+                    $cuotaId = $get('cuota_grupal_id');
+                    if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
+                        $component->state($cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0.00);
+                    } else {
+                        $component->state(0.00);
+                    }
                 }
             }),
 
         TextInput::make('saldo_pendiente_actual')
             ->label('Saldo Pendiente')
             ->numeric()
-            ->disabled(function ($record, callable $get) {
-                $user = request()->user();
-
-                // Si es super_admin o jefe, siempre deshabilitar
-                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                    return true;
-                }
-
-                // Si estamos editando un registro existente, siempre deshabilitar
-                if ($record !== null) {
-                    return true;
-                }
-
-                // Si estamos creando y ya hay un grupo seleccionado, deshabilitar
-                return $get('grupo_id') !== null;
-            })
+            ->disabled(true)
             ->dehydrated(false)
             ->prefix('S/.')
             ->afterStateHydrated(function ($component, $state, $record, callable $get) {
@@ -301,7 +277,7 @@ public static function form(Form $form): Form
             ->prefix('S/.')
             ->numeric()
             ->minValue(0)
-            ->rules(['numeric', 'min:0'])
+            ->rules(['numeric', 'min:0.01'])
             ->extraAttributes([
                 'onkeydown' => "if (event.key === '-' || event.key === 'e') event.preventDefault();",
                 'inputmode' => 'decimal',
