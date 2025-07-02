@@ -24,18 +24,18 @@ class GrupoDetallePagos extends Page implements HasTable
 
     public Grupo $grupo;
 
-    // Cambiar el tipo de parámetro para aceptar tanto int como Grupo
+
     public function mount(int|Grupo $grupo): void
     {
-        // Si recibimos un ID (int), buscamos el grupo
+
         if (is_int($grupo)) {
             $this->grupo = Grupo::findOrFail($grupo);
         } else {
-            // Si recibimos el objeto Grupo directamente
+
             $this->grupo = $grupo;
         }
 
-        // Verificar permisos
+
         $user = Auth::user();
         if ($user->hasRole('Asesor')) {
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
@@ -57,194 +57,190 @@ class GrupoDetallePagos extends Page implements HasTable
             ])
             ->orderBy('created_at', 'desc');
     }
+public function table(Table $table): Table
+{
+    return $table
+        ->query($this->getTableQuery())
 
-    public function table(Table $table): Table
-    {
-        return $table
-            ->query($this->getTableQuery())
-            // ===== HACER TODA LA FILA CLICKEABLE =====
-            ->recordAction('edit')
-            ->columns([
-                Tables\Columns\TextColumn::make('cuotaGrupal.numero_cuota')
-                    ->label('Cuota')
-                    ->sortable()
-                    ->alignCenter()
-                    ->badge()
-                    ->color('primary'),
-                Tables\Columns\TextColumn::make('estado_pago')
-                    ->label('Estado')
-                    ->alignCenter()
-                    ->badge()
-                    ->color(fn ($state) => match(strtolower($state)) {
-                        'pendiente' => 'warning',
-                        'aprobado' => 'success',
-                        'rechazado' => 'danger',
-                        default => 'gray'
-                    }),
+        ->recordAction('edit')
+        ->columns([
+            Tables\Columns\TextColumn::make('cuotaGrupal.numero_cuota')
+                ->label('Cuota')
+                ->sortable()
+                ->alignCenter()
+                ->badge()
+                ->color('primary'),
+            Tables\Columns\TextColumn::make('estado_pago')
+                ->label('Estado')
+                ->alignCenter()
+                ->badge()
+                ->color(fn ($state) => match(strtolower($state)) {
+                    'pendiente' => 'warning',
+                    'aprobado' => 'success',
+                    'rechazado' => 'danger',
+                    default => 'gray'
+                }),
 
+            Tables\Columns\TextColumn::make('tipo_pago')
+                ->label('Tipo')
+                ->alignCenter()
+                ->badge()
+                ->color(fn ($state) => match($state) {
+                    'pago_completo' => 'success',
+                    'pago_parcial' => 'warning',
+                    default => 'gray'
+                }),
 
-                Tables\Columns\TextColumn::make('tipo_pago')
-                    ->label('Tipo')
-                    ->alignCenter()
-                    ->badge()
-                    ->color(fn ($state) => match($state) {
-                        'pago_completo' => 'success',
-                        'pago_parcial' => 'warning',
-                        default => 'gray'
-                    }),
+            Tables\Columns\TextColumn::make('codigo_operacion')
+                ->label('Código Operación')
+                ->searchable()
+                ->copyable()
+                ->copyMessage('Copiado!')
+                ->weight('medium'),
 
-                Tables\Columns\TextColumn::make('codigo_operacion')
-                    ->label('Código Operación')
-                    ->searchable()
-                    ->copyable()
-                    ->copyMessage('Copiado!')
-                    ->weight('medium'),
+            Tables\Columns\TextColumn::make('fecha_pago')
+                ->label('Fecha Pago')
+                ->dateTime('d/m/Y H:i')
+                ->sortable()
+                ->alignCenter(),
 
-                Tables\Columns\TextColumn::make('fecha_pago')
-                    ->label('Fecha Pago')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->alignCenter(),
+            Tables\Columns\TextColumn::make('cuotaGrupal.fecha_vencimiento')
+                ->label('Fecha Vencimiento')
+                ->date('d/m/Y')
+                ->sortable()
+                ->alignCenter(),
 
-                Tables\Columns\TextColumn::make('cuotaGrupal.fecha_vencimiento')
-                    ->label('Fecha Vencimiento')
-                    ->date('d/m/Y')
-                    ->sortable()
-                    ->alignCenter(),
+            Tables\Columns\TextColumn::make('cuotaGrupal.monto_cuota_grupal')
+                ->label('Monto Cuota')
+                ->money('PEN')
+                ->alignRight()
+                ->weight('medium'),
 
-                Tables\Columns\TextColumn::make('cuotaGrupal.monto_cuota_grupal')
-                    ->label('Monto Cuota')
-                    ->money('PEN')
-                    ->alignRight()
-                    ->weight('medium'),
+            Tables\Columns\TextColumn::make('monto_mora')
+                ->label('Mora')
+                ->money('PEN')
+                ->alignRight()
+                ->getStateUsing(function ($record) {
+                    return $record->cuotaGrupal && $record->cuotaGrupal->mora
+                        ? abs($record->cuotaGrupal->mora->monto_mora_calculado)
+                        : 0;
+                }),
 
-                Tables\Columns\TextColumn::make('monto_mora')
-                    ->label('Mora')
-                    ->money('PEN')
-                    ->alignRight()
-                    ->getStateUsing(function ($record) {
-                        return $record->cuotaGrupal && $record->cuotaGrupal->mora
-                            ? abs($record->cuotaGrupal->mora->monto_mora_calculado)
-                            : 0;
-                    }),
+            Tables\Columns\TextColumn::make('monto_pagado')
+                ->label('Monto Pagado')
+                ->money('PEN')
+                ->alignRight()
+                ->weight('bold')
+                ->color('success'),
 
-                Tables\Columns\TextColumn::make('monto_pagado')
-                    ->label('Monto Pagado')
-                    ->money('PEN')
-                    ->alignRight()
-                    ->weight('bold')
-                    ->color('success'),
+            Tables\Columns\TextColumn::make('saldo_pendiente')
+                ->label('Saldo Pendiente')
+                ->alignRight()
+                ->weight('medium')
+                ->getStateUsing(function ($record) {
+                    if ($record->estado_pago === 'Rechazado') {
+                        return 'N/A';
+                    }
 
-                Tables\Columns\TextColumn::make('saldo_pendiente')
-                    ->label('Saldo Pendiente')
-                    ->alignRight()
-                    ->weight('medium')
-                    ->getStateUsing(function ($record) {
-                        if ($record->estado_pago === 'Rechazado') {
-                            return 'N/A';
-                        }
+                    $cuota = $record->cuotaGrupal?->fresh();
+                    if (!$cuota) {
+                        return 0;
+                    }
 
-                        $cuota = $record->cuotaGrupal?->fresh();
-                        if (!$cuota) {
-                            return 0;
-                        }
+                    return $cuota->saldoPendiente();
+                })
+                ->formatStateUsing(fn ($state) => $state === 'N/A' ? $state : 'S/. ' . number_format($state, 2))
+                ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
 
-                        return $cuota->saldoPendiente();
-                    })
-                    ->formatStateUsing(fn ($state) => $state === 'N/A' ? $state : 'S/. ' . number_format($state, 2))
-                    ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
+            Tables\Columns\TextColumn::make('observaciones')
+                ->label('Observaciones')
+                ->limit(30)
+                ->tooltip(function ($record) {
+                    return $record->observaciones;
+                })
+                ->toggleable(),
+        ])
+        ->filters([
+            Tables\Filters\SelectFilter::make('estado_pago')
+                ->label('Estado')
+                ->options([
+                    'Pendiente' => 'Pendiente',
+                    'aprobado' => 'Aprobado',
+                    'Rechazado' => 'Rechazado',
+                ]),
 
+            Tables\Filters\SelectFilter::make('tipo_pago')
+                ->label('Tipo de Pago')
+                ->options([
+                    'pago_completo' => 'Pago Completo',
+                    'pago_parcial' => 'Pago Parcial',
+                ]),
 
-                Tables\Columns\TextColumn::make('observaciones')
-                    ->label('Observaciones')
-                    ->limit(30)
-                    ->tooltip(function ($record) {
-                        return $record->observaciones;
-                    })
-                    ->toggleable(),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('estado_pago')
-                    ->label('Estado')
-                    ->options([
-                        'Pendiente' => 'Pendiente',
-                        'aprobado' => 'Aprobado',
-                        'Rechazado' => 'Rechazado',
-                    ]),
-
-                Tables\Filters\SelectFilter::make('tipo_pago')
-                    ->label('Tipo de Pago')
-                    ->options([
-                        'pago_completo' => 'Pago Completo',
-                        'pago_parcial' => 'Pago Parcial',
-                    ]),
-
-                Tables\Filters\Filter::make('fecha_pago')
-                    ->form([
-                        \Filament\Forms\Components\DatePicker::make('from')->label('Desde'),
-                        \Filament\Forms\Components\DatePicker::make('until')->label('Hasta'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when($data['from'], fn ($q, $date) => $q->whereDate('fecha_pago', '>=', $date))
-                            ->when($data['until'], fn ($q, $date) => $q->whereDate('fecha_pago', '<=', $date));
-                    }),
-            ])
-            ->actions([
-                // ===== CAMBIO PRINCIPAL: SIEMPRE MOSTRAR LA ACCIÓN DE EDITAR =====
+            Tables\Filters\Filter::make('fecha_pago')
+                ->form([
+                    \Filament\Forms\Components\DatePicker::make('from')->label('Desde'),
+                    \Filament\Forms\Components\DatePicker::make('until')->label('Hasta'),
+                ])
+                ->query(function (Builder $query, array $data): Builder {
+                    return $query
+                        ->when($data['from'], fn ($q, $date) => $q->whereDate('fecha_pago', '>=', $date))
+                        ->when($data['until'], fn ($q, $date) => $q->whereDate('fecha_pago', '<=', $date));
+                }),
+        ])
+        ->actions([
+            Tables\Actions\ActionGroup::make([
                 Tables\Actions\EditAction::make()
                     ->label(function ($record) {
-                        // Cambiar el label dependiendo del estado
-                        return strtolower($record->estado_pago) === 'pendiente' ? 'Editar' : 'Ver Detalles';
+                        return 'Ver Detalles';
                     })
                     ->icon(function ($record) {
-                        // Cambiar el icono dependiendo del estado
-                        return strtolower($record->estado_pago) === 'pendiente' ? 'heroicon-m-pencil-square' : 'heroicon-m-eye';
+                        $user = Auth::user();
+                        $esPendiente = strtolower($record->estado_pago) === 'pendiente';
+                        $esAsesor = $user->hasRole('Asesor');
+                        return ($esPendiente && $esAsesor) ? 'heroicon-m-pencil-square' : 'heroicon-m-eye';
                     })
                     ->color(function ($record) {
-                        // Cambiar el color dependiendo del estado
-                        return strtolower($record->estado_pago) === 'pendiente' ? 'primary' : 'gray';
+                        $user = Auth::user();
+                        $esPendiente = strtolower($record->estado_pago) === 'pendiente';
+                        $esAsesor = $user->hasRole('Asesor');
+                        return ($esPendiente && $esAsesor) ? 'primary' : 'gray';
                     })
                     ->form([
                         \Filament\Forms\Components\Actions::make([
-    \Filament\Forms\Components\Actions\Action::make('aprobarPago')
-        ->label('Aprobar')
-        ->color('success')
-        ->visible(function ($livewire, $record) {
-            $user = Auth::user();
-            return strtolower($record->estado_pago) === 'pendiente' &&
-                   $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
-        })
-       ->action(function ($livewire, $record) {
-    $record->aprobar(); // o rechazar()
+                            \Filament\Forms\Components\Actions\Action::make('aprobarPago')
+                                ->label('Aprobar')
+                                ->color('success')
+                                ->visible(function ($livewire, $record) {
+                                    $user = Auth::user();
+                                    return strtolower($record->estado_pago) === 'pendiente' &&
+                                        $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                                })
+                                ->action(function ($livewire, $record) {
+                                    $record->aprobar();
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Pago aprobado correctamente')
+                                        ->success()
+                                        ->send();
+                                    $livewire->dispatch('closeEditModal');
+                                }),
 
-    \Filament\Notifications\Notification::make()
-        ->title('Pago aprobado correctamente') // o rechazado
-        ->success() // o danger()
-        ->send();
-
-   $livewire->dispatch('closeEditModal');
-}),
-
-
-    \Filament\Forms\Components\Actions\Action::make('rechazarPago')
-        ->label('Rechazar')
-        ->color('danger')
-        ->visible(function ($livewire, $record) {
-            $user = Auth::user();
-            return strtolower($record->estado_pago) === 'pendiente' &&
-                   $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
-        })
-        ->action(function ($livewire, $record) {
-            $record->rechazar();
-            \Filament\Notifications\Notification::make()
-                ->title('Pago rechazado correctamente')
-                ->danger()
-                ->send();
-
-         $livewire->dispatch('closeEditModal');
-        }),
-])->columnSpanFull(),
+                            \Filament\Forms\Components\Actions\Action::make('rechazarPago')
+                                ->label('Rechazar')
+                                ->color('danger')
+                                ->visible(function ($livewire, $record) {
+                                    $user = Auth::user();
+                                    return strtolower($record->estado_pago) === 'pendiente' &&
+                                        $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                                })
+                                ->action(function ($livewire, $record) {
+                                    $record->rechazar();
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Pago rechazado correctamente')
+                                        ->danger()
+                                        ->send();
+                                    $livewire->dispatch('closeEditModal');
+                                }),
+                        ])->columnSpanFull(),
 
                         \Filament\Forms\Components\Section::make('Información de la Cuota')
                             ->description('Datos de la cuota y saldos')
@@ -294,7 +290,21 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ->disabled()
                                             ->dehydrated(false)
                                             ->extraAttributes(['class' => 'font-bold text-red-600'])
-                                            ->helperText('💡 Saldo que queda por pagar de esta cuota'),
+                                            ->helperText('💡 Saldo que queda por pagar de esta cuota')
+                                            ->afterStateHydrated(function ($component, $state, $record) {
+                                                if ($record && $record->cuotaGrupal) {
+                                                    $cuota = $record->cuotaGrupal->fresh();
+                                                    $montoCuota = floatval($cuota->monto_cuota_grupal);
+                                                    $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                                                    $pagosAprobados = $cuota->pagos()
+                                                        ->where('estado_pago', 'aprobado')
+                                                        ->sum('monto_pagado');
+                                                    $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                    $component->state($saldoPendiente);
+                                                } else {
+                                                    $component->state(0);
+                                                }
+                                            }),
                                     ]),
                             ])
                             ->collapsible()
@@ -302,7 +312,7 @@ class GrupoDetallePagos extends Page implements HasTable
 
                         \Filament\Forms\Components\Section::make('Detalles del Pago')
                             ->description(function ($record) {
-                                // Cambiar la descripción según el estado
+
                                 return strtolower($record->estado_pago) === 'pendiente'
                                     ? 'Información del pago a editar'
                                     : 'Información del pago (Solo lectura)';
@@ -320,9 +330,12 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ])
                                             ->required()
                                             ->reactive()
-                                            // ===== DESHABILITAR SI NO ESTÁ PENDIENTE =====
+
                                             ->disabled(function ($record) {
-                                                return strtolower($record->estado_pago) !== 'pendiente';
+                                                $user = Auth::user();
+                                                $esPendiente = strtolower($record->estado_pago) === 'pendiente';
+                                                $esAsesor = $user->hasRole('Asesor');
+                                                return !($esPendiente && $esAsesor);
                                             })
                                             ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
                                                 if (!$record || !$record->cuotaGrupal) return;
@@ -353,8 +366,10 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ->required()
                                             ->minValue(0.01)
                                             ->disabled(function (callable $get, $record) {
-                                                // Deshabilitar si no está pendiente O si es pago completo
-                                                return strtolower($record->estado_pago) !== 'pendiente' || $get('tipo_pago') === 'pago_completo';
+                                                $user = Auth::user();
+                                                $esPendiente = strtolower($record->estado_pago) === 'pendiente';
+                                                $esAsesor = $user->hasRole('Asesor');
+                                                return !($esPendiente && $esAsesor) || $get('tipo_pago') === 'pago_completo';
                                             })
                                             ->live(onBlur: true)
                                             ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
@@ -431,9 +446,12 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ->required()
                                             ->maxLength(255)
                                             ->placeholder('Ej: OP-12345678')
-                                            // ===== DESHABILITAR SI NO ESTÁ PENDIENTE =====
+
                                             ->disabled(function ($record) {
-                                                return strtolower($record->estado_pago) !== 'pendiente';
+                                                $user = Auth::user();
+                                                $esPendiente = strtolower($record->estado_pago) === 'pendiente';
+                                                $esAsesor = $user->hasRole('Asesor');
+                                                return !($esPendiente && $esAsesor);
                                             }),
 
                                         \Filament\Forms\Components\DateTimePicker::make('fecha_pago')
@@ -443,9 +461,12 @@ class GrupoDetallePagos extends Page implements HasTable
                                             ->default(now())
                                             ->displayFormat('d/m/Y H:i')
                                             ->seconds(false)
-                                            // ===== DESHABILITAR SI NO ESTÁ PENDIENTE =====
+
                                             ->disabled(function ($record) {
-                                                return strtolower($record->estado_pago) !== 'pendiente';
+                                                $user = Auth::user();
+                                                $esPendiente = strtolower($record->estado_pago) === 'pendiente';
+                                                $esAsesor = $user->hasRole('Asesor');
+                                                return !($esPendiente && $esAsesor);
                                             }),
                                     ]),
 
@@ -454,11 +475,14 @@ class GrupoDetallePagos extends Page implements HasTable
                                     ->maxLength(500)
                                     ->rows(2)
                                     ->placeholder('Agregar observaciones adicionales (opcional)...')
-                                    // ===== DESHABILITAR SI NO ESTÁ PENDIENTE =====
+
                                     ->disabled(function ($record) {
-                                        return strtolower($record->estado_pago) !== 'pendiente';
+                                        $user = Auth::user();
+                                        $esPendiente = strtolower($record->estado_pago) === 'pendiente';
+                                        $esAsesor = $user->hasRole('Asesor');
+                                        return !($esPendiente && $esAsesor);
                                     }),
-                                // ===== MOSTRAR ESTADO ACTUAL =====
+
                                 \Filament\Forms\Components\TextInput::make('estado_pago')
                                     ->label('Estado Actual')
                                     ->prefixIcon('heroicon-o-flag')
@@ -469,7 +493,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                     }),
 
                             ])
-                            ->collapsible()
+                           // ->collapsible()
                             ->collapsed(false),
                     ])
                     ->mutateRecordDataUsing(function (array $data, $record): array {
@@ -480,7 +504,7 @@ class GrupoDetallePagos extends Page implements HasTable
                             ? abs($record->cuotaGrupal->mora->monto_mora_calculado)
                             : 0;
 
-                        // Calcular saldo pendiente (excluyendo el pago actual que se está editando)
+
                         if ($record->cuotaGrupal) {
                             $cuota = $record->cuotaGrupal;
                             $montoCuota = floatval($cuota->monto_cuota_grupal);
@@ -498,7 +522,7 @@ class GrupoDetallePagos extends Page implements HasTable
 
                         return $data;
                     })
-                    // ===== CAMBIO: MOSTRAR SIEMPRE, PERO CONTROLAR PERMISOS =====
+
                     ->visible(function ($record) {
                         $user = Auth::user();
 
@@ -507,7 +531,7 @@ class GrupoDetallePagos extends Page implements HasTable
                             return true;
                         }
 
-                        // Asesores pueden ver/editar sus propios pagos
+                        // Asesores pueden ver y editar sus propios pagos
                         if ($user->hasRole('Asesor')) {
                             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
                             $grupo = $record->cuotaGrupal?->prestamo?->grupo;
@@ -516,22 +540,23 @@ class GrupoDetallePagos extends Page implements HasTable
 
                         return false;
                     })
-                    // ===== PREVENIR GUARDADO SI NO ESTÁ PENDIENTE =====
-                    ->action(function ($record, array $data) {
-                        // Solo permitir edición si el pago está pendiente
-                        if (strtolower($record->estado_pago) === 'pendiente') {
-                            $record->update($data);
 
+                    ->action(function ($record, array $data) {
+                        $user = Auth::user();
+                        $esPendiente = strtolower($record->estado_pago) === 'pendiente';
+                        $esAsesor = $user->hasRole('Asesor');
+
+                        if ($esPendiente && $esAsesor) {
+                            $record->update($data);
                             Notification::make()
                                 ->title('Pago actualizado correctamente')
                                 ->success()
                                 ->send();
                         } else {
-                            // Si no está pendiente, no hacer nada (solo mostrar información)
                             Notification::make()
-                                ->title('Información mostrada')
-                                ->body('Este pago ya fue procesado y no se puede editar.')
-                                ->info()
+                                ->title('Acción no permitida')
+                                ->body('Solo los asesores pueden editar pagos pendientes.')
+                                ->warning()
                                 ->send();
                         }
                     }),
@@ -544,7 +569,7 @@ class GrupoDetallePagos extends Page implements HasTable
                     ->visible(function ($record) {
                         $user = Auth::user();
                         return strtolower($record->estado_pago) === 'pendiente' &&
-                               $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                            $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
                     })
                     ->action(function ($record) {
                         $record->aprobar();
@@ -552,9 +577,7 @@ class GrupoDetallePagos extends Page implements HasTable
                             ->title('Pago aprobado correctamente')
                             ->success()
                             ->send();
-
                     }),
-
 
                 Tables\Actions\Action::make('rechazar')
                     ->label('Rechazar')
@@ -564,7 +587,7 @@ class GrupoDetallePagos extends Page implements HasTable
                     ->visible(function ($record) {
                         $user = Auth::user();
                         return strtolower($record->estado_pago) === 'pendiente' &&
-                               $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                            $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
                     })
                     ->action(function ($record) {
                         $record->rechazar();
@@ -573,37 +596,38 @@ class GrupoDetallePagos extends Page implements HasTable
                             ->danger()
                             ->send();
                     }),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\BulkAction::make('aprobar_masivo')
-                        ->label('Aprobar Seleccionados')
-                        ->icon('heroicon-m-check-circle')
-                        ->color('success')
-                        ->visible(function () {
-                            $user = Auth::user();
-                            return $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
-                        })
-                        ->action(function ($records) {
-                            $aprobados = 0;
-                            foreach ($records as $record) {
-                                if (strtolower($record->estado_pago) === 'pendiente') {
-                                    $record->aprobar();
-                                    $aprobados++;
-                                }
+            ]),
+        ])
+        ->bulkActions([
+            Tables\Actions\BulkActionGroup::make([
+                Tables\Actions\BulkAction::make('aprobar_masivo')
+                    ->label('Aprobar Seleccionados')
+                    ->icon('heroicon-m-check-circle')
+                    ->color('success')
+                    ->visible(function () {
+                        $user = Auth::user();
+                        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                    })
+                    ->action(function ($records) {
+                        $aprobados = 0;
+                        foreach ($records as $record) {
+                            if (strtolower($record->estado_pago) === 'pendiente') {
+                                $record->aprobar();
+                                $aprobados++;
                             }
+                        }
 
-                            Notification::make()
-                                ->title("Se aprobaron {$aprobados} pagos")
-                                ->success()
-                                ->send();
-                        }),
-                ]),
-            ])
-            ->defaultSort('created_at', 'desc')
-            ->striped()
-            ->paginated([10, 25, 50]);
-    }
+                        Notification::make()
+                            ->title("Se aprobaron {$aprobados} pagos")
+                            ->success()
+                            ->send();
+                    }),
+            ]),
+        ])
+        ->defaultSort('created_at', 'desc')
+        ->striped()
+        ->paginated([10, 25, 50]);
+}
 
     protected function getHeaderActions(): array
     {

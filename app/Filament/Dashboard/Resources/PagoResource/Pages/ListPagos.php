@@ -3,6 +3,7 @@
 namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
 
 use App\Filament\Dashboard\Resources\PagoResource;
+use App\Filament\Dashboard\Resources\PagoResource\Widgets\PagosStatsWidget;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables;
@@ -128,7 +129,7 @@ class ListPagos extends ListRecords
                         $totalCuotas = $record->prestamos->sum(function ($prestamo) {
                             return $prestamo->cuotasGrupales->count();
                         });
-                        
+
                         $cuotasAprobadas = $record->prestamos->sum(function ($prestamo) {
                             return $prestamo->cuotasGrupales->filter(function ($cuota) {
                                 return $cuota->pagos->where('estado_pago', 'aprobado')->count() > 0;
@@ -158,27 +159,42 @@ class ListPagos extends ListRecords
                     }),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('asesor_id')
-                    ->label('Filtrar por Asesor')
-                    ->options(function () {
-                        $user = Auth::user();
-                        
-                        if ($user->hasRole('Asesor')) {
-                            return [];
-                        }
-                        
-                        return \App\Models\Asesor::with('user')
-                            ->get()
-                            ->pluck('user.name', 'id')
-                            ->prepend('Todos', '');
-                    })
+                // Mostrar filtro solo a super_admin y Jefe de operaciones
+                ...((Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones'])) ? [
+                    Tables\Filters\SelectFilter::make('asesor_id')
+                        ->label('Filtrar por Asesor')
+                        ->options(function () {
+                            return \App\Models\Asesor::with('user')
+                                ->get()
+                                ->pluck('user.name', 'id')
+                                ->prepend('Todos', '');
+                        })
+                        ->query(function (Builder $query, array $data) {
+                            if (isset($data['value']) && $data['value'] !== '') {
+                                return $query->where('asesor_id', $data['value']);
+                            }
+                            return $query;
+                        }),
+                ] : []),
+                // Filtro por rango de fecha de pagos
+                Tables\Filters\Filter::make('fecha_pago')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('from')->label('Desde'),
+                        \Filament\Forms\Components\DatePicker::make('until')->label('Hasta'),
+                    ])
                     ->query(function (Builder $query, array $data) {
-                        if (isset($data['value']) && $data['value'] !== '') {
-                            return $query->where('asesor_id', $data['value']);
+                        if (!empty($data['from'])) {
+                            $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) use ($data) {
+                                $q->whereDate('created_at', '>=', $data['from']);
+                            });
+                        }
+                        if (!empty($data['until'])) {
+                            $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) use ($data) {
+                                $q->whereDate('created_at', '<=', $data['until']);
+                            });
                         }
                         return $query;
                     }),
-
                 Tables\Filters\SelectFilter::make('estado_pagos')
                     ->label('Filtrar por Estado de Pagos')
                     ->options([
@@ -283,5 +299,10 @@ class ListPagos extends ListRecords
                     return redirect($url);
                 }),
         ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [PagosStatsWidget::class];
     }
 }
