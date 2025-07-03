@@ -49,14 +49,19 @@ class AsesorResource extends Resource
     ->prefixIcon('heroicon-o-identification')
     ->rule('regex:/^[0-9]{8}$/')
     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
-    ->mask('99999999'),
-            TextInput::make('nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u'),
-            TextInput::make('apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u'),
+    ->mask('99999999')
+    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+            TextInput::make('nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u')
+    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+            TextInput::make('apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u')
+    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
             Select::make('sexo')->label('Sexo')->required()->prefixIcon('heroicon-o-adjustments-horizontal')->options([
                 'Femenino' => 'Femenino',
                 'Masculino' => 'Masculino',
-            ])->native(false),
-            DatePicker::make('fecha_nacimiento')->label('Fecha de Nacimiento')->required()->prefixIcon('heroicon-o-calendar'),
+            ])->native(false)
+    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+            DatePicker::make('fecha_nacimiento')->label('Fecha de Nacimiento')->required()->prefixIcon('heroicon-o-calendar')
+    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
             TextInput::make('celular')
     ->label('Celular')
     ->maxLength(9)
@@ -91,7 +96,8 @@ class AsesorResource extends Resource
                     Tabs\Tab::make('Datos de Usuario')->icon('heroicon-o-cog-6-tooth')
                         ->schema([
                             Forms\Components\Group::make([
-                                TextInput::make('name')->label('Nombre de Usuario')->required()  ->prefixIcon('heroicon-o-user'),
+                                TextInput::make('name')->label('Nombre de Usuario')->required()  ->prefixIcon('heroicon-o-user')
+    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 TextInput::make('email')->label('Correo')->email()->required() ->prefixIcon('heroicon-o-envelope'),
                                 TextInput::make('password')
                                 ->prefixIcon('heroicon-o-lock-closed')
