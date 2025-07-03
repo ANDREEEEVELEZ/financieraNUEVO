@@ -82,7 +82,6 @@ GRUPO_CLIENTE   ↓    PRESTAMO_INDIVIDUAL
             INGRESOS
                 
 CATEGORIAS ←→ SUBCATEGORIAS ←→ EGRESOS
-RETANQUEOS ←→ RETANQUEO_INDIVIDUAL
 ```
 
 ### **Descripción Detallada de Tablas**
@@ -269,34 +268,6 @@ RETANQUEOS ←→ RETANQUEO_INDIVIDUAL
 - prestamo_id (FK a prestamos, nullable)
 - categoria_id (FK a categorias, nullable)
 - subcategoria_id (FK a subcategorias, nullable)
-```
-
-#### **5. MÓDULO DE RETANQUEOS**
-
-##### **`retanqueos`** - Retanqueos grupales
-```sql
-- id (PK)
-- prestamo_id (FK a prestamos)
-- grupo_id (FK a grupos)
-- asesor_id (FK a asesores)
-- monto_retanqueado
-- monto_devolver
-- monto_desembolsar
-- cantidad_cuotas_retanqueo
-- aceptado
-- fecha_aceptacion
-- estado_retanqueo
-```
-
-##### **`retanqueo_individual`** - Retanqueos individuales
-```sql
-- id (PK)
-- retanqueo_id (FK a retanqueos)
-- cliente_id (FK a clientes)
-- monto_solicitado
-- monto_desembolsar
-- monto_cuota_retanqueo
-- estado_retanqueo_individual
 ```
 
 #### **6. MÓDULO DE ASISTENTE VIRTUAL**

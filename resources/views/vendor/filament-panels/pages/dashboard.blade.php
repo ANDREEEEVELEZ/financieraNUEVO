@@ -243,39 +243,6 @@ try {
     \Log::error('Error loading personas for dashboard: ' . $e->getMessage());
 }
 
-try {
-    // Retanqueos con más detalles
-    $retanqueosQuery = \App\Models\Retanqueo::with(['grupo.asesor.persona']);
-    if (!$canViewAllActivity && $asesorId) {
-        $retanqueosQuery->where('asesor_id', $asesorId);
-    } elseif ($canViewAllActivity && $asesorId) {
-        $retanqueosQuery->where('asesor_id', $asesorId);
-    }
-    $retanqueos = $retanqueosQuery->select('id', 'grupo_id', 'created_at', 'updated_at', 'asesor_id', 'monto_retanqueado', 'estado')
-        ->orderBy('updated_at', 'desc')
-        ->limit(10)
-        ->get()->map(function($r) {
-        $nombreGrupo = optional($r->grupo)->nombre_grupo ?? 'Grupo no encontrado';
-        $nombreAsesor = optional($r->grupo->asesor->persona ?? null)->nombre . ' ' . optional($r->grupo->asesor->persona ?? null)->apellidos;
-        $monto = $r->monto_retanqueado ? 'S/ ' . number_format($r->monto_retanqueado, 2) : 'Sin monto';
-        $estado = $r->estado ?? 'Sin estado';
-        
-        return [
-            'modulo' => 'Retanqueo',
-            'nombre' => "Retanqueo - {$nombreGrupo}",
-            'detalle' => "{$monto} | Estado: {$estado}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
-            'accion' => $r->created_at == $r->updated_at ? 'Creado' : 'Modificado',
-            'fecha' => $r->created_at == $r->updated_at ? $r->created_at : $r->updated_at,
-            'icono' => 'refresh',
-            'color' => $r->created_at == $r->updated_at ? 'bg-pink-50 text-pink-600 border-pink-200' : 'bg-amber-50 text-amber-600 border-amber-200',
-            'bg_gradient' => $r->created_at == $r->updated_at ? 'from-pink-50 to-pink-100' : 'from-amber-50 to-amber-100',
-            'url' => route('filament.dashboard.resources.retanqueos.edit', $r->id),
-        ];
-    });
-    $movimientos = $movimientos->concat($retanqueos);
-} catch (\Exception $e) {
-    \Log::error('Error loading retanqueos for dashboard: ' . $e->getMessage());
-}
 
 try {
     // Préstamos Individuales con más detalles
@@ -317,45 +284,6 @@ try {
     \Log::error('Error loading prestamos individuales for dashboard: ' . $e->getMessage());
 }
 
-try {
-    // Retanqueos Individuales con más detalles
-    $retanqueosIndividualesQuery = \App\Models\RetanqueoIndividual::with(['cliente.persona', 'cliente.asesor.persona', 'retanqueo.grupo']);
-    if (!$canViewAllActivity && $asesorId) {
-        $retanqueosIndividualesQuery->whereHas('cliente', function($query) use ($asesorId) {
-            $query->where('asesor_id', $asesorId);
-        });
-    } elseif ($canViewAllActivity && $asesorId) {
-        $retanqueosIndividualesQuery->whereHas('cliente', function($query) use ($asesorId) {
-            $query->where('asesor_id', $asesorId);
-        });
-    }
-    $retanqueosIndividuales = $retanqueosIndividualesQuery->select('id', 'retanqueo_id', 'cliente_id', 'created_at', 'updated_at', 'monto_solicitado', 'monto_desembolsar', 'estado_retanqueo_individual')
-        ->orderBy('updated_at', 'desc')
-        ->limit(10)
-        ->get()->map(function($ri) {
-        $nombreCliente = optional($ri->cliente->persona ?? null)->nombre . ' ' . optional($ri->cliente->persona ?? null)->apellidos;
-        $nombreGrupo = optional($ri->retanqueo->grupo ?? null)->nombre_grupo ?? 'Grupo no encontrado';
-        $nombreAsesor = optional($ri->cliente->asesor->persona ?? null)->nombre . ' ' . optional($ri->cliente->asesor->persona ?? null)->apellidos;
-        $montoSolicitado = $ri->monto_solicitado ? 'Solicitado: S/ ' . number_format($ri->monto_solicitado, 2) : 'Sin monto solicitado';
-        $montoDesembolsar = $ri->monto_desembolsar ? ' | Desembolsar: S/ ' . number_format($ri->monto_desembolsar, 2) : '';
-        $estado = $ri->estado_retanqueo_individual ?? 'Sin estado';
-        
-        return [
-            'modulo' => 'Retanqueo Individual',
-            'nombre' => "{$nombreCliente} - {$nombreGrupo}",
-            'detalle' => "{$montoSolicitado}{$montoDesembolsar} | Estado: {$estado}" . ($nombreAsesor ? " | Asesor: {$nombreAsesor}" : ""),
-            'accion' => $ri->created_at == $ri->updated_at ? 'Creado' : 'Modificado',
-            'fecha' => $ri->created_at == $ri->updated_at ? $ri->created_at : $ri->updated_at,
-            'icono' => 'arrow-path',
-            'color' => $ri->created_at == $ri->updated_at ? 'bg-teal-50 text-teal-600 border-teal-200' : 'bg-amber-50 text-amber-600 border-amber-200',
-            'bg_gradient' => $ri->created_at == $ri->updated_at ? 'from-teal-50 to-teal-100' : 'from-amber-50 to-amber-100',
-            'url' => '#', // Aquí puedes agregar la URL si tienes un recurso para retanqueos individuales
-        ];
-    });
-    $movimientos = $movimientos->concat($retanqueosIndividuales);
-} catch (\Exception $e) {
-    \Log::error('Error loading retanqueos individuales for dashboard: ' . $e->getMessage());
-}
 
 // Ordenar por fecha descendente y tomar solo las últimas 20 (aumentamos a 20)
 $movimientos = $movimientos->sortByDesc('fecha')->take(20)->values(); // Agregamos values() para reindexar

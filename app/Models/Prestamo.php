@@ -52,10 +52,6 @@ class Prestamo extends Model
         return $this->hasMany(Egreso::class);
     }
 
-    public function retanqueos()
-    {
-        return $this->hasMany(Retanqueo::class);
-    }
 
     public function scopeVisiblePorUsuario($query, $user)
     {

@@ -71,18 +71,9 @@
                         <div class="text-3xl font-black text-amber-900 dark:text-amber-200">{{ $totalPrestamos ?? '0' }}</div>
                         <div class="text-sm text-green-700 dark:text-green-300 font-semibold mt-1">Total de Préstamos</div>
                     </div>
-                    <!-- Total de Retanqueos
+                
 
-                    <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-lg p-4 flex flex-col items-center group transition-transform hover:-translate-y-1 hover:shadow-2xl duration-200">
-                        <div class="absolute top-2 right-2 opacity-10 group-hover:opacity-20 text-5xl pointer-events-none select-none">
-                            <svg class="w-10 h-10 text-yellow-400 dark:text-yellow-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3" /></svg>
-                        </div>
-                        <div class="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-800 mb-2">
-                            <svg class="w-7 h-7 text-yellow-600 dark:text-yellow-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3" /></svg>
-                        </div>
-                        <div class="text-3xl font-black text-yellow-900 dark:text-yellow-200">{{ $totalRetanqueos ?? '0' }}</div>
-                        <div class="text-sm text-yellow-700 dark:text-yellow-300 font-semibold mt-1">Total de Retanqueos</div>
-                    </div>
+               
                      -->
                     <!-- Total de Pagos Registrados -->
                     <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-lg p-4 flex flex-col items-center group transition-transform hover:-translate-y-1 hover:shadow-2xl duration-200">

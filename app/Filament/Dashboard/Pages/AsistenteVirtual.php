@@ -18,8 +18,7 @@ use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
 use App\Models\DetallePago;
 use App\Models\Mora;
-use App\Models\Retanqueo;
-use App\Models\RetanqueoIndividual;
+
 use App\Models\CuotasGrupales;
 use App\Models\GrupoCliente;
 use App\Models\Asesor;

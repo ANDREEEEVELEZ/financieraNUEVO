@@ -8,7 +8,6 @@ use App\Models\Mora;
 use App\Models\Pago;
 use App\Models\Cliente;
 use App\Models\Prestamo;
-use App\Models\Retanqueo;
 use App\Models\CuotasGrupales;
 
 use App\Models\Asesor as AsesorModel;
