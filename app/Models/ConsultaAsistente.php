@@ -17,9 +17,7 @@ class ConsultaAsistente extends Model
         'respuesta',
     ];
 
-    /**
-     * Relación con el modelo User
-     */
+
     public function user()
     {
         return $this->belongsTo(User::class);

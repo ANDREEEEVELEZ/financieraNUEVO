@@ -36,9 +36,9 @@ class AsesorPage  extends Page
             $clientesQuery->whereDate('created_at', '<=', $hasta);
         }
 
-        $gruposQueryBase = Grupo::query(); // ← esta será la base SIN filtro por fecha
+        $gruposQueryBase = Grupo::query();
 
-        $gruposQuery = (clone $gruposQueryBase); // ← esta sí tendrá filtro para totalGrupos
+        $gruposQuery = (clone $gruposQueryBase);
 
         if ($desde) {
             $gruposQuery->whereDate('created_at', '>=', $desde);
@@ -48,7 +48,7 @@ class AsesorPage  extends Page
         }
 
 
-        // Si es un asesor, filtrar por su ID
+
         if ($user->hasRole('Asesor')) {
             $asesor = AsesorModel::where('user_id', $user->id)->first();
             if ($asesor) {
@@ -62,7 +62,7 @@ class AsesorPage  extends Page
             }
         }
 
-        // Aplicar filtros de fecha si existen
+
         if ($desde) {
             $prestamosQuery->whereDate('created_at', '>=', $desde);
         }
@@ -70,18 +70,17 @@ class AsesorPage  extends Page
             $prestamosQuery->whereDate('created_at', '<=', $hasta);
         }
 
-        // Obtener IDs de préstamos una sola vez para reutilizar
         $prestamoIds = $prestamosQuery->pluck('id')->toArray();
 
-        // Conteos básicos
+
         $totalClientes = $clientesQuery->count();
         $totalGrupos = $gruposQuery->count();
         $totalPrestamos = count($prestamoIds);
 
-        // CORREGIDO: Estadísticas de cuotas basadas en estado_cuota_grupal
+
         $cuotasQuery = CuotasGrupales::whereIn('prestamo_id', $prestamoIds);
 
-        // Aplicar filtros de fecha a las cuotas si existen
+
         if ($desde) {
             $cuotasQuery->whereDate('fecha_vencimiento', '>=', $desde);
         }
@@ -89,12 +88,12 @@ class AsesorPage  extends Page
             $cuotasQuery->whereDate('fecha_vencimiento', '<=', $hasta);
         }
 
-        // Contar cuotas por estado real de la cuota
+
         $cuotasVigentes = (clone $cuotasQuery)->where('estado_cuota_grupal', 'vigente')->count();
         $cuotasEnMora = (clone $cuotasQuery)->where('estado_cuota_grupal', 'mora')->count();
         $cuotasCanceladas = (clone $cuotasQuery)->where('estado_cuota_grupal', 'cancelada')->count();
 
-        // Calcular monto total de mora de forma más eficiente
+
         $cuotasConMora = (clone $cuotasQuery)->with('mora')
             ->where('estado_cuota_grupal', 'mora')
             ->whereHas('mora', function ($q) {
@@ -109,7 +108,7 @@ class AsesorPage  extends Page
             $q->whereIn('prestamo_id', $prestamoIds);
         })->count();
 
-        // Estadísticas de pagos - optimizado
+
         $pagosQuery = Pago::whereHas('cuotaGrupal', function ($q) use ($prestamoIds) {
             $q->whereIn('prestamo_id', $prestamoIds);
         });
@@ -119,21 +118,20 @@ class AsesorPage  extends Page
         $pagosPendientes = (clone $pagosQuery)->where('estado_pago', 'Pendiente')->count();
         $pagosRechazados = (clone $pagosQuery)->where('estado_pago', 'Rechazado')->count();
 
-        // CORREGIDO: Datos para gráfico de estado de cuotas (basado en estado_cuota_grupal)
+
         $cuotasEstadosBar = [
             'Vigentes' => $cuotasVigentes,
             'En Mora' => $cuotasEnMora,
             'Canceladas' => $cuotasCanceladas,
         ];
 
-        // Datos para gráfico de pagos (separado del anterior)
+
         $pagosPie = [
             'Aprobados' => $pagosAprobados,
             'Pendientes' => $pagosPendientes,
             'Rechazados' => $pagosRechazados,
         ];
 
-        // Obtener pagos por fecha con MONTO TOTAL
         $pagosPorFecha = (clone $pagosQuery)
             ->where('estado_pago', 'Aprobado')
             ->selectRaw('DATE(fecha_pago) as fecha, SUM(monto_pagado) as total')
@@ -144,7 +142,7 @@ class AsesorPage  extends Page
                 return (float) $monto;
             });
 
-        // Optimizar consulta de grupos con filtro de fechas en cuotas vencidas
+
         $gruposEnMoraQuery = $gruposQueryBase->with([
             'clientes',
             'prestamos' => function($query) {
@@ -165,14 +163,14 @@ class AsesorPage  extends Page
             $prestamoPrincipal = $grupo->prestamos->first();
 
             if ($prestamoPrincipal) {
-                // CORREGIDO: Verificar que tiene cuotas con estado_cuota_grupal = 'mora'
+
                 $tieneCuotaEnMora = $prestamoPrincipal->cuotasGrupales->contains(function($cuota) use ($desde, $hasta) {
-                    // Verificar que la cuota está en mora según estado_cuota_grupal
+
                     if ($cuota->estado_cuota_grupal !== 'mora') {
                         return false;
                     }
 
-                    // Si hay filtros de fecha, verificar que la fecha de vencimiento esté en el rango
+
                     if ($desde && $cuota->fecha_vencimiento < $desde) {
                         return false;
                     }
@@ -191,12 +189,12 @@ class AsesorPage  extends Page
             $numeroIntegrantes = $grupo->clientes->count();
             $prestamoPrincipal = $grupo->prestamos->first();
 
-            // Calcular el monto total de mora para este grupo
+
             $montoMoraGrupo = 0;
             if ($prestamoPrincipal) {
                 foreach ($prestamoPrincipal->cuotasGrupales as $cuota) {
                     if ($cuota->estado_cuota_grupal === 'mora' && $cuota->mora && $cuota->mora->estado_mora === 'pendiente') {
-                        // Verificar filtros de fecha en fecha de vencimiento
+
                         $incluirCuota = true;
                         if ($desde && $cuota->fecha_vencimiento < $desde) {
                             $incluirCuota = false;
@@ -222,7 +220,7 @@ class AsesorPage  extends Page
             return $grupo['monto_mora'] > 0;
         })->sortByDesc('monto_mora');
 
-        // Calcular mora por grupo con filtro de fechas
+
         $moraPorGrupo = $gruposQueryBase->with(['prestamos.cuotasGrupales' => function($query) use ($desde, $hasta) {
                 if ($desde) {
                     $query->whereDate('fecha_vencimiento', '>=', $desde);
@@ -237,7 +235,7 @@ class AsesorPage  extends Page
                 foreach ($grupo->prestamos as $prestamo) {
                     foreach ($prestamo->cuotasGrupales as $cuota) {
                         if ($cuota->estado_cuota_grupal === 'mora' && $cuota->mora && $cuota->mora->estado_mora === 'pendiente') {
-                            // Verificar filtros de fecha en fecha de vencimiento
+
                             $incluirCuota = true;
                             if ($desde && $cuota->fecha_vencimiento < $desde) {
                                 $incluirCuota = false;
@@ -268,7 +266,7 @@ class AsesorPage  extends Page
             'totalPrestamos' => $totalPrestamos,
             'totalPagosRegistrados' => $totalPagosRegistrados,
             'totalMorasHistoricas' => $totalMorasHistoricas,
-            // CORREGIDO: Variables separadas para cuotas y pagos
+
             'cuotasVigentes' => $cuotasVigentes,
             'cuotasEnMora' => $cuotasEnMora,
             'cuotasCanceladas' => $cuotasCanceladas,
@@ -276,9 +274,9 @@ class AsesorPage  extends Page
             'pagosAprobados' => $pagosAprobados,
             'pagosPendientes' => $pagosPendientes,
             'pagosRechazados' => $pagosRechazados,
-            'cuotasEstadosBar' => $cuotasEstadosBar, // Ahora basado en estado_cuota_grupal
+            'cuotasEstadosBar' => $cuotasEstadosBar,
             'pagosPorFecha' => $pagosPorFecha,
-            'pagosPie' => $pagosPie, // Separado para pagos
+            'pagosPie' => $pagosPie, 
             'grupos' => $gruposEnMora,
             'moraPorGrupo' => $moraPorGrupo,
         ];

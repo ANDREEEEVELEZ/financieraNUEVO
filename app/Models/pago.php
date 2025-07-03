@@ -38,25 +38,19 @@ class Pago extends Model
 
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
     }
-    /**
-     * Relación con el modelo Ingreso
-     */
+
     public function ingreso(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Ingreso::class);
     }
 
-    /**
-     * Verificar si el pago ya tiene un ingreso asociado
-     */
+
     public function tieneIngreso(): bool
     {
         return $this->ingreso()->exists();
     }
 
-    /**
-     * Scope para pagos sin ingreso asociado
-     */
+
     public function scopeSinIngreso($query)
     {
         return $query->whereDoesntHave('ingreso');
@@ -76,7 +70,7 @@ class Pago extends Model
 
     public function aprobar()
     {
-        // Validar que el préstamo esté aprobado
+
         $prestamo = $this->cuotaGrupal?->prestamo;
         if (!$prestamo || strtolower($prestamo->estado) !== 'aprobado') {
             throw new \Exception('Solo se pueden aprobar pagos de préstamos aprobados.');
@@ -96,7 +90,7 @@ class Pago extends Model
             $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
             $totalAPagar = $montoCuota + $montoMora;
 
-            // Si el pago es de cuota + mora
+
             if ($this->tipo_pago === 'pago_completo') {
                 if ($montoPagado >= $totalAPagar) {
                     $cuota->saldo_pendiente = 0;
@@ -116,12 +110,12 @@ class Pago extends Model
                     }
                 }
             }
-            // Si el pago es solo de la cuota
+
             else if ($this->tipo_pago === 'pago_parcial') {
                 if ($montoPagado >= $cuota->saldo_pendiente) {
                     $cuota->saldo_pendiente = 0;
                     $cuota->estado_pago = 'pagado';
-                    // Si tiene mora, el estado sigue siendo mora
+
                     $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'cancelada';
                 } else {
                     $cuota->saldo_pendiente -= $montoPagado;
@@ -135,7 +129,7 @@ class Pago extends Model
     }
         public function rechazar()
         {
-            // Validar que el préstamo esté aprobado
+
             $prestamo = $this->cuotaGrupal?->prestamo;
             if (!$prestamo || strtolower($prestamo->estado) !== 'aprobado') {
                 throw new \Exception('Solo se pueden rechazar pagos de préstamos aprobados.');
@@ -150,19 +144,19 @@ class Pago extends Model
 
             $cuota = $this->cuotaGrupal;
             if ($cuota) {
-                // Obtener todos los pagos válidos (no rechazados) de esta cuota
+
                 $pagosValidos = $cuota->pagos()
                     ->where('estado_pago', 'Aprobado')
                     ->where('id', '!=', $this->id)
                     ->get();
 
-                // Recalcular el saldo y estado basado en los pagos válidos
+
                 $totalPagado = $pagosValidos->sum('monto_pagado');
                 $totalAPagar = $cuota->monto_cuota_grupal;
                 $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
                 if ($pagosValidos->isEmpty()) {
-                    // No hay otros pagos válidos, restaurar al estado original
+
                     $cuota->estado_pago = 'Pendiente';
                     $cuota->saldo_pendiente = $totalAPagar;
                     $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
@@ -171,7 +165,7 @@ class Pago extends Model
                         $cuota->mora->save();
                     }
                 } else {
-                    // Hay pagos válidos, actualizar según el total pagado
+                  
                     if ($totalPagado >= ($totalAPagar + $montoMora)) {
                     $cuota->saldo_pendiente = 0;
                     $cuota->estado_pago = 'pagado';

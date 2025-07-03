@@ -50,8 +50,6 @@ class AsistenteVirtual extends Page
             'activeTab' => $this->activeTab,
         ]);
     }
-
-    // Método para obtener el asesor_id del usuario actual
     protected function getAsesorId($user): ?int
     {
         if ($user->hasRole('Asesor')) {
@@ -62,14 +60,12 @@ class AsistenteVirtual extends Page
     }
     protected function replacePlaceholders(string $sql, $user): string
 {
-    // Solo si es asesor reemplazamos
+
     if ($user->hasRole('Asesor')) {
         $asesorId = $this->getAsesorId($user);
         if (!$asesorId) {
             throw new \Exception('No se encontró el ID del asesor.');
         }
-
-        // Reemplazo seguro (puedes agregar más placeholders si necesitas)
         $sql = str_replace('{asesor.id}', (string)$asesorId, $sql);
     }
 
@@ -84,22 +80,22 @@ class AsistenteVirtual extends Page
         $rolesConAccesoCondicional = ['Jefe de operaciones', 'Jefe de creditos'];
 
         if ($user->hasAnyRole($rolesSupervisores)) {
-            // Acceso total
+
             $this->consultas = ConsultaAsistente::latest()->take(10)->get();
         } elseif ($user->hasAnyRole($rolesConAccesoCondicional)) {
-            // Acceso condicional: si no tiene registros, accede a todo
+
             if ($this->tieneRegistrosAsignados($user)) {
-                // Tiene registros, solo ve sus consultas
+
                 $this->consultas = ConsultaAsistente::where('user_id', $user->id)
                     ->latest()
                     ->take(10)
                     ->get();
             } else {
-                // No tiene registros, puede ver todo
+
                 $this->consultas = ConsultaAsistente::latest()->take(10)->get();
             }
         } else {
-            // Asesores y otros roles, solo ven sus consultas
+
             $this->consultas = ConsultaAsistente::where('user_id', $user->id)
                 ->latest()
                 ->take(10)
@@ -202,7 +198,7 @@ class AsistenteVirtual extends Page
     protected function tieneRegistrosAsignados($user): bool
     {
         if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            return true; // Acceso total, siempre tiene registros
+            return true;
         }
         if ($user->hasRole('Asesor')) {
             $asesorId = $this->getAsesorId($user);
@@ -212,7 +208,7 @@ class AsistenteVirtual extends Page
                        Prestamo::whereHas('grupo', fn($q) => $q->where('asesor_id', $asesorId))->exists();
             }
         }
-        return false; // Otros roles no tienen registros asignados
+        return false;
     }
 
     protected function filtrarPorAsesor($modelClass, $user)
@@ -235,22 +231,16 @@ class AsistenteVirtual extends Page
                 return $modelClass::whereHas('cliente', fn($q) => $q->where('asesor_id', $asesorId));
             case CuotasGrupales::class:
                 return $modelClass::whereHas('prestamo.grupo', fn($q) => $q->where('asesor_id', $asesorId));
-            case Pago::class: // Corregido: era 'pago' en minúscula
+            case Pago::class:
                 return $modelClass::whereHas('cuotaGrupal.prestamo.grupo', fn($q) => $q->where('asesor_id', $asesorId));
-            case DetallePago::class:
-                return $modelClass::whereHas('prestamoIndividual.cliente', fn($q) => $q->where('asesor_id', $asesorId));
-            case Mora::class: // Corregido: era 'mora' en minúscula
+            case Mora::class:
                 return $modelClass::whereHas('cuotaGrupal.prestamo.grupo', fn($q) => $q->where('asesor_id', $asesorId));
-            case Retanqueo::class:
-                return $modelClass::where('asesor_id', $asesorId);
-            case RetanqueoIndividual::class:
-                return $modelClass::whereHas('cliente', fn($q) => $q->where('asesor_id', $asesorId));
+
             default:
                 return $modelClass::query();
         }
     }
 
-    // ... resto del código permanece igual ...
 
     protected function getFormSchema(): array
     {
@@ -320,7 +310,7 @@ class AsistenteVirtual extends Page
         $this->form->fill([
             //'query' => '',
             'response' => $this->response,
-            'activeTab' => 0]); // regresar a pestaña Asistente
+            'activeTab' => 0]);
     }
 
     protected function isSafeSql(string $sql): bool
@@ -578,7 +568,7 @@ EOT;
         $response = $this->callOpenAI($systemPrompt, $userPrompt);
         Log::info("Respuesta OpenAI para usuario {$user->id}: {$response}");
 
-        // Extraer SQL entre etiquetas <SQL>...</SQL>
+
 if (preg_match('/<SQL>(.*?)<\/SQL>/is', $response, $matches)) {
     $sql = trim($matches[1]);
 

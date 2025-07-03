@@ -21,19 +21,19 @@ class Mora extends Model
         'fecha_atraso' => 'date',
     ];
 
-    // Relaciones
+
     public function cuotaGrupal()
     {
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
     }
 
-    // Estado de mora en formato legible
+
     public function getEstadoMoraFormattedAttribute()
     {
         return ucfirst(str_replace('_', ' ', $this->estado_mora));
     }
 
-    // NUEVO: Obtener días de atraso respetando el congelamiento
+
     public function getDiasAtrasoAttribute()
     {
         if (!$this->cuotaGrupal) {
@@ -42,33 +42,33 @@ class Mora extends Model
 
         $fechaVencimiento = Carbon::parse($this->cuotaGrupal->fecha_vencimiento)->addDay()->startOfDay();
 
-        // Si está pagada, usar la fecha de atraso congelada
+
         if ($this->estado_mora === 'pagada' && $this->fecha_atraso) {
             $fechaAtrasoCongelada = Carbon::parse($this->fecha_atraso)->startOfDay();
             return max(0, $fechaVencimiento->diffInDays($fechaAtrasoCongelada));
         }
 
-        // Si no está pagada, calcular hasta hoy
+
         $fechaActual = now()->startOfDay();
         return max(0, $fechaVencimiento->diffInDays($fechaActual));
     }
 
-    // Calcula el monto de mora dinámicamente
+
     public function getMontoMoraCalculadoAttribute()
     {
         return self::calcularMontoMora($this->cuotaGrupal, $this->fecha_atraso ?? now(), $this->estado_mora);
     }
 
-    // Método central de cálculo de mora 
+
     public static function calcularMontoMora($cuota, $fechaAtraso = null, $estadoMora = null)
     {
         if (!$cuota || !$cuota->prestamo || !$cuota->prestamo->grupo) {
             return 0;
         }
 
-        // Si la mora está pagada, no calcular días adicionales
+
         if ($estadoMora === 'pagada') {
-            // Obtener la mora existente para usar sus días de atraso congelados
+
             $moraExistente = self::where('cuota_grupal_id', $cuota->id)->first();
             if ($moraExistente && $moraExistente->fecha_atraso) {
                 $fechaVencimiento = Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
@@ -76,7 +76,7 @@ class Mora extends Model
 
                 $diasAtraso = 0;
                 if ($fechaAtrasoCongelada->greaterThan($fechaVencimiento)) {
-                    
+
                     $diasAtraso = $fechaVencimiento->diffInDays($fechaAtrasoCongelada);
                 }
 
@@ -89,27 +89,26 @@ class Mora extends Model
         $fechaAtraso = Carbon::parse($fechaAtraso)->startOfDay();
         $fechaVencimiento = Carbon::parse($cuota->fecha_vencimiento)->addDay()->startOfDay();
 
-        // Calcular días de atraso correctamente solo si no está pagada
+
         $diasAtraso = 0;
         if ($fechaAtraso->greaterThan($fechaVencimiento)) {
-            // CORRECCIÓN PRINCIPAL: Invertir el orden para obtener diferencia positiva
+
             $diasAtraso = $fechaVencimiento->diffInDays($fechaAtraso);
         }
 
         $integrantes = $cuota->prestamo->grupo->clientes()->count();
 
-        // El cálculo debería dar un resultado positivo
+
         $montoMora = $integrantes * $diasAtraso * 1;
 
         return $montoMora;
     }
 
-    // Actualiza la fecha de atraso si aplica - SIN CAMBIOS
     public function actualizarDiasAtraso()
     {
-        // Solo actualizar si NO está pagada
+
         if ($this->estado_mora === 'pagada') {
-            return; // No hacer nada si ya está pagada
+            return;
         }
 
         $fechaVencimiento = Carbon::parse($this->cuotaGrupal->fecha_vencimiento)->addDay()->startOfDay();
@@ -124,7 +123,6 @@ class Mora extends Model
         }
     }
 
-    // NUEVO: Método para congelar mora al pagar
     public function congelarMora()
     {
         if ($this->estado_mora === 'pagada' && !$this->fecha_atraso) {
@@ -133,7 +131,6 @@ class Mora extends Model
         }
     }
 
-    // Filtro de visibilidad por usuario 
     public function scopeVisiblePorUsuario($query, $user)
     {
         if ($user->hasRole('Asesor')) {
@@ -144,9 +141,9 @@ class Mora extends Model
                 });
             }
         } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            return $query; // Mostrar todas las moras
+            return $query;
         }
 
-        return $query->whereRaw('1 = 0'); // No mostrar nada si no aplica
+        return $query->whereRaw('1 = 0');
     }
 }
