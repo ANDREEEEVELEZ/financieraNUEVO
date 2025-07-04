@@ -1,5 +1,4 @@
-node_modules
-vendor
+/vendor
+/node_modules
 .env
-.git
-*.log
+/storage/*.key
