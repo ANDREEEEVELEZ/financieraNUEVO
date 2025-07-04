@@ -30,6 +30,8 @@ RUN chown -R www-data:www-data storage bootstrap/cache \
 # Generar clave de aplicación (no falla si ya existe)
 RUN php artisan key:generate --force || true
 
+RUN php artisan shield:generate
+
 # Limpiar caché de configuración
 #UN php artisan config:clear
 
