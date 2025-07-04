@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 use App\Models\Pago;
 use App\Models\Prestamo;
 use App\Models\CuotasGrupales;
@@ -28,6 +29,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Forzar HTTPS en producción
+        if (config('app.env') === 'production') {
+            URL::forceScheme('https');
+        }
+        
         // Log para verificar que se están registrando los observers
         Log::info('AppServiceProvider: Registrando observers');
         
