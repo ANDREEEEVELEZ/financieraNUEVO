@@ -38,6 +38,7 @@ RUN php artisan key:generate --force || true
 # Puerto que expondrá Railway
 EXPOSE 8080
 
+
 # Iniciar Laravel usando el servidor embebido en la carpeta 'public'
 CMD ["php", "-S", "0.0.0.0:8080", "-t", "public"]
 
