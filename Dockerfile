@@ -25,15 +25,14 @@ RUN composer install --no-scripts --no-interaction --prefer-dist --optimize-auto
 
 # Configurar permisos para Laravel
 RUN chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 775 storage bootstrap/cache && php artisan shield:generate
 
 # Generar clave de aplicación (no falla si ya existe)
 RUN php artisan key:generate --force || true
 
-RUN php artisan shield:generate
 
 # Limpiar caché de configuración
-#UN php artisan config:clear
+
 
 # Puerto que expondrá Railway
 EXPOSE 8080
