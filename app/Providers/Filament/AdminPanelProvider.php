@@ -25,12 +25,9 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
-
-            // ✅ Asegúrate que coincida con la URL que usas: /dashboard
             ->id('dashboard')
             ->path('dashboard')
             ->login()
-            ->user(\App\Models\User::class)
             ->colors([
                 'primary' => Color::Amber,
             ])
