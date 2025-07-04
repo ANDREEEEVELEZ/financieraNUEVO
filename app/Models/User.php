@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable
 {
@@ -64,12 +65,28 @@ class User extends Authenticatable
      */
 public function canAccessPanel(\Filament\Panel $panel): bool
 {
-    return $this->active && $this->hasAnyRole([
+    // Debug temporal
+    Log::info('canAccessPanel called for user: ' . $this->email);
+    Log::info('User active: ' . ($this->active ? 'true' : 'false'));
+    Log::info('User roles: ' . implode(', ', $this->getRoleNames()->toArray()));
+    
+    // Simplificamos temporalmente para debug
+    // Si es super admin, siempre permitir acceso
+    if ($this->hasRole('super_admin')) {
+        Log::info('User has super_admin role - allowing access');
+        return true;
+    }
+    
+    $canAccess = $this->active && $this->hasAnyRole([
         'super_admin',
         'Jefe de operaciones',
         'Jefe de creditos',
         'Asesor',
     ]);
+    
+    Log::info('Can access panel: ' . ($canAccess ? 'true' : 'false'));
+    
+    return $canAccess;
 }
 
 }
