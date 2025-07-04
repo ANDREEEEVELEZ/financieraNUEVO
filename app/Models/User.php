@@ -48,13 +48,27 @@ class User extends Authenticatable
             'active' => 'boolean',
         ];
     }
+
     public function user()
     {
         return $this->hasOne(User::class, 'persona_id');
     }
-    public function asesor()
-{
-    return $this->hasOne(Asesor::class);
-}
 
+    public function asesor()
+    {
+        return $this->hasOne(Asesor::class);
+    }
+
+    /**
+     * Determina si el usuario puede acceder a Filament Panel.
+     */
+    public function canAccessPanel(\Filament\Panel $panel): bool
+    {
+        return $this->active && $this->hasAnyRole([
+            'super_admin',
+            'Jefe de operaciones',
+            'Jefe de creditos',
+            'Asesor',
+        ]);
+    }
 }
