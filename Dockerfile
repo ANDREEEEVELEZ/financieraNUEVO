@@ -32,7 +32,7 @@ RUN cp .env.example .env
 # Generar clave de aplicación (no falla si ya existe)
 RUN php artisan key:generate --force || true
 
-RUN php artisan shield:generate --all
+RUN yes | php artisan shield:generate --all
 # Limpiar caché de configuración
 
 
@@ -41,3 +41,4 @@ EXPOSE 8080
 
 # Iniciar Laravel usando el servidor embebido en la carpeta 'public'
 CMD ["php", "-S", "0.0.0.0:8080", "-t", "public"]
+
