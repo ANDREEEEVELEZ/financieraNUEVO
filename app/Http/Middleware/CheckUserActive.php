@@ -32,7 +32,7 @@ class CheckUserActive
             Log::debug('CheckUserActive: Roles = ' . implode(', ', $user->getRoleNames()->toArray()));
             
             // Comentado temporalmente para depuración
-            /*
+           
             // Verificar si el usuario tiene rol de asesor y está inactivo
             if ($user->hasRole('Asesor')) {
                 $asesor = Asesor::where('user_id', $user->id)->first();
@@ -67,7 +67,7 @@ class CheckUserActive
                         'status' => 'danger',
                     ]);
             }
-            */
+            
         }
 
         // Siempre permitir el paso durante la depuración
