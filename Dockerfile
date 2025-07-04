@@ -1,31 +1,23 @@
-# Etapa 1: Construcción de dependencias con Composer
-FROM composer:2 as build
+# Etapa 1: Build para instalar dependencias de PHP
+FROM composer:2 AS build
 
 WORKDIR /app
 
 COPY . /app
 
-# Instalamos dependencias PHP del sistema necesarias para ext-intl, zip, etc.
-RUN apt-get update && apt-get install -y \
-    libzip-dev \
-    libicu-dev \
-    unzip \
-    zlib1g-dev \
-    libonig-dev \
-    libxml2-dev \
-    && docker-php-ext-install intl zip
-
-# Instalamos dependencias PHP del proyecto
+# Instala solo las dependencias del proyecto (NO uses apt-get aquí)
 RUN composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader
 
-# Etapa 2: Servidor PHP-FPM con extensiones necesarias
+# Etapa 2: Imagen final con PHP + extensiones necesarias
 FROM php:8.3-fpm
 
-# Instalamos las mismas extensiones que en build
+# Instalar dependencias necesarias para ext-intl, ext-zip, etc.
 RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    unzip \
     libzip-dev \
     libicu-dev \
-    unzip \
     zlib1g-dev \
     libonig-dev \
     libxml2-dev \
@@ -35,9 +27,10 @@ WORKDIR /var/www/html
 
 COPY --from=build /app /var/www/html
 
+# Establecer permisos para Laravel
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Puerto expuesto por PHP-FPM
+# Puerto por defecto para PHP-FPM
 EXPOSE 9000
 
 CMD ["php-fpm"]
