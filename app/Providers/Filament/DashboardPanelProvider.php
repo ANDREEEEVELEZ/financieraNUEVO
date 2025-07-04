@@ -16,7 +16,7 @@ use Filament\Support\Colors\Color;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken; // Añade esta línea
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
@@ -36,12 +36,12 @@ class DashboardPanelProvider extends PanelProvider
             ->theme(asset('css/filament/dashboard/theme.css'))
             ->colors([
 
-              //  'primary'=> Color::Pink,
+                //  'primary'=> Color::Pink,
                 'primary' => '#9b2c4d',
                 //'secondary' => '#16b4c0',
                 //'info' => '#4dc0b5',
                 //'success' => '#10b981', // Verde
-               // 'warning' => '#f59e0b', // Amarillo
+                // 'warning' => '#f59e0b', // Amarillo
                 //'danger' => '#ef4444', // Rojo
 
             ])
@@ -62,15 +62,15 @@ class DashboardPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Dashboard/Widgets'), for: 'App\\Filament\\Dashboard\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-               // Widgets\FilamentInfoWidget::class,
+                // Widgets\FilamentInfoWidget::class,
             ])
-            ->middleware([
+             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
-                \App\Http\Middleware\VerifyCsrfToken::class,
+                VerifyCsrfToken::class, // Ahora usa la clase importada
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
@@ -86,5 +86,4 @@ class DashboardPanelProvider extends PanelProvider
             ->passwordReset()
             ->emailVerification();
     }
-
 }
