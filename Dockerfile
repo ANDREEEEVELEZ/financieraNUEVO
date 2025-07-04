@@ -1,6 +1,6 @@
 FROM php:8.3-fpm
 
-# Instalar dependencias del sistema necesarias
+# Instalar extensiones necesarias
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -13,20 +13,20 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo_mysql intl zip opcache \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Establecer el directorio de trabajo
+# Establecer directorio de trabajo
 WORKDIR /var/www/html
 
-# Copiar todos los archivos al contenedor
+# Copiar código fuente
 COPY . .
 
-# Instalar dependencias de Laravel
+# Instalar dependencias PHP
 RUN composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader
 
-# Ajustar permisos necesarios para Laravel
+# Dar permisos correctos
 RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Exponer el puerto requerido por Railway
+# Expone el puerto 8080 porque Railway lo exige
 EXPOSE 8080
 
-# Usar servidor embebido de PHP apuntando a /public
+# Servir Laravel desde la carpeta public/
 CMD ["php", "-S", "0.0.0.0:8080", "-t", "public"]
