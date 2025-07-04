@@ -32,6 +32,7 @@ class DashboardPanelProvider extends PanelProvider
             ->id('dashboard')
             ->login()
             ->path('dashboard')
+            ->domain(null)
             ->theme(asset('css/filament/dashboard/theme.css'))
             ->colors([
 
@@ -69,7 +70,7 @@ class DashboardPanelProvider extends PanelProvider
                 StartSession::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
-                VerifyCsrfToken::class,
+                \App\Http\Middleware\VerifyCsrfToken::class,
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
@@ -80,7 +81,10 @@ class DashboardPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->authGuard('web')
+            ->passwordReset()
+            ->emailVerification();
     }
 
 }
