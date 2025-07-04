@@ -8,10 +8,10 @@ use App\Http\Controllers\AsistenteController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 
-Route::get('/', function () 
-{
-    return view('welcome');
+Route::get('/', function () {
+    return redirect('/dashboard/login');
 });
+
  Route::get('/generar-esquema', [AsistenteController::class, 'guardarEsquemaEnArchivo']);
 
 Route::get('/contratos/grupo/{grupoId}', [ContratoGrupoController::class, 'imprimirContratos'])->name('contratos.grupo.imprimir');
