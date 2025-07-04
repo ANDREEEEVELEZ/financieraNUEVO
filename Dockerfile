@@ -32,7 +32,7 @@ RUN cp .env.example .env
 # Generar clave de aplicación (no falla si ya existe)
 RUN php artisan key:generate --force || true
 
-RUN php artisan shield:generate --all
+RUN php artisan shield:generate --all
 # Limpiar caché de configuración
 
 
