@@ -49,9 +49,6 @@ Route::post('/logout', function (Request $request) {
     return redirect('/dashboard/login');
 })->name('logout');
 
-// ✅ Ruta POST necesaria para el login de Filament (panel "dashboard")
-Route::post('/dashboard/login', [App\Http\Controllers\CustomLoginController::class, 'store']);
-
 // Ruta para verificar el estado de autenticación
 Route::get('/auth-check', function () {
     if (Auth::check()) {
@@ -79,7 +76,7 @@ Route::get('/auth-check', function () {
 // Ruta para forzar la autenticación manual con un usuario específico
 Route::get('/force-auth/{email}', function ($email) {
     $user = \App\Models\User::where('email', $email)->first();
-    
+
     if ($user) {
         Auth::login($user);
         Log::debug('Forced authentication', [
@@ -88,7 +85,7 @@ Route::get('/force-auth/{email}', function ($email) {
         ]);
         return redirect('/dashboard');
     }
-    
+
     return 'No se encontró el usuario con email: ' . $email;
 });
 

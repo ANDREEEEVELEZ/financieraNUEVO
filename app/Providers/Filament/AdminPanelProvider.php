@@ -17,8 +17,6 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-
-// 🔐 Importar el plugin de Shield
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 
 class AdminPanelProvider extends PanelProvider
@@ -27,9 +25,12 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
-            ->id('admin')
-            ->path('admin')
+
+            // ✅ Asegúrate que coincida con la URL que usas: /dashboard
+            ->id('dashboard')
+            ->path('dashboard')
             ->login()
+
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -43,7 +44,6 @@ class AdminPanelProvider extends PanelProvider
                 Widgets\AccountWidget::class,
                 Widgets\FilamentInfoWidget::class,
             ])
-        
             ->plugins([
                 FilamentShieldPlugin::make(),
             ])
