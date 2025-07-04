@@ -62,13 +62,14 @@ class User extends Authenticatable
     /**
      * Determina si el usuario puede acceder a Filament Panel.
      */
-    public function canAccessPanel(\Filament\Panel $panel): bool
-    {
-        return $this->active && $this->hasAnyRole([
-            'super_admin',
-            'Jefe de operaciones',
-            'Jefe de creditos',
-            'Asesor',
-        ]);
-    }
+public function canAccessPanel(\Filament\Panel $panel): bool
+{
+    return $this->active && $this->hasAnyRole([
+        'super_admin',
+        'Jefe de operaciones',
+        'Jefe de creditos',
+        'Asesor',
+    ]);
+}
+
 }

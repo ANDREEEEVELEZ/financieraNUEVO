@@ -30,7 +30,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('dashboard')
             ->path('dashboard')
             ->login()
-
+            ->user(\App\Models\User::class)
             ->colors([
                 'primary' => Color::Amber,
             ])
