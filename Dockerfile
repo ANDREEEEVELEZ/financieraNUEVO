@@ -1,40 +1,29 @@
-# Etapa de construcción
+# Etapa 1: build con Composer
 FROM composer:2 AS build
 
 WORKDIR /app
-
 COPY . /app
 
-# Instalamos las dependencias de PHP sin ejecutar scripts
+# Instalamos dependencias en etapa build (sin ejecutar scripts aún)
 RUN composer install --no-scripts --no-interaction --prefer-dist --optimize-autoloader
 
-# Etapa de producción
+# Etapa 2: imagen PHP con extensiones necesarias
 FROM php:8.3-fpm
 
-# Instalar extensiones requeridas (intl, zip, pdo_mysql)
+# Instalar dependencias del sistema necesarias para intl, zip, etc.
 RUN apt-get update && apt-get install -y \
-    libzip-dev \
-    unzip \
-    libicu-dev \
-    libonig-dev \
-    libxml2-dev \
+    git curl unzip libzip-dev libicu-dev zlib1g-dev libonig-dev libxml2-dev \
     && docker-php-ext-install pdo_mysql intl zip opcache
 
-# Instalar Node.js (si necesitas compilar assets con Vite)
-RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
-    npm install -g npm
-
-# Copiar código desde etapa build
+# Copiar el código desde la etapa build
 COPY --from=build /app /var/www/html
 
-# Establecer el directorio de trabajo
 WORKDIR /var/www/html
 
-# Permisos
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+# Dar permisos a Laravel
+RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Exponer el puerto
+# Exponer el puerto de PHP-FPM
 EXPOSE 9000
 
 CMD ["php-fpm"]
