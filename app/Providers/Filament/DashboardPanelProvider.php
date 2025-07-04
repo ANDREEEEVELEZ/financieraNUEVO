@@ -16,13 +16,14 @@ use Filament\Support\Colors\Color;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken; // Añade esta línea
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Assets\Css;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Log;
 
 class DashboardPanelProvider extends PanelProvider
 {
@@ -35,46 +36,35 @@ class DashboardPanelProvider extends PanelProvider
             ->domain(null)
             ->theme(asset('css/filament/dashboard/theme.css'))
             ->colors([
-
-                //  'primary'=> Color::Pink,
                 'primary' => '#9b2c4d',
-                //'secondary' => '#16b4c0',
-                //'info' => '#4dc0b5',
-                //'success' => '#10b981', // Verde
-                // 'warning' => '#f59e0b', // Amarillo
-                //'danger' => '#ef4444', // Rojo
-
             ])
             ->darkMode(false)
             ->font('Poppins')
             ->brandName('EMPRENDE CONMIGO SAC')
-
-
-            //->brandLogo(asset('logoEmprendeConmigo.png'))
             ->discoverResources(in: app_path('Filament/Dashboard/Resources'), for: 'App\\Filament\\Dashboard\\Resources')
             ->discoverPages(in: app_path('Filament/Dashboard/Pages'), for: 'App\\Filament\\Dashboard\\Pages')
             ->pages([
                 Pages\Dashboard::class,
-                AsistenteVirtual::class,
-                Moras::class,
-                \App\Filament\Dashboard\Pages\AsesorPage::class,
+                // Comentamos temporalmente las páginas adicionales para simplificar
+                // AsistenteVirtual::class,
+                // Moras::class,
+                // \App\Filament\Dashboard\Pages\AsesorPage::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Dashboard/Widgets'), for: 'App\\Filament\\Dashboard\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                // Widgets\FilamentInfoWidget::class,
             ])
-             ->middleware([
+            ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
-                VerifyCsrfToken::class, // Ahora usa la clase importada
+                VerifyCsrfToken::class, // Usando el correcto de Laravel
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\CheckUserActive::class,
+                // \App\Http\Middleware\CheckUserActive::class, // Comentado temporalmente para diagnóstico
             ])
             ->plugins([
                 FilamentShieldPlugin::make()
