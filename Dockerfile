@@ -31,7 +31,7 @@ RUN chown -R www-data:www-data storage bootstrap/cache \
 RUN php artisan key:generate --force || true
 
 # Limpiar caché de configuración
-RUN php artisan config:clear
+#UN php artisan config:clear
 
 # Puerto que expondrá Railway
 EXPOSE 8080
