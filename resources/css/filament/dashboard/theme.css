@@ -1,16 +1,15 @@
-@import '../../../../vendor/filament/filament/resources/css/base.css';
-
 @tailwind base;
-
 @tailwind components;
 @tailwind utilities;
 
-/@config 'tailwind.config.js';*/
+@import '../../../../vendor/filament/filament/resources/css/base.css';
 
+@config 'tailwind.config.js';
 /* Fondo de la barra lateral */
 .fi-sidebar {
-    @apply bg-[#8a2e4a] text-white;
+    @apply bg-[#8a2e4a] text-white !important;
 }
+
 /* Grupo de títulos del menú */
 .fi-sidebar-group div span {
     @apply text-white;
@@ -52,7 +51,6 @@
 .fi-header {
     @apply bg-[#f9f9f9] text-[#9b2c4d];
 }
-
 /* Botones primarios */
 .fi-button {
     @apply bg-[#9b2c4d] hover:bg-[#7d243f] text-white;
