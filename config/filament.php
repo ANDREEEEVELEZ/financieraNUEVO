@@ -102,8 +102,6 @@ return [
 
 
 
-    'assets' => [
-    asset('css/filament/dashboard/theme.css'),
-],
+
 
 ];

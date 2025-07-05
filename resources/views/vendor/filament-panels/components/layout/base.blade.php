@@ -30,7 +30,7 @@
         <title>
             {{ filled($title) ? "{$title} - " : null }} {{ $brandName }}
         </title>
-<link rel="stylesheet" href="{{ asset('css/filament/dashboard/theme.css') }}">
+
         {{ \Filament\Support\Facades\FilamentView::renderHook(\Filament\View\PanelsRenderHook::STYLES_BEFORE, scopes: $livewire->getRenderHookScopes()) }}
 
         <style>
