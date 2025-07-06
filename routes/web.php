@@ -16,6 +16,9 @@ Route::get('/fix-routes', function () {
     Artisan::call('config:clear');
     Artisan::call('cache:clear');
     Artisan::call('route:cache');
+    Artisan::call('filament:assets');
+    Artisan::call('config:cache');
+    Artisan::call('view:cache');
     return 'Rutas y caché limpiados correctamente.';
 });
 
