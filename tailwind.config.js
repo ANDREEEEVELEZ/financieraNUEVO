@@ -12,13 +12,23 @@ export default {
         './vendor/filament//*.blade.php',
     ],
     safelist: [
+        'fi-sidebar',
+        'fi-sidebar-group',
+        'fi-sidebar-item-icon',
+        'fi-sidebar-item',
+        'fi-sidebar-item-label',
+        'fi-sidebar-item-active',
+        'fi-main-ctn',
+        'fi-header',
+        'fi-button',
         'text-white',
+
     ],
     theme: {
         extend: {
             colors: {
                 white: '#ffffff',
             },
-        }
-    }
+        }
+    }
 }
