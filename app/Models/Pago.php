@@ -125,6 +125,12 @@ class Pago extends Model
             }
 
             $cuota->save();
+            
+            // Verificar si el préstamo debe cambiar a estado "Finalizado"
+            $prestamo = $cuota->prestamo;
+            if ($prestamo) {
+                $prestamo->verificarYActualizarEstado();
+            }
         }
     }
         public function rechazar()
@@ -186,6 +192,12 @@ class Pago extends Model
 
                 }
                 $cuota->save();
+                
+                // Verificar si el préstamo debe cambiar su estado
+                $prestamo = $cuota->prestamo;
+                if ($prestamo) {
+                    $prestamo->verificarYActualizarEstado();
+                }
             }
         }
         public function grupo()

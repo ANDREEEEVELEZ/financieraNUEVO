@@ -120,7 +120,7 @@ class PrestamoResource extends Resource
 
                     return $grupos->filter(function ($grupo) {
                         return !$grupo->prestamos()->whereIn('estado', ['Pendiente', 'Aprobado'])
-                            ->whereHas('cuotasGrupales', fn($q) => $q->where('estado_pago', '!=', 'Pagado'))
+                            ->whereHas('cuotasGrupales', fn($q) => $q->where('estado_pago', '!=', 'pagado'))
                             ->exists();
                     })->pluck('nombre_grupo', 'id');
                 })

@@ -79,7 +79,7 @@ class Prestamo extends Model
     {
         if ($this->estado === 'Aprobado') {
             $total = $this->cuotasGrupales()->count();
-            $pagadas = $this->cuotasGrupales()->where('estado_pago', 'Pagado')->count();
+            $pagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
             if ($pagadas > 0 && $pagadas < $total) {
                 return 'Activo';
             }
@@ -104,13 +104,47 @@ class Prestamo extends Model
     {
         if ($this->estado === 'Aprobado') {
             $total = $this->cuotasGrupales()->count();
-            $pagadas = $this->cuotasGrupales()->where('estado_pago', 'Pagado')->count();
+            $pagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
 
             if ($total > 0 && $total === $pagadas) {
                 $this->estado = 'Finalizado';
                 $this->save();
             }
         }
+    }
+
+    /**
+     * Método para verificar y actualizar el estado del préstamo basándose en el estado de las cuotas
+     */
+    public function verificarYActualizarEstado()
+    {
+        if ($this->estado === 'Aprobado') {
+            $totalCuotas = $this->cuotasGrupales()->count();
+            $cuotasPagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
+            
+            \Illuminate\Support\Facades\Log::info('Verificando estado del préstamo', [
+                'prestamo_id' => $this->id,
+                'estado_actual' => $this->estado,
+                'total_cuotas' => $totalCuotas,
+                'cuotas_pagadas' => $cuotasPagadas,
+            ]);
+            
+            if ($totalCuotas > 0 && $cuotasPagadas === $totalCuotas) {
+                $this->estado = 'Finalizado';
+                $this->save();
+                
+                // Actualizar también los préstamos individuales
+                $this->prestamoIndividual()->update(['estado' => 'Finalizado']);
+                
+                \Illuminate\Support\Facades\Log::info('Estado del préstamo actualizado a Finalizado', [
+                    'prestamo_id' => $this->id,
+                ]);
+                
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     /**
