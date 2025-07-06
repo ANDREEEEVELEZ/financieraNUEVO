@@ -4,6 +4,9 @@ namespace App\Filament\Dashboard\Resources;
 
 use App\Filament\Dashboard\Resources\ClienteResource\Pages;
 use App\Models\Cliente;
+use App\Rules\UniqueDNI;
+use App\Rules\UniqueCelular;
+use App\Rules\UniqueCorreo;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -41,17 +44,37 @@ class ClienteResource extends Resource
                                     ->numeric()
                                     ->prefixIcon('heroicon-o-identification')
                                     ->rule('regex:/^[0-9]{8}$/')
+                                    ->rules([
+                                        new UniqueDNI()
+                                    ])
                                     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                                     ->mask('99999999')
                                     ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                                TextInput::make('persona.nombre')->label('Nombre')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u')
+                                TextInput::make('persona.nombre')
+                                    ->label('Nombre')
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-user')
+                                    ->rule('regex:/^[\pL\s\ñÑ]+$/u')
+                                    ->dehydrateStateUsing(fn ($state) => strtoupper($state))
+                                    ->formatStateUsing(fn ($state) => strtoupper($state))
                                     ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                                TextInput::make('persona.apellidos')->label('Apellidos')->required()->prefixIcon('heroicon-o-user')->rule('regex:/^[\pL\s]+$/u')
+                                TextInput::make('persona.apellidos')
+                                    ->label('Apellidos')
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-user')
+                                    ->rule('regex:/^[\pL\s\ñÑ]+$/u')
+                                    ->dehydrateStateUsing(fn ($state) => strtoupper($state))
+                                    ->formatStateUsing(fn ($state) => strtoupper($state))
                                     ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                                Select::make('persona.sexo')->label('Sexo')->required()->prefixIcon('heroicon-o-adjustments-horizontal')->options([
-                                      'Femenino' => 'Femenino',
-                                    'Masculino' => 'Masculino',
-                                ])->native(false)
+                                Select::make('persona.sexo')
+                                    ->label('Sexo')
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-adjustments-horizontal')
+                                    ->options([
+                                        'FEMENINO' => 'FEMENINO',
+                                        'MASCULINO' => 'MASCULINO',
+                                    ])
+                                    ->native(false)
                                     ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 DatePicker::make('persona.fecha_nacimiento')->label('Fecha de Nacimiento')->required()->prefixIcon('heroicon-o-calendar')
                                     ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
@@ -63,28 +86,53 @@ class ClienteResource extends Resource
                                     ->required()
                                     ->prefixIcon('heroicon-o-phone')
                                     ->rule('regex:/^[0-9]{9}$/')
+                                    ->rules([
+                                        new UniqueCelular()
+                                    ])
                                     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                                     ->mask('999999999'),
-                                TextInput::make('persona.correo')->label('Correo Electrónico')->email()->required()->prefixIcon('heroicon-o-envelope'),
-                                TextInput::make('persona.direccion')->label('Dirección')->required()->prefixIcon('heroicon-o-map-pin'),
-                                Select::make('persona.distrito')->label('Distrito')->prefixIcon('heroicon-o-map-pin')->options([
-
-                                    'Sullana' => 'Sullana',
-                                    'Bellavista ' => 'Bellavista',
-                                    'Ignacio Escudero' => 'Ignacio Escudero',
-                                    'Querecotillo' => 'Querecotillo',
-                                    'Marcavelica' => 'Marcavelica',
-                                    'Salitral' => 'Salitral',
-                                    'Lancones' => 'Lancones',
-                                    'Miguel Checa' => 'Miguel Checa',
-
-                                ])->native(false)->required(),
-                                Select::make('persona.estado_civil')->label('Estado Civil')->prefixIcon('heroicon-o-heart')->options([
-                                    'Soltero' => 'Soltero',
-                                    'Casado' => 'Casado',
-                                    'Divorciado' => 'Divorciado',
-                                    'Viudo' => 'Viudo',
-                                ])->native(false)->required(),
+                                TextInput::make('persona.correo')
+                                    ->label('Correo Electrónico')
+                                    ->email()
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-envelope')
+                                    ->rules([
+                                        new UniqueCorreo()
+                                    ])
+                                    ->dehydrateStateUsing(fn ($state) => strtoupper($state))
+                                    ->formatStateUsing(fn ($state) => strtoupper($state)),
+                                TextInput::make('persona.direccion')
+                                    ->label('Dirección')
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-map-pin')
+                                    ->dehydrateStateUsing(fn ($state) => strtoupper($state))
+                                    ->formatStateUsing(fn ($state) => strtoupper($state)),
+                                Select::make('persona.distrito')
+                                    ->label('Distrito')
+                                    ->prefixIcon('heroicon-o-map-pin')
+                                    ->options([
+                                        'SULLANA' => 'SULLANA',
+                                        'BELLAVISTA' => 'BELLAVISTA',
+                                        'IGNACIO ESCUDERO' => 'IGNACIO ESCUDERO',
+                                        'QUERECOTILLO' => 'QUERECOTILLO',
+                                        'MARCAVELICA' => 'MARCAVELICA',
+                                        'SALITRAL' => 'SALITRAL',
+                                        'LANCONES' => 'LANCONES',
+                                        'MIGUEL CHECA' => 'MIGUEL CHECA',
+                                    ])
+                                    ->native(false)
+                                    ->required(),
+                                Select::make('persona.estado_civil')
+                                    ->label('Estado Civil')
+                                    ->prefixIcon('heroicon-o-heart')
+                                    ->options([
+                                        'SOLTERO' => 'SOLTERO',
+                                        'CASADO' => 'CASADO',
+                                        'DIVORCIADO' => 'DIVORCIADO',
+                                        'VIUDO' => 'VIUDO',
+                                    ])
+                                    ->native(false)
+                                    ->required(),
                             ])->columns(2),
 
                         Tabs\Tab::make('Información Cliente')
@@ -111,21 +159,27 @@ class ClienteResource extends Resource
                                     ->prefixIcon('heroicon-o-arrow-path-rounded-square'),
                                 Forms\Components\Select::make('condicion_vivienda')
                                     ->options([
-                                        'Propia' => 'Propia',
-                                        'Alquilada' => 'Alquilada',
-                                        'Familiar' => 'Familiar',
+                                        'PROPIA' => 'PROPIA',
+                                        'ALQUILADA' => 'ALQUILADA',
+                                        'FAMILIAR' => 'FAMILIAR',
                                     ])
                                     ->native(false)
                                     ->searchable()
                                     ->label('Condición de Vivienda')
                                     ->prefixIcon('heroicon-o-home-modern')
                                     ->required(),
-                                TextInput::make('actividad')->label('Actividad')->required() ->prefixIcon('heroicon-o-briefcase'),
+                                TextInput::make('actividad')
+                                    ->label('Actividad')
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-briefcase')
+                                    ->rule('regex:/^[\pL\pN\s\ñÑ.,()-]+$/u')
+                                    ->dehydrateStateUsing(fn ($state) => strtoupper($state))
+                                    ->formatStateUsing(fn ($state) => strtoupper($state)),
                                 Forms\Components\Select::make('condicion_personal')
                                     ->options([
-                                        'Capacitado' => 'Capacitado',
-                                        'Iletrado' => 'Iletrado',
-                                        'PEP ' => 'PEP',
+                                        'CAPACITADO' => 'CAPACITADO',
+                                        'ILETRADO' => 'ILETRADO',
+                                        'PEP' => 'PEP',
                                     ])
                                     ->native(false)
                                     ->searchable()
@@ -133,12 +187,12 @@ class ClienteResource extends Resource
                                     ->prefixIcon('heroicon-o-user-circle')
                                     ->required(),
                                 Forms\Components\Select::make('estado_cliente')
-                                   ->prefixIcon('heroicon-o-check-circle')
-                                ->options([
-                                        'Activo' => 'Activo',
-                                        'Inactivo' => 'Inactivo',
+                                    ->prefixIcon('heroicon-o-check-circle')
+                                    ->options([
+                                        'ACTIVO' => 'ACTIVO',
+                                        'INACTIVO' => 'INACTIVO',
                                     ])
-                                    ->default('Activo')
+                                    ->default('ACTIVO')
                                     ->disabled()
                                     ->label('Estado Cliente')
                                     ->required(),

@@ -39,6 +39,42 @@ class Persona extends Model
         static::observe(\App\Observers\PersonaObserver::class);
     }
 
+    // Mutators para convertir automáticamente a mayúsculas
+    public function setNombreAttribute($value)
+    {
+        $this->attributes['nombre'] = strtoupper($value);
+    }
+
+    public function setApellidosAttribute($value)
+    {
+        $this->attributes['apellidos'] = strtoupper($value);
+    }
+
+    public function setDireccionAttribute($value)
+    {
+        $this->attributes['direccion'] = strtoupper($value);
+    }
+
+    public function setCorreoAttribute($value)
+    {
+        $this->attributes['correo'] = strtoupper($value);
+    }
+
+    public function setDistritoAttribute($value)
+    {
+        $this->attributes['distrito'] = strtoupper($value);
+    }
+
+    public function setEstadoCivilAttribute($value)
+    {
+        $this->attributes['estado_civil'] = strtoupper($value);
+    }
+
+    public function setSexoAttribute($value)
+    {
+        $this->attributes['sexo'] = strtoupper($value);
+    }
+
     public function user()
     {
         return $this->hasOne(User::class, 'persona_id');

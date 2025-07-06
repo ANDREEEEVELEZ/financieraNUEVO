@@ -28,6 +28,33 @@ class Cliente extends Model
     ];
 
 
+    // Mutators para convertir automáticamente a mayúsculas
+    public function setInfocorpAttribute($value)
+    {
+        $this->attributes['infocorp'] = strtoupper($value);
+    }
+
+    public function setActividadAttribute($value)
+    {
+        $this->attributes['actividad'] = strtoupper($value);
+    }
+
+    public function setCondicionViviendaAttribute($value)
+    {
+        $this->attributes['condicion_vivienda'] = strtoupper($value);
+    }
+
+    public function setCondicionPersonalAttribute($value)
+    {
+        $this->attributes['condicion_personal'] = strtoupper($value);
+    }
+
+    public function setEstadoClienteAttribute($value)
+    {
+        $this->attributes['estado_cliente'] = strtoupper($value);
+    }
+
+
     /**
      * Relación uno a uno (o uno a muchos) con Persona.
      */
