@@ -190,16 +190,16 @@ class ClienteResource extends Resource
                                 Forms\Components\Select::make('estado_cliente')
                                     ->prefixIcon('heroicon-o-check-circle')
                                     ->options([
-                                        'ACTIVO' => 'ACTIVO',
-                                        'INACTIVO' => 'INACTIVO',
+                                        'Activo' => 'Activo',
+                                        'Inactivo' => 'Inactivo',
                                     ])
-                                    ->default('ACTIVO')
+                                    ->default('Activo')
                                     ->native(false)
                                     ->label('Estado Cliente')
                                     ->required(),
                                 Forms\Components\Select::make('asesor_id')
                                     ->label('Asesor responsable')                    ->options(function () {
-                        return \App\Models\Asesor::where('estado_asesor', 'ACTIVO')
+                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
                             ->with('persona')
                             ->get()
                             ->mapWithKeys(function ($asesor) {
