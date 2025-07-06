@@ -71,10 +71,7 @@
                         <div class="text-3xl font-black text-amber-900 dark:text-amber-200">{{ $totalPrestamos ?? '0' }}</div>
                         <div class="text-sm text-green-700 dark:text-green-300 font-semibold mt-1">Total de Préstamos</div>
                     </div>
-                
 
-               
-                     -->
                     <!-- Total de Pagos Registrados -->
                     <div class="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-lg p-4 flex flex-col items-center group transition-transform hover:-translate-y-1 hover:shadow-2xl duration-200">
                         <div class="absolute top-2 right-2 opacity-10 group-hover:opacity-20 text-5xl pointer-events-none select-none">
