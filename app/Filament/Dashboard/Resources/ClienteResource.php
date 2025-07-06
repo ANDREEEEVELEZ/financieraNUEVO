@@ -89,8 +89,26 @@ class ClienteResource extends Resource
 
                         Tabs\Tab::make('Información Cliente')
                             ->schema([
-                                TextInput::make('infocorp')->label('Infocorp')->required()->prefixIcon('heroicon-o-document-magnifying-glass'),
-                                TextInput::make('ciclo')->label('Ciclo')->required() ->prefixIcon('heroicon-o-arrow-path-rounded-square'),
+                                Select::make('infocorp')
+                                    ->label('Infocorp')
+                                    ->options([
+                                        'BIEN CALIFICADO' => 'BIEN CALIFICADO',
+                                        'MAL CALIFICADO' => 'MAL CALIFICADO',
+                                    ])
+                                    ->native(false)
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-document-magnifying-glass'),
+                                Select::make('ciclo')
+                                    ->label('Ciclo')
+                                    ->options([
+                                        'I' => 'I',
+                                        'II' => 'II',
+                                        'III' => 'III',
+                                        'IV' => 'IV',
+                                    ])
+                                    ->native(false)
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-arrow-path-rounded-square'),
                                 Forms\Components\Select::make('condicion_vivienda')
                                     ->options([
                                         'Propia' => 'Propia',

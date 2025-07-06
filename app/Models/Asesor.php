@@ -19,6 +19,17 @@ class Asesor extends Model
         'estado_asesor',
     ];
 
+    /**
+     * Register the model observers.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        // Registrar el Observer para el modelo Asesor
+        static::observe(\App\Observers\AsesorObserver::class);
+    }
+
     // Relaciones con tablas
     public function persona()
     {

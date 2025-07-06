@@ -73,7 +73,7 @@ class DashboardPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->authGuard('web')
-            ->passwordReset()
+            // ->passwordReset() // Deshabilitado: opción "Olvidó contraseña"
             ->emailVerification();
     }
 }

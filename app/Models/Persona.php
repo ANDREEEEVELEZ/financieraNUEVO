@@ -27,12 +27,30 @@ class Persona extends Model
     protected $casts = [
         'fecha_nacimiento' => 'date',
     ];
+
+    /**
+     * Register the model observers.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        // Registrar el Observer para el modelo Persona
+        static::observe(\App\Observers\PersonaObserver::class);
+    }
+
     public function user()
     {
         return $this->hasOne(User::class, 'persona_id');
     }
+    
+    public function asesor()
+    {
+        return $this->hasOne(Asesor::class, 'persona_id');
+    }
+    
     public function clientes()
     {
-        return $this->hasMany(Cliente::class, 'persona_id'); // Asegúrate del nombre correcto del FK
+        return $this->hasMany(Cliente::class, 'persona_id');
     }
 }
