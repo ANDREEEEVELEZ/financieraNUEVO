@@ -194,7 +194,7 @@ class ClienteResource extends Resource
                                         'INACTIVO' => 'INACTIVO',
                                     ])
                                     ->default('ACTIVO')
-                                    ->disabled()
+                                    ->native(false)
                                     ->label('Estado Cliente')
                                     ->required(),
                                 Forms\Components\Select::make('asesor_id')
