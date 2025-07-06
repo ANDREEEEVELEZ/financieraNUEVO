@@ -225,7 +225,19 @@ class ClienteResource extends Resource
             Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos')->sortable()->searchable(),
             Tables\Columns\TextColumn::make('persona.celular')->label('Celular'),
             Tables\Columns\TextColumn::make('infocorp')->label('Infocorp'),
-            Tables\Columns\TextColumn::make('ciclo')->label('Ciclo'),
+            Tables\Columns\TextColumn::make('ciclo')
+                ->label('Ciclo')
+                ->getStateUsing(function ($record) {
+                    return \App\Helpers\CicloHelper::normalize($record->ciclo);
+                })
+                ->badge()
+                ->color(fn(string $state) => match ($state) {
+                    'I' => 'success',
+                    'II' => 'info',
+                    'III' => 'warning',
+                    'IV' => 'danger',
+                    default => 'gray',
+                }),
             Tables\Columns\TextColumn::make('condicion_vivienda')->label('Condición de Vivienda'),
             Tables\Columns\TextColumn::make('actividad')->label('Actividad'),
             Tables\Columns\TextColumn::make('condicion_personal')->label('Condición Personal'),

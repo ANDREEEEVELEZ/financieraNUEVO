@@ -135,7 +135,7 @@ class PrestamoResource extends Resource
                             'nombre' => $c->persona->nombre,
                             'apellidos' => $c->persona->apellidos,
                             'dni' => $c->persona->DNI,
-                            'ciclo' => $c->ciclo ?? 1,
+                            'ciclo' => \App\Helpers\CicloHelper::normalize($c->ciclo),
                             'monto' => null,
                         ];
                     })->toArray() : []);
@@ -153,24 +153,24 @@ class PrestamoResource extends Resource
                     TextInput::make('ciclo')->disabled(),
                     TextInput::make('monto')
                         ->label(function (callable $get) {
-                            $c = (int)($get('ciclo') ?? 1);
-                            $m = [1 => 400, 2 => 600, 3 => 800, 4 => 1000][$c > 4 ? 4 : ($c < 1 ? 1 : $c)];
-                            return 'Monto a Prestar (MAX: S/ ' . $m . ')';
+                            $ciclo = \App\Helpers\CicloHelper::normalize($get('ciclo') ?? 'I');
+                            $monto = \App\Helpers\CicloHelper::getMontoMaximo($ciclo);
+                            return 'Monto a Prestar (MAX: S/ ' . $monto . ')';
                         })
                         ->numeric()
                         ->required()
                         ->live(debounce: 1000)
                         ->minValue(100)
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                            $c = (int)($get('ciclo') ?? 1);
-                            $m = [1 => 400, 2 => 600, 3 => 800, 4 => 1000][$c > 4 ? 4 : ($c < 1 ? 1 : $c)];
+                            $ciclo = \App\Helpers\CicloHelper::normalize($get('ciclo') ?? 'I');
+                            $montoMaximo = \App\Helpers\CicloHelper::getMontoMaximo($ciclo);
                             if ($state < 100) {
                                 \Filament\Notifications\Notification::make()->title('Mínimo S/ 100')->danger()->send();
                                 $set('monto', 100);
                             }
-                            if ($state > $m) {
-                                \Filament\Notifications\Notification::make()->title('Máximo S/ ' . $m)->danger()->send();
-                                $set('monto', $m);
+                            if ($state > $montoMaximo) {
+                                \Filament\Notifications\Notification::make()->title('Máximo S/ ' . $montoMaximo)->danger()->send();
+                                $set('monto', $montoMaximo);
                             }
                             $cs = $get('../../clientes_grupo') ?? [];
                             $t = array_sum(array_map(fn($c) => floatval($c['monto'] ?? 0), $cs));
@@ -536,6 +536,25 @@ class PrestamoResource extends Resource
             TextColumn::make('monto_devolver')->label('Monto a Devolver')->money('PEN')->sortable(),
             TextColumn::make('cantidad_cuotas')->label('N° Cuotas')->sortable(),
             TextColumn::make('fecha_prestamo')->label('Fecha')->date()->sortable(),
+            TextColumn::make('ciclo_grupo')
+                ->label('Ciclo')
+                ->getStateUsing(function ($record) {
+                    // Obtener el ciclo del primer cliente del grupo (todos deberían tener el mismo ciclo)
+                    $clienteConPrestamo = $record->prestamoIndividual()->with('cliente')->first();
+                    if ($clienteConPrestamo) {
+                        return \App\Helpers\CicloHelper::normalize($clienteConPrestamo->cliente->ciclo);
+                    }
+                    return 'I';
+                })
+                ->badge()
+                ->color(fn(string $state) => match ($state) {
+                    'I' => 'success',
+                    'II' => 'info',
+                    'III' => 'warning',
+                    'IV' => 'danger',
+                    default => 'gray',
+                })
+                ->sortable(),
             TextColumn::make('estado')
                 ->label('Estado')
                 ->formatStateUsing(fn($state, $record) => $record->estado_visible)

@@ -116,4 +116,21 @@ class Cliente extends Model
 
         return $query->whereRaw('1 = 0'); // No mostrar nada si no aplica
     }
+
+
+    /**
+     * Accessor para obtener el ciclo en formato romano
+     */
+    public function getCicloRomanoAttribute()
+    {
+        return \App\Helpers\CicloHelper::normalize($this->ciclo);
+    }
+    
+    /**
+     * Accessor para obtener el monto máximo según el ciclo
+     */
+    public function getMontoMaximoAttribute()
+    {
+        return \App\Helpers\CicloHelper::getMontoMaximo($this->ciclo_romano);
+    }
 }
