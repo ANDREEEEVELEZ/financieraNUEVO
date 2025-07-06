@@ -435,10 +435,23 @@ class PrestamoResource extends Resource
                 ->disabled(fn() => !$puedeEditarEstado)
                 ->dehydrated(true),
 
-            TextInput::make('calificacion')
+            Select::make('calificacion')
                 ->prefixIcon('heroicon-o-star')
-                ->numeric()
+                ->options([
+                    '1' => '1',
+                    '2' => '2',
+                    '3' => '3',
+                    '4' => '4',
+                    '5' => '5',
+                    '6' => '6',
+                    '7' => '7',
+                    '8' => '8',
+                    '9' => '9',
+                    '10' => '10',
+                ])
+                ->native(false)
                 ->required()
+                ->rules(['numeric', 'between:1,10'])
                 ->disabled(fn() => !$puedeEditarCampos),
         ]);
     }

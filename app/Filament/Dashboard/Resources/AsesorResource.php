@@ -161,15 +161,19 @@ class AsesorResource extends Resource
                     Tabs\Tab::make('Datos del Asesor')->icon('heroicon-o-clipboard-document')
                         ->schema([
                             TextInput::make('codigo_asesor')->nullable() ->prefixIcon('heroicon-o-tag'),
-                            DatePicker::make('fecha_ingreso')->nullable()->prefixIcon('heroicon-o-clock'),
+                            DatePicker::make('fecha_ingreso')
+                                ->nullable()
+                                ->prefixIcon('heroicon-o-clock')
+                                ->default(now()->format('Y-m-d')),
                             Select::make('estado_asesor')
-                                 ->prefixIcon('heroicon-o-check-circle')
-                            ->options([
-                                    'Activo' => 'Activo',
-                                    'Inactivo' => 'Inactivo'
+                                ->prefixIcon('heroicon-o-check-circle')
+                                ->options([
+                                    'ACTIVO' => 'ACTIVO',
+                                    'INACTIVO' => 'INACTIVO'
                                 ])
-                                ->default('Activo')
-                                ->required(),
+                                ->default('ACTIVO')
+                                ->required()
+                                ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                             ]),
 
                     ]),

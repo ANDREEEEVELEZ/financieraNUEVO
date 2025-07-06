@@ -63,10 +63,24 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                         Forms\Components\DatePicker::make('fecha_registro')
                             ->required()
                             ->prefixIcon('heroicon-o-calendar')
+                            ->default(now()->format('Y-m-d'))
                             ->disabled(fn () => $isInactivo),
-                        Forms\Components\TextInput::make('calificacion_grupo')
+                        Forms\Components\Select::make('calificacion_grupo')
                             ->prefixIcon('heroicon-o-star')
-                            ->maxLength(255)
+                            ->options([
+                                '1' => '1',
+                                '2' => '2',
+                                '3' => '3',
+                                '4' => '4',
+                                '5' => '5',
+                                '6' => '6',
+                                '7' => '7',
+                                '8' => '8',
+                                '9' => '9',
+                                '10' => '10',
+                            ])
+                            ->native(false)
+                            ->rules(['numeric', 'between:1,10'])
                             ->disabled(fn () => $isInactivo),
                         Forms\Components\TextInput::make('estado_grupo')
                             ->prefixIcon('heroicon-o-check-circle')

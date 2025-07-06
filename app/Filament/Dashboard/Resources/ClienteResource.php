@@ -74,6 +74,7 @@ class ClienteResource extends Resource
                                         'FEMENINO' => 'FEMENINO',
                                         'MASCULINO' => 'MASCULINO',
                                     ])
+                                    ->default('FEMENINO')
                                     ->native(false)
                                     ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 DatePicker::make('persona.fecha_nacimiento')->label('Fecha de Nacimiento')->required()->prefixIcon('heroicon-o-calendar')

@@ -21,6 +21,9 @@ class CreateAsesor extends CreateRecord
             // Validar duplicados ANTES de crear
             $this->validateUniqueFields($data);
 
+            // Establecer estado automáticamente como ACTIVO
+            $data['estado_asesor'] = 'ACTIVO';
+
             return $data;
             
         } catch (QueryException $e) {
@@ -114,5 +117,10 @@ class CreateAsesor extends CreateRecord
             $role = Role::findByName('Asesor');
             $this->record->user->assignRole($role);
         }
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
     }
 }
