@@ -28,7 +28,8 @@ class Cliente extends Model
     ];
 
 
-    // Mutators para convertir automáticamente a mayúsculas
+    // Mutators comentados - sin conversión automática a mayúsculas
+    /*
     public function setInfocorpAttribute($value)
     {
         $this->attributes['infocorp'] = strtoupper($value);
@@ -53,6 +54,7 @@ class Cliente extends Model
     {
         $this->attributes['estado_cliente'] = strtoupper($value);
     }
+    */
 
 
     /**

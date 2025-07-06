@@ -39,7 +39,8 @@ class Persona extends Model
         static::observe(\App\Observers\PersonaObserver::class);
     }
 
-    // Mutators para convertir automáticamente a mayúsculas
+    // Mutators comentados - sin conversión automática a mayúsculas
+    /*
     public function setNombreAttribute($value)
     {
         $this->attributes['nombre'] = strtoupper($value);
@@ -74,6 +75,7 @@ class Persona extends Model
     {
         $this->attributes['sexo'] = strtoupper($value);
     }
+    */
 
     public function user()
     {
