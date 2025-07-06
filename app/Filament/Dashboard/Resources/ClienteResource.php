@@ -44,9 +44,6 @@ class ClienteResource extends Resource
                                     ->numeric()
                                     ->prefixIcon('heroicon-o-identification')
                                     ->rule('regex:/^[0-9]{8}$/')
-                                    ->rules([
-                                        new UniqueDNI()
-                                    ])
                                     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                                     ->mask('99999999')
                                     ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
@@ -86,19 +83,13 @@ class ClienteResource extends Resource
                                     ->required()
                                     ->prefixIcon('heroicon-o-phone')
                                     ->rule('regex:/^[0-9]{9}$/')
-                                    ->rules([
-                                        new UniqueCelular()
-                                    ])
                                     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                                     ->mask('999999999'),
                                 TextInput::make('persona.correo')
                                     ->label('Correo Electrónico')
                                     ->email()
                                     ->required()
-                                    ->prefixIcon('heroicon-o-envelope')
-                                    ->rules([
-                                        new UniqueCorreo()
-                                    ]),
+                                    ->prefixIcon('heroicon-o-envelope'),
                                 TextInput::make('persona.direccion')
                                     ->label('Dirección')
                                     ->required()

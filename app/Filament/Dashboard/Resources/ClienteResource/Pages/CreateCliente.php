@@ -33,7 +33,7 @@ class CreateCliente extends CreateRecord
 
                 $data['asesor_id'] = $asesor->id;
             } else if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones'])) {
-                $asesor = isset($data['asesor_id']) ? \App\Models\Asesor::where('id', $data['asesor_id'])->where('estado_asesor', 'ACTIVO')->first() : null;
+                $asesor = isset($data['asesor_id']) ? \App\Models\Asesor::where('id', $data['asesor_id'])->where('estado_asesor', 'Activo')->first() : null;
                 if (!$asesor) {
                     throw new ValidationException(
                         Validator::make([], [
@@ -124,7 +124,20 @@ class CreateCliente extends CreateRecord
     protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
     {
         try {
-            return parent::handleRecordCreation($data);
+            // Separar datos de persona y cliente
+            $personaData = $data['persona'] ?? [];
+            $clienteData = collect($data)->except('persona')->toArray();
+
+            // Crear la persona primero
+            $persona = \App\Models\Persona::create($personaData);
+
+            // Asignar el ID de la persona al cliente
+            $clienteData['persona_id'] = $persona->id;
+
+            // Crear el cliente
+            $cliente = \App\Models\Cliente::create($clienteData);
+
+            return $cliente;
         } catch (QueryException $e) {
             $this->handleDatabaseError($e);
             // Nunca debería llegar aquí, pero por si acaso
