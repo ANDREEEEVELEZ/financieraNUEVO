@@ -33,7 +33,7 @@ class CreateCliente extends CreateRecord
 
                 $data['asesor_id'] = $asesor->id;
             } else if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones'])) {
-                $asesor = isset($data['asesor_id']) ? \App\Models\Asesor::where('id', $data['asesor_id'])->where('estado_asesor', 'Activo')->first() : null;
+                $asesor = isset($data['asesor_id']) ? \App\Models\Asesor::where('id', $data['asesor_id'])->where('estado_asesor', 'ACTIVO')->first() : null;
                 if (!$asesor) {
                     throw new ValidationException(
                         Validator::make([], [
