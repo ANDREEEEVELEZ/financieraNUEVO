@@ -255,7 +255,7 @@ public static function form(Form $form): Form
                 $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
                 $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
-                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                $saldoPendiente = round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);
 
                 if ($state === 'pago_completo') {
                     $set('monto_pagado', $saldoPendiente);
@@ -396,7 +396,7 @@ public static function form(Form $form): Form
                         $component->state($saldo + $mora);
                     } else {
                         $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
-                        $saldoReal = max(($saldo + $mora) - $pagosAprobados, 0);
+                        $saldoReal = round(max(($saldo + $mora) - $pagosAprobados, 0), 2);
                         $component->state($saldoReal);
                     }
                 } else {
@@ -480,7 +480,7 @@ public static function form(Form $form): Form
                         $saldo = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
                         $mora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
                         // Siempre mostrar la suma cuota + mora, aunque ya esté pagada
-                        return number_format($saldo + $mora, 2);
+                        return number_format(round($saldo + $mora, 2), 2);
                     })
                     ->width('75px'),
 
@@ -516,7 +516,7 @@ public static function form(Form $form): Form
                             ->where('estado_pago', 'Aprobado')
                             ->sum('monto_pagado');
 
-                        $saldo = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                        $saldo = round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);
 
                         return number_format($saldo, 2);
                     })
