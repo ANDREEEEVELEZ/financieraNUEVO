@@ -14,6 +14,25 @@ class AsesorObserver
      */
     public function updated(Asesor $asesor): void
     {
+        // Verificar si el estado del asesor cambió a Inactivo
+        if ($asesor->wasChanged('estado_asesor') && $asesor->estado_asesor === 'Inactivo') {
+            $user = $asesor->user;
+            
+            if ($user) {
+                // Si el usuario actualmente autenticado es el mismo que se está desactivando
+                if (Auth::check() && Auth::user()->id === $user->id) {
+                    // Cerrar la sesión del usuario inmediatamente
+                    Auth::logout();
+                    
+                    // Regenerar el token de sesión
+                    Session::regenerateToken();
+                    
+                    // Invalidar la sesión actual
+                    Session::invalidate();
+                }
+            }
+        }
+        
         // Verificar si hay cambios en la relación persona
         if ($asesor->persona && $asesor->persona->wasChanged('correo')) {
             // Si el email cambió, cerrar todas las sesiones activas del usuario

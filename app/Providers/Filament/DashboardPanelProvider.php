@@ -65,7 +65,7 @@ class DashboardPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 \App\Http\Middleware\DatabaseErrorHandler::class, // Manejo de errores de BD
-                // \App\Http\Middleware\CheckUserActive::class, // Comentado temporalmente para diagnóstico
+                \App\Http\Middleware\CheckUserActive::class, // Verificación de estado activo del asesor
             ])
             ->plugins([
                 FilamentShieldPlugin::make()
