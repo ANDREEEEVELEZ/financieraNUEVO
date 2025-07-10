@@ -102,24 +102,30 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                             ->prefixIcon('heroicon-o-user-plus')
                                             ->multiple()
                                             ->options(function (callable $get) use ($user) {
+                                                // Obtener el grupo actual si estamos editando
+                                                $record = request()->route('record');
+                                                $grupoActual = $record ? \App\Models\Grupo::find($record) : null;
+                                                
                                                 // Si es asesor, mostrar solo sus clientes
                                                 if ($user->hasRole('Asesor')) {
                                                     $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
                                                     if ($asesor) {
                                                         return Cliente::where('asesor_id', $asesor->id)
-                                                            ->with(['persona', 'grupos' => function ($query) {
-                                                                $query->where('estado_grupo', 'Activo');
-                                                            }])
+                                                            ->with(['persona'])
+                                                            ->whereDoesntHave('grupos', function ($query) use ($grupoActual) {
+                                                                $query->where('estado_grupo', 'Activo')
+                                                                      ->whereNull('grupo_cliente.fecha_salida');
+                                                                // Si estamos editando, excluir el grupo actual del filtro
+                                                                if ($grupoActual) {
+                                                                    $query->where('grupos.id', '!=', $grupoActual->id);
+                                                                }
+                                                            })
                                                             ->join('personas', 'clientes.persona_id', '=', 'personas.id')
                                                             ->orderBy('personas.nombre')
                                                             ->orderBy('personas.apellidos')
                                                             ->select('clientes.*')
                                                             ->get()
                                                             ->mapWithKeys(function($cliente) {
-                                                                if ($cliente->tieneGrupoActivo()) {
-                                                                    $grupoActivo = $cliente->grupoActivo;
-                                                                    return [$cliente->id => "🔒 {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya en grupo: {$grupoActivo->nombre_grupo}"];
-                                                                }
                                                                 return [$cliente->id => "✅ {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                                                             });
                                                     }
@@ -129,19 +135,21 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                     $asesorId = $get('asesor_id');
                                                     if ($asesorId) {
                                                         return Cliente::where('asesor_id', $asesorId)
-                                                            ->with(['persona', 'grupos' => function ($query) {
-                                                                $query->where('estado_grupo', 'Activo');
-                                                            }])
+                                                            ->with(['persona'])
+                                                            ->whereDoesntHave('grupos', function ($query) use ($grupoActual) {
+                                                                $query->where('estado_grupo', 'Activo')
+                                                                      ->whereNull('grupo_cliente.fecha_salida');
+                                                                // Si estamos editando, excluir el grupo actual del filtro
+                                                                if ($grupoActual) {
+                                                                    $query->where('grupos.id', '!=', $grupoActual->id);
+                                                                }
+                                                            })
                                                             ->join('personas', 'clientes.persona_id', '=', 'personas.id')
                                                             ->orderBy('personas.nombre')
                                                             ->orderBy('personas.apellidos')
                                                             ->select('clientes.*')
                                                             ->get()
                                                             ->mapWithKeys(function($cliente) {
-                                                                if ($cliente->tieneGrupoActivo()) {
-                                                                    $grupoActivo = $cliente->grupoActivo;
-                                                                    return [$cliente->id => "🔒 {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI}) - Ya en grupo: {$grupoActivo->nombre_grupo}"];
-                                                                }
                                                                 return [$cliente->id => "✅ {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                                                             });
                                                     }
@@ -154,45 +162,6 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                             ->required()
                                             ->reactive()
                                             ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                                                if (!empty($state)) {
-                                                    // Obtener el record actual (grupo en edición)
-                                                    $record = request()->route('record');
-                                                    $grupo = $record ? \App\Models\Grupo::find($record) : null;
-                                                    
-                                                    // Verificar si hay clientes con grupo activo (excluyendo el grupo actual si estamos editando)
-                                                    $clientesConGrupo = Cliente::whereIn('clientes.id', $state)
-                                                        ->get()
-                                                        ->filter(function ($cliente) use ($grupo) {
-                                                            if (!$cliente->tieneGrupoActivo()) {
-                                                                return false;
-                                                            }
-                                                            // Si estamos editando, permitir clientes que ya pertenecen a este grupo
-                                                            if ($grupo) {
-                                                                $grupoActivo = $cliente->grupoActivo;
-                                                                return $grupoActivo->id !== $grupo->id;
-                                                            }
-                                                            return true;
-                                                        });
-                                                    
-                                                    if ($clientesConGrupo->isNotEmpty()) {
-                                                        $mensajesError = $clientesConGrupo->map(function ($cliente) {
-                                                            $grupoActivo = $cliente->grupoActivo;
-                                                            return "{$cliente->persona->nombre} {$cliente->persona->apellidos} ya pertenece al grupo {$grupoActivo->nombre_grupo}";
-                                                        })->join("\n");
-                                                        
-                                                        Notification::make()
-                                                            ->danger()
-                                                            ->title('Error al agregar clientes')
-                                                            ->body($mensajesError)
-                                                            ->persistent()
-                                                            ->send();
-                                                        
-                                                        // Solo remover los clientes conflictivos, mantener los demás
-                                                        $clientesConflictivos = $clientesConGrupo->pluck('id')->toArray();
-                                                        $clientesValidos = array_diff($state, $clientesConflictivos);
-                                                        $set('clientes', array_values($clientesValidos));
-                                                    }
-                                                }
                                                 // Actualizar el contador de integrantes
                                                 $set('numero_integrantes', is_array($state) ? count($state) : 0);
                                             })
