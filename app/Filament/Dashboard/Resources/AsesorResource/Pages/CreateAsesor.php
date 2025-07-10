@@ -22,7 +22,7 @@ class CreateAsesor extends CreateRecord
             $this->validateUniqueFields($data);
 
             // Establecer estado automáticamente como ACTIVO
-            $data['estado_asesor'] = 'ACTIVO';
+            $data['estado_asesor'] = 'Activo';
 
             return $data;
             
