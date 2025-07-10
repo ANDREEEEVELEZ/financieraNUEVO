@@ -168,10 +168,10 @@ class AsesorResource extends Resource
                             Select::make('estado_asesor')
                                 ->prefixIcon('heroicon-o-check-circle')
                                 ->options([
-                                    'ACTIVO' => 'ACTIVO',
-                                    'INACTIVO' => 'INACTIVO'
+                                    'Activo' => 'Activo',
+                                    'Inactivo' => 'Inactivo'
                                 ])
-                                ->default('ACTIVO')
+                                ->default('Activo')
                                 ->required()
                                 ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                             ]),
