@@ -15,7 +15,7 @@ class EditAsesor extends EditRecord
             Actions\DeleteAction::make()
             ->icon('heroicon-o-trash')
                 ->action(function () {
-                    // Buscar grupos asignados a este asesor
+                    // Validación robusta: SIEMPRE verificar grupos antes de eliminar
                     $grupos = $this->record->grupos()->get();
                     if ($grupos->count() > 0) {
                         $cantidad = $grupos->count();
@@ -24,14 +24,14 @@ class EditAsesor extends EditRecord
                         \Filament\Notifications\Notification::make()
                             ->danger()
                             ->title('¡Atención!')
-                            ->body('No puedes eliminar al asesor hasta reasignar sus ' . $cantidad . ' grupo(s). Por favor, reasigna todos los grupos a otro asesor antes de continuar.')
+                            ->body('No puedes eliminar al asesor "' . $nombreAsesor . '" hasta reasignar sus ' . $cantidad . ' grupo(s). Ve al módulo de grupos para cambiar el asesor de estos grupos.')
                             ->persistent()
                             ->send();
-                        // Redirigir a la lista de grupos filtrando por nombre de asesor
-                        return redirect()->to(route('filament.dashboard.resources.grupos.index', ['tableFilters[asesor][value]' => $nombreAsesor]));
+                        // Redirigir a la lista de grupos filtrando por ID del asesor (no por nombre)
+                        return redirect()->to(route('filament.dashboard.resources.grupos.index', ['tableFilters[asesor][value]' => $this->record->id]));
                     }
 
-                    // Si no tiene grupos, proceder a inactivar
+                    // Solo si NO tiene grupos, proceder a inactivar
                     $this->record->update([
                         'estado_asesor' => 'inactivo'
                     ]);
@@ -50,7 +50,7 @@ class EditAsesor extends EditRecord
                     return redirect()->to(static::getResource()::getUrl('index'));
                 })
                 ->requiresConfirmation()
-                ->modalDescription('¿Está seguro de que desea desactivar este asesor? El asesor quedará inactivo pero su información se mantendrá en el sistema.')
+                ->modalDescription('¿Está seguro de que desea desactivar este asesor? NOTA: Si el asesor tiene grupos asignados, debe reasignarlos primero a otro asesor.')
                 ->modalHeading('Desactivar Asesor'),
         ];
     }

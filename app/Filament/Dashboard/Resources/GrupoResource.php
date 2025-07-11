@@ -334,11 +334,11 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                 Tables\Filters\SelectFilter::make('asesor')
                     ->label('Asesor')
                     ->options(function () {
-                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
-                            ->with('persona')
+                        return \App\Models\Asesor::with('persona')
                             ->get()
                             ->mapWithKeys(function ($asesor) {
-                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                                $estadoBadge = $asesor->estado_asesor === 'Activo' ? '' : ' (Inactivo)';
+                                return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos . $estadoBadge];
                             });
                     })
                     ->query(function (Builder $query, array $data) {
