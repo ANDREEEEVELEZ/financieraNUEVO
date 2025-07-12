@@ -294,6 +294,99 @@ class ClienteResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
+                Tables\Actions\Action::make('trasladar_cliente')
+                    ->label('Trasladar Asesor')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('warning')
+                    ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                    ->form([
+                        Forms\Components\Select::make('nuevo_asesor_id')
+                            ->label('Nuevo Asesor')
+                            ->required()
+                            ->options(function () {
+                                return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                                    ->with('persona')
+                                    ->get()
+                                    ->mapWithKeys(function ($asesor) {
+                                        return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                                    });
+                            })
+                            ->searchable()
+                            ->helperText('Seleccione el nuevo asesor para este cliente'),
+                    ])
+                    ->action(function ($record, $data) {
+                        $nuevoAsesorId = $data['nuevo_asesor_id'];
+                        $nuevoAsesor = \App\Models\Asesor::with('persona')->find($nuevoAsesorId);
+                        $nombreNuevoAsesor = $nuevoAsesor->persona->nombre . ' ' . $nuevoAsesor->persona->apellidos;
+                        $nombreCliente = $record->persona->nombre . ' ' . $record->persona->apellidos;
+                        
+                        // Verificar si el cliente pertenece a un grupo activo
+                        if ($record->tieneGrupoActivo()) {
+                            $grupo = $record->grupos()->where('estado_grupo', 'Activo')->first();
+                            $integrantesGrupo = $grupo->clientes()->count();
+                            
+                            if ($integrantesGrupo > 1) {
+                                // Mostrar modal de confirmación para trasladar todo el grupo
+                                \Filament\Notifications\Notification::make()
+                                    ->warning()
+                                    ->title('Cliente Pertenece a un Grupo')
+                                    ->body("El cliente {$nombreCliente} pertenece al grupo '{$grupo->nombre_grupo}' con {$integrantesGrupo} integrantes. Para trasladar este cliente, debe trasladar todo el grupo. ¿Desea continuar trasladando todo el grupo al asesor {$nombreNuevoAsesor}?")
+                                    ->actions([
+                                        \Filament\Notifications\Actions\Action::make('confirm_group_transfer')
+                                            ->label('Sí, trasladar todo el grupo')
+                                            ->button()
+                                            ->action(function () use ($grupo, $nuevoAsesorId, $nombreNuevoAsesor) {
+                                                // Trasladar grupo completo
+                                                $grupo->asesor_id = $nuevoAsesorId;
+                                                $grupo->save();
+                                                
+                                                // Trasladar todos los clientes del grupo
+                                                $clientesGrupo = $grupo->clientes;
+                                                foreach ($clientesGrupo as $clienteGrupo) {
+                                                    $clienteGrupo->asesor_id = $nuevoAsesorId;
+                                                    $clienteGrupo->save();
+                                                }
+                                                
+                                                \Filament\Notifications\Notification::make()
+                                                    ->success()
+                                                    ->title('Grupo Trasladado Exitosamente')
+                                                    ->body("El grupo '{$grupo->nombre_grupo}' y todos sus {$clientesGrupo->count()} integrantes han sido trasladados al asesor {$nombreNuevoAsesor}.")
+                                                    ->send();
+                                            }),
+                                        \Filament\Notifications\Actions\Action::make('cancel')
+                                            ->label('Cancelar')
+                                            ->action(function () {
+                                                \Filament\Notifications\Notification::make()
+                                                    ->info()
+                                                    ->title('Traslado Cancelado')
+                                                    ->body('El traslado ha sido cancelado.')
+                                                    ->send();
+                                            })
+                                    ])
+                                    ->persistent()
+                                    ->send();
+                                return;
+                            } else {
+                                // Solo un integrante, trasladar grupo y cliente
+                                $grupo->asesor_id = $nuevoAsesorId;
+                                $grupo->save();
+                            }
+                        }
+                        
+                        // Trasladar cliente individual o único integrante de grupo
+                        $record->asesor_id = $nuevoAsesorId;
+                        $record->save();
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Cliente Trasladado Exitosamente')
+                            ->body("El cliente {$nombreCliente} ha sido trasladado exitosamente al asesor {$nombreNuevoAsesor}.")
+                            ->send();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar Traslado de Cliente')
+                    ->modalDescription(fn ($record) => "¿Está seguro de que desea trasladar al cliente {$record->persona->nombre} {$record->persona->apellidos} a otro asesor?")
+                    ->modalSubmitActionLabel('Sí, trasladar'),
                 Tables\Actions\Action::make('activar')
                     ->label('Activar')
                     ->icon('heroicon-o-check-circle')
@@ -378,8 +471,132 @@ class ClienteResource extends Resource
                         })
                         ->deselectRecordsAfterCompletion(),
                         // ->hidden(fn ($records) => !$records || !$records->contains('estado_cliente', 'Inactivo')), // Removido para permitir siempre la reactivación
+                    
+                    // Nueva acción de traslado de clientes
+                    Tables\Actions\BulkAction::make('trasladar_clientes')
+                        ->label('Trasladar a Otro Asesor')
+                        ->icon('heroicon-o-arrow-right-circle')
+                        ->color('warning')
+                        ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                        ->form([
+                            Forms\Components\Select::make('nuevo_asesor_id')
+                                ->label('Nuevo Asesor')
+                                ->required()
+                                ->options(function () {
+                                    return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                                        ->with('persona')
+                                        ->get()
+                                        ->mapWithKeys(function ($asesor) {
+                                            return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
+                                        });
+                                })
+                                ->searchable()
+                                ->helperText('Seleccione el asesor al que desea trasladar el/los cliente(s)'),
+                        ])
+                        ->action(function ($records, $data) {
+                            $nuevoAsesorId = $data['nuevo_asesor_id'];
+                            $nuevoAsesor = \App\Models\Asesor::with('persona')->find($nuevoAsesorId);
+                            $nombreNuevoAsesor = $nuevoAsesor->persona->nombre . ' ' . $nuevoAsesor->persona->apellidos;
+                            
+                            $clientesSinGrupo = collect();
+                            $clientesConGrupo = collect();
+                            $gruposAfectados = collect();
+                            
+                            // Clasificar clientes según si pertenecen a grupos
+                            foreach ($records as $cliente) {
+                                if ($cliente->tieneGrupoActivo()) {
+                                    $grupo = $cliente->grupos()->where('estado_grupo', 'Activo')->first();
+                                    if ($grupo && !$gruposAfectados->contains('id', $grupo->id)) {
+                                        $gruposAfectados->push($grupo);
+                                    }
+                                    $clientesConGrupo->push($cliente);
+                                } else {
+                                    $clientesSinGrupo->push($cliente);
+                                }
+                            }
+                            
+                            // Trasladar clientes sin grupo directamente
+                            if ($clientesSinGrupo->isNotEmpty()) {
+                                foreach ($clientesSinGrupo as $cliente) {
+                                    $cliente->asesor_id = $nuevoAsesorId;
+                                    $cliente->save();
+                                }
+                                
+                                \Filament\Notifications\Notification::make()
+                                    ->success()
+                                    ->title('Clientes Trasladados')
+                                    ->body($clientesSinGrupo->count() . " cliente(s) sin grupo han sido trasladados exitosamente al asesor {$nombreNuevoAsesor}.")
+                                    ->send();
+                            }
+                            
+                            // Verificar grupos que necesitan traslado completo
+                            if ($gruposAfectados->isNotEmpty()) {
+                                static::procesarTrasladoGrupos($gruposAfectados, $nuevoAsesorId, $nombreNuevoAsesor);
+                            }
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Confirmar Traslado de Clientes')
+                        ->modalDescription('¿Está seguro de que desea trasladar los clientes seleccionados? Si algún cliente pertenece a un grupo, se evaluará el traslado del grupo completo.')
+                        ->modalSubmitActionLabel('Sí, trasladar')
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
+    }
+
+    /**
+     * Procesar traslado de grupos completos cuando se seleccionan clientes que pertenecen a grupos
+     */
+    protected static function procesarTrasladoGrupos($gruposAfectados, $nuevoAsesorId, $nombreNuevoAsesor)
+    {
+        $gruposParaTrasladar = collect();
+        $gruposConflictivos = collect();
+        
+        foreach ($gruposAfectados as $grupo) {
+            $totalIntegrantes = $grupo->clientes()->count();
+            
+            // Si el grupo tiene más de un integrante, necesita confirmación adicional
+            if ($totalIntegrantes > 1) {
+                $gruposConflictivos->push([
+                    'grupo' => $grupo,
+                    'integrantes' => $totalIntegrantes
+                ]);
+            } else {
+                $gruposParaTrasladar->push($grupo);
+            }
+        }
+        
+        // Trasladar grupos de un solo integrante
+        if ($gruposParaTrasladar->isNotEmpty()) {
+            foreach ($gruposParaTrasladar as $grupo) {
+                $grupo->asesor_id = $nuevoAsesorId;
+                $grupo->save();
+                
+                // Actualizar también el cliente
+                $cliente = $grupo->clientes()->first();
+                $cliente->asesor_id = $nuevoAsesorId;
+                $cliente->save();
+            }
+            
+            \Filament\Notifications\Notification::make()
+                ->success()
+                ->title('Grupos Trasladados')
+                ->body($gruposParaTrasladar->count() . " grupo(s) de un integrante han sido trasladados exitosamente al asesor {$nombreNuevoAsesor}.")
+                ->send();
+        }
+        
+        // Mostrar alerta para grupos con múltiples integrantes
+        if ($gruposConflictivos->isNotEmpty()) {
+            $mensajeGrupos = $gruposConflictivos->map(function ($item) {
+                return "• {$item['grupo']->nombre_grupo} ({$item['integrantes']} integrantes)";
+            })->join("\n");
+            
+            \Filament\Notifications\Notification::make()
+                ->warning()
+                ->title('Grupos con Múltiples Integrantes Detectados')
+                ->body("Los siguientes grupos requieren traslado completo de todos sus integrantes:\n\n{$mensajeGrupos}\n\nPor favor, vaya al módulo de Grupos y use la función 'Cambiar Asesor' para trasladar estos grupos completos al asesor {$nombreNuevoAsesor}.")
+                ->persistent()
+                ->send();
+        }
     }
 
 
