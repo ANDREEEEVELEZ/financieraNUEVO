@@ -24,7 +24,10 @@ class EditCliente extends EditRecord
     {
         $this->form->fill(array_merge(
             $this->record->toArray(),
-            ['persona' => $this->record->persona->toArray()]
+            [
+                'persona' => $this->record->persona->toArray(),
+                'persona_id' => $this->record->persona->id  // Para validaciones de unicidad
+            ]
         ));
     }
 

@@ -30,6 +30,11 @@ class UniqueCelular implements ValidationRule
                 return;
             }
             
+            // Solo validar si tiene exactamente 9 dígitos
+            if (strlen($normalizedValue) !== 9 || !ctype_digit($normalizedValue)) {
+                return; // No validar si no son exactamente 9 dígitos
+            }
+            
             $query = Persona::where('celular', $normalizedValue);
             
             // Si estamos editando, ignorar el registro actual
@@ -38,7 +43,7 @@ class UniqueCelular implements ValidationRule
             }
             
             if ($query->exists()) {
-                $fail('El número de celular ya existe en el sistema.');
+                $fail('Este número de celular ya está registrado en el sistema.');
             }
             
         } catch (\Exception $e) {

@@ -30,6 +30,11 @@ class UniqueDNI implements ValidationRule
                 return;
             }
             
+            // Solo validar si tiene exactamente 8 dígitos
+            if (strlen($normalizedValue) !== 8 || !ctype_digit($normalizedValue)) {
+                return; // No validar si no son exactamente 8 dígitos
+            }
+            
             $query = Persona::where('DNI', $normalizedValue);
             
             // Si estamos editando, ignorar el registro actual
@@ -38,7 +43,7 @@ class UniqueDNI implements ValidationRule
             }
             
             if ($query->exists()) {
-                $fail('El DNI ya existe en el sistema.');
+                $fail('Este DNI ya está registrado en el sistema.');
             }
             
         } catch (\Exception $e) {

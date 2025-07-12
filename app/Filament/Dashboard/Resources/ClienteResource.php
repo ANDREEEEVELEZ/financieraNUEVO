@@ -46,6 +46,23 @@ class ClienteResource extends Resource
                                     ->rule('regex:/^[0-9]{8}$/')
                                     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                                     ->mask('99999999')
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                                        // Limpiar cualquier error previo
+                                        $set('dni_error', '');
+                                        
+                                        // Solo validar si tiene exactamente 8 dígitos
+                                        if (strlen(trim($state)) === 8 && ctype_digit(trim($state))) {
+                                            $personaId = $get('persona_id'); // Para edición
+                                            $rule = new UniqueDNI($personaId);
+                                            
+                                            $rule->validate('DNI', $state, function ($message) use ($set) {
+                                                $set('dni_error', $message);
+                                            });
+                                        }
+                                    })
+                                    ->helperText(fn (callable $get) => $get('dni_error') ?: 'Ingrese 8 dígitos')
+                                    ->extraAttributes(fn (callable $get) => $get('dni_error') ? ['style' => 'border-color: #ef4444;'] : [])
                                     ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 TextInput::make('persona.nombre')
                                     ->label('Nombre')
@@ -84,12 +101,46 @@ class ClienteResource extends Resource
                                     ->prefixIcon('heroicon-o-phone')
                                     ->rule('regex:/^[0-9]{9}$/')
                                     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
-                                    ->mask('999999999'),
+                                    ->mask('999999999')
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                                        // Limpiar cualquier error previo
+                                        $set('celular_error', '');
+                                        
+                                        // Solo validar si tiene exactamente 9 dígitos
+                                        if (strlen(trim($state)) === 9 && ctype_digit(trim($state))) {
+                                            $personaId = $get('persona_id'); // Para edición
+                                            $rule = new UniqueCelular($personaId);
+                                            
+                                            $rule->validate('celular', $state, function ($message) use ($set) {
+                                                $set('celular_error', $message);
+                                            });
+                                        }
+                                    })
+                                    ->helperText(fn (callable $get) => $get('celular_error') ?: 'Ingrese 9 dígitos')
+                                    ->extraAttributes(fn (callable $get) => $get('celular_error') ? ['style' => 'border-color: #ef4444;'] : []),
                                 TextInput::make('persona.correo')
                                     ->label('Correo Electrónico')
                                     ->email()
                                     ->required()
-                                    ->prefixIcon('heroicon-o-envelope'),
+                                    ->prefixIcon('heroicon-o-envelope')
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                                        // Limpiar cualquier error previo
+                                        $set('correo_error', '');
+                                        
+                                        // Solo validar si tiene formato de email válido
+                                        if (filter_var(trim($state), FILTER_VALIDATE_EMAIL)) {
+                                            $personaId = $get('persona_id'); // Para edición
+                                            $rule = new UniqueCorreo($personaId);
+                                            
+                                            $rule->validate('correo', $state, function ($message) use ($set) {
+                                                $set('correo_error', $message);
+                                            });
+                                        }
+                                    })
+                                    ->helperText(fn (callable $get) => $get('correo_error') ?: 'Ejemplo: usuario@gmail.com')
+                                    ->extraAttributes(fn (callable $get) => $get('correo_error') ? ['style' => 'border-color: #ef4444;'] : []),
                                 TextInput::make('persona.direccion')
                                     ->label('Dirección')
                                     ->required()
@@ -120,6 +171,12 @@ class ClienteResource extends Resource
                                     ])
                                     ->native(false)
                                     ->required(),
+                                
+                                // Campos ocultos para manejo de validaciones reactivas
+                                Forms\Components\Hidden::make('persona_id'),
+                                Forms\Components\Hidden::make('dni_error'),
+                                Forms\Components\Hidden::make('celular_error'),
+                                Forms\Components\Hidden::make('correo_error'),
                             ])->columns(2),
 
                         Tabs\Tab::make('Información Cliente')

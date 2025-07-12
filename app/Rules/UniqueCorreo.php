@@ -30,6 +30,11 @@ class UniqueCorreo implements ValidationRule
                 return;
             }
             
+            // Solo validar si tiene formato de email válido (no validar @gmail.com incompleto)
+            if (!filter_var($normalizedValue, FILTER_VALIDATE_EMAIL)) {
+                return; // No validar si no es un email válido
+            }
+            
             // Buscar en la base de datos comparando en minúsculas
             $query = Persona::whereRaw('LOWER(correo) = ?', [$normalizedValue]);
             
@@ -39,7 +44,7 @@ class UniqueCorreo implements ValidationRule
             }
             
             if ($query->exists()) {
-                $fail('El correo electrónico ya existe en el sistema.');
+                $fail('Este correo electrónico ya está registrado en el sistema.');
             }
             
         } catch (\Exception $e) {
