@@ -42,6 +42,12 @@ class PrestamoObserver
             $fechaAprobacion = now()->toDateString();
             $prestamo->updateQuietly(['fecha_prestamo' => $fechaAprobacion]);
 
+            Log::info('PrestamoObserver: Fecha de préstamo actualizada', [
+                'prestamo_id' => $prestamo->id,
+                'nueva_fecha_prestamo' => $fechaAprobacion,
+                'fecha_anterior' => $prestamo->getRawOriginal('fecha_prestamo')
+            ]);
+
             // Crear cuotas grupales si no existen aún
             $yaTieneCuotas = CuotasGrupales::where('prestamo_id', $prestamo->id)->exists();
             if (!$yaTieneCuotas) {
@@ -60,20 +66,32 @@ class PrestamoObserver
 
                 Log::info('PrestamoObserver: Creando cuotas grupales', [
                     'prestamo_id' => $prestamo->id,
+                    'fecha_inicio' => $fechaInicio->toDateString(),
+                    'frecuencia' => $prestamo->frecuencia,
+                    'dias_entre_cuotas' => $dias,
                     'monto_total_devolver' => $montoTotalDevolver,
                     'cantidad_cuotas' => $cantidadCuotas,
                     'monto_por_cuota' => $montoPorCuota
                 ]);
 
                 for ($i = 1; $i <= $cantidadCuotas; $i++) {
-                    CuotasGrupales::create([
+                    $fechaVencimiento = $fechaInicio->copy()->addDays($dias * $i);
+                    
+                    $cuotaCreada = CuotasGrupales::create([
                         'prestamo_id' => $prestamo->id,
                         'numero_cuota' => $i,
                         'monto_cuota_grupal' => round($montoPorCuota, 2),
                         'saldo_pendiente' => round($montoPorCuota, 2),
-                        'fecha_vencimiento' => $fechaInicio->copy()->addDays($dias * $i),
+                        'fecha_vencimiento' => $fechaVencimiento,
                         'estado_cuota_grupal' => 'vigente',
                         'estado_pago' => 'pendiente',
+                    ]);
+                    
+                    Log::info('PrestamoObserver: Cuota creada', [
+                        'cuota_id' => $cuotaCreada->id,
+                        'numero_cuota' => $i,
+                        'fecha_vencimiento' => $fechaVencimiento->toDateString(),
+                        'monto' => round($montoPorCuota, 2)
                     ]);
                 }
 

@@ -15,20 +15,42 @@ class Moras extends Page
 
     public function getViewData(): array
     {
-
-        CuotasGrupales::where('estado_cuota_grupal', 'vigente')
+        // Actualizar automáticamente el estado de cuotas vencidas
+        // SOLO marcamos como mora las cuotas que realmente están vencidas (1 día después de fecha_vencimiento)
+        $fechaVencimientoLimite = now()->subDay(); // Un día antes de hoy para dar 1 día de gracia
+        
+        // Agregar logs para debugging
+        \Illuminate\Support\Facades\Log::info('Moras: Verificando cuotas vencidas', [
+            'fecha_limite' => $fechaVencimientoLimite->toDateString(),
+            'fecha_actual' => now()->toDateString()
+        ]);
+        
+        $cuotasActualizadas = CuotasGrupales::where('estado_cuota_grupal', 'vigente')
             ->where('estado_pago', '!=', 'pagado')
-            ->whereDate('fecha_vencimiento', '<', now())
+            ->whereDate('fecha_vencimiento', '<=', $fechaVencimientoLimite)
             ->update(['estado_cuota_grupal' => 'mora']);
+            
+        \Illuminate\Support\Facades\Log::info('Moras: Cuotas marcadas como mora', [
+            'cantidad' => $cuotasActualizadas
+        ]);
 
+        // Obtener cuotas que están realmente en mora (con al menos 1 día de gracia)
         $cuotasEnMora = CuotasGrupales::with('prestamo.grupo')
             ->where('estado_cuota_grupal', 'mora')
             ->get();
 
         foreach ($cuotasEnMora as $cuota) {
-            $diasAtraso = now()->isAfter($cuota->fecha_vencimiento)
-                ? now()->diffInDays($cuota->fecha_vencimiento)
-                : 0;
+            // Calcular días de atraso usando el método seguro del modelo Mora
+            $diasAtraso = 0;
+            if ($cuota->mora) {
+                $diasAtraso = $cuota->mora->dias_atraso;
+            } else {
+                // Si no hay mora creada, calcular manualmente
+                $fechaVencimiento = \Carbon\Carbon::parse($cuota->getRawOriginal('fecha_vencimiento'));
+                $diasAtraso = now()->isAfter($fechaVencimiento->addDay())
+                    ? now()->diffInDays($fechaVencimiento->addDay())
+                    : 0;
+            }
 
 
             $moraExistente = Mora::where('cuota_grupal_id', $cuota->id)->first();
