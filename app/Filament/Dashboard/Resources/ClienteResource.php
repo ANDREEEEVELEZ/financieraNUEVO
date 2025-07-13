@@ -352,7 +352,7 @@ class ClienteResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
                 Tables\Actions\Action::make('trasladar_cliente')
-                    ->label('Trasladar Asesor')
+                    ->label('Trasladar Cliente')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('warning')
                     ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
