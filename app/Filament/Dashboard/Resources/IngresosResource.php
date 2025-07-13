@@ -177,12 +177,6 @@ class IngresosResource extends Resource
                         default => $state,
                     }),
 
-                TextColumn::make('grupo_nombre')
-                    ->label('Grupo')
-                    ->getStateUsing(fn ($record) => $record->pago?->cuotaGrupal?->prestamo?->grupo?->nombre_grupo ?? 'Sin grupo')
-                    ->sortable(),
-
-
                 TextColumn::make('descripcion')
                     ->label('Descripción')
                     ->limit(50)

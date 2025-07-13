@@ -536,25 +536,6 @@ class PrestamoResource extends Resource
             TextColumn::make('monto_devolver')->label('Monto a Devolver')->money('PEN')->sortable(),
             TextColumn::make('cantidad_cuotas')->label('N° Cuotas')->sortable(),
             TextColumn::make('fecha_prestamo')->label('Fecha')->date()->sortable(),
-            TextColumn::make('ciclo_grupo')
-                ->label('Ciclo')
-                ->getStateUsing(function ($record) {
-                    // Obtener el ciclo del primer cliente del grupo (todos deberían tener el mismo ciclo)
-                    $clienteConPrestamo = $record->prestamoIndividual()->with('cliente')->first();
-                    if ($clienteConPrestamo) {
-                        return \App\Helpers\CicloHelper::normalize($clienteConPrestamo->cliente->ciclo);
-                    }
-                    return 'I';
-                })
-                ->badge()
-                ->color(fn(string $state) => match ($state) {
-                    'I' => 'success',
-                    'II' => 'info',
-                    'III' => 'warning',
-                    'IV' => 'danger',
-                    default => 'gray',
-                })
-                ->sortable(),
             TextColumn::make('estado')
                 ->label('Estado')
                 ->formatStateUsing(fn($state, $record) => $record->estado_visible)
