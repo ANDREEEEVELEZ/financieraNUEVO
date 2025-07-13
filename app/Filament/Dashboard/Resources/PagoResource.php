@@ -287,7 +287,7 @@ public static function form(Form $form): Form
                 $user = request()->user();
 
                 // Si es super_admin o jefe, siempre deshabilitar
-                if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                if ($user->hasAnyRole([ 'Jefe de creditos'])) { // AQUI PEGAR EL CODIGO DE ROL
                     return true;
                 }
 
