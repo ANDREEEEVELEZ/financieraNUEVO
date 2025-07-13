@@ -236,7 +236,7 @@
             });
         </script>
 
-        <!-- Selector de elementos por página y contador -->
+        <!-- Indicador de resultados con estilo de Filament -->
         <div class="flex justify-between items-center mt-6 mb-4">
             <div class="flex items-center space-x-2">
                 <label for="per_page" class="text-sm text-gray-700 dark:text-gray-300">Mostrar:</label>
@@ -422,52 +422,10 @@
             </tbody>
         </table>
         
-        <!-- Paginación -->
+        <!-- Paginación nativa de Filament -->
         @if($cuotas_mora->hasPages())
-            <div class="mt-6 flex justify-center">
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-                    <div class="flex items-center justify-between">
-                        <div class="text-sm text-gray-700 dark:text-gray-300">
-                            Mostrando {{ $cuotas_mora->firstItem() }} a {{ $cuotas_mora->lastItem() }} de {{ $cuotas_mora->total() }} resultados
-                        </div>
-                        <div class="flex space-x-1">
-                            {{-- Botón Previous --}}
-                            @if ($cuotas_mora->onFirstPage())
-                                <span class="px-3 py-2 text-sm text-gray-500 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600">
-                                    Anterior
-                                </span>
-                            @else
-                                <a href="{{ $cuotas_mora->previousPageUrl() }}" class="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
-                                    Anterior
-                                </a>
-                            @endif
-
-                            {{-- Enlaces de páginas --}}
-                            @foreach ($cuotas_mora->getUrlRange(1, $cuotas_mora->lastPage()) as $page => $url)
-                                @if ($page == $cuotas_mora->currentPage())
-                                    <span class="px-3 py-2 text-sm text-white bg-blue-600 border border-blue-600 rounded-md">
-                                        {{ $page }}
-                                    </span>
-                                @else
-                                    <a href="{{ $url }}" class="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
-                                        {{ $page }}
-                                    </a>
-                                @endif
-                            @endforeach
-
-                            {{-- Botón Next --}}
-                            @if ($cuotas_mora->hasMorePages())
-                                <a href="{{ $cuotas_mora->nextPageUrl() }}" class="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
-                                    Siguiente
-                                </a>
-                            @else
-                                <span class="px-3 py-2 text-sm text-gray-500 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600">
-                                    Siguiente
-                                </span>
-                            @endif
-                        </div>
-                    </div>
-                </div>
+            <div class="mt-6">
+                {{ $cuotas_mora->withQueryString()->links() }}
             </div>
         @endif
     </div>
