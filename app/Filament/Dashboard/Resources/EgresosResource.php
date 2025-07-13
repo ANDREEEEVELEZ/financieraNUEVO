@@ -163,7 +163,7 @@ Forms\Components\TextInput::make('monto')
     ->disabled($isEditing)
     ->dehydrated(true)
     ->minValue(0.01)
-    ->rule('numeric|min:0.01')
+    ->rules(['numeric', 'min:0.01'])
     ->extraAttributes(['inputmode' => 'decimal', 'pattern' => '[0-9]*(\.[0-9]{0,2})?'])
     ->formatStateUsing(function ($state) {
         // Formatear correctamente para mostrar en el campo al editar
