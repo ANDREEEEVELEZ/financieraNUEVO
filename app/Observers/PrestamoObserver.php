@@ -38,6 +38,10 @@ class PrestamoObserver
         if ($prestamo->wasChanged('estado') && strtolower($prestamo->estado) === 'aprobado') {
             Log::info('PrestamoObserver: Préstamo aprobado detectado', ['prestamo_id' => $prestamo->id]);
 
+            // Actualizar la fecha_prestamo a la fecha de aprobación (hoy)
+            $fechaAprobacion = now()->toDateString();
+            $prestamo->updateQuietly(['fecha_prestamo' => $fechaAprobacion]);
+
             // Crear cuotas grupales si no existen aún
             $yaTieneCuotas = CuotasGrupales::where('prestamo_id', $prestamo->id)->exists();
             if (!$yaTieneCuotas) {
@@ -45,7 +49,8 @@ class PrestamoObserver
                 $montoTotalDevolver = $prestamo->monto_devolver;
                 $cantidadCuotas = $prestamo->cantidad_cuotas;
                 $montoPorCuota = $montoTotalDevolver / $cantidadCuotas;
-                $fechaInicio = Carbon::parse($prestamo->getRawOriginal('fecha_prestamo'));
+                // Usar la fecha de aprobación como fecha base para las cuotas
+                $fechaInicio = Carbon::parse($fechaAprobacion);
                 $dias = match($prestamo->frecuencia) {
                     'mensual' => 30,
                     'quincenal' => 15,
@@ -85,7 +90,7 @@ class PrestamoObserver
                     $egreso = Egreso::create([
                         'tipo_egreso' => 'desembolso',
                         'prestamo_id' => $prestamo->id,
-                        'fecha' => $prestamo->fecha_prestamo,
+                        'fecha' => $fechaAprobacion, // Usar fecha de aprobación en lugar de fecha_prestamo
                         'monto' => $prestamo->monto_prestado_total,
                         'descripcion' => 'Desembolso al grupo ' . $prestamo->grupo->nombre_grupo,
                         'categoria_id' => null,
