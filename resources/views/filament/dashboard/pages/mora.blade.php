@@ -236,8 +236,40 @@
             });
         </script>
 
-        <!-- Tabla (sin cambios) -->
-        <table class="w-full mt-6 bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow text-sm leading-tight">
+        <!-- Selector de elementos por página y contador -->
+        <div class="flex justify-between items-center mt-6 mb-4">
+            <div class="flex items-center space-x-2">
+                <label for="per_page" class="text-sm text-gray-700 dark:text-gray-300">Mostrar:</label>
+                <select id="per_page" name="per_page" onchange="changePerPage(this.value)" 
+                        class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="10" {{ request('per_page', 10) == 10 ? 'selected' : '' }}>10</option>
+                    <option value="25" {{ request('per_page', 10) == 25 ? 'selected' : '' }}>25</option>
+                    <option value="50" {{ request('per_page', 10) == 50 ? 'selected' : '' }}>50</option>
+                    <option value="100" {{ request('per_page', 10) == 100 ? 'selected' : '' }}>100</option>
+                </select>
+                <span class="text-sm text-gray-700 dark:text-gray-300">elementos por página</span>
+            </div>
+            
+            <div class="text-sm text-gray-700 dark:text-gray-300">
+                @if(isset($cuotas_mora) && $cuotas_mora->total() > 0)
+                    Se muestran de {{ $cuotas_mora->firstItem() ?? 1 }} a {{ $cuotas_mora->lastItem() ?? 10 }} de {{ $cuotas_mora->total() }} resultados
+                @else
+                    No hay resultados
+                @endif
+            </div>
+        </div>
+
+        <script>
+            function changePerPage(perPage) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('per_page', perPage);
+                url.searchParams.delete('page'); // Reset a la primera página
+                window.location.href = url.toString();
+            }
+        </script>
+
+        <!-- Tabla -->
+        <table class="w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow text-sm leading-tight">
             <thead class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white text-center">
                 <tr>
                     <th class="px-4 py-3 font-semibold">Nombre del Grupo</th>
@@ -389,5 +421,54 @@
                 @endforelse
             </tbody>
         </table>
+        
+        <!-- Paginación -->
+        @if($cuotas_mora->hasPages())
+            <div class="mt-6 flex justify-center">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-700 dark:text-gray-300">
+                            Mostrando {{ $cuotas_mora->firstItem() }} a {{ $cuotas_mora->lastItem() }} de {{ $cuotas_mora->total() }} resultados
+                        </div>
+                        <div class="flex space-x-1">
+                            {{-- Botón Previous --}}
+                            @if ($cuotas_mora->onFirstPage())
+                                <span class="px-3 py-2 text-sm text-gray-500 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600">
+                                    Anterior
+                                </span>
+                            @else
+                                <a href="{{ $cuotas_mora->previousPageUrl() }}" class="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
+                                    Anterior
+                                </a>
+                            @endif
+
+                            {{-- Enlaces de páginas --}}
+                            @foreach ($cuotas_mora->getUrlRange(1, $cuotas_mora->lastPage()) as $page => $url)
+                                @if ($page == $cuotas_mora->currentPage())
+                                    <span class="px-3 py-2 text-sm text-white bg-blue-600 border border-blue-600 rounded-md">
+                                        {{ $page }}
+                                    </span>
+                                @else
+                                    <a href="{{ $url }}" class="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
+                                        {{ $page }}
+                                    </a>
+                                @endif
+                            @endforeach
+
+                            {{-- Botón Next --}}
+                            @if ($cuotas_mora->hasMorePages())
+                                <a href="{{ $cuotas_mora->nextPageUrl() }}" class="px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
+                                    Siguiente
+                                </a>
+                            @else
+                                <span class="px-3 py-2 text-sm text-gray-500 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600">
+                                    Siguiente
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
     </div>
 </x-filament::page>

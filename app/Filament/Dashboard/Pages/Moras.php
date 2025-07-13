@@ -81,8 +81,16 @@ class Moras extends Page
 
         $query = $this->aplicarFiltros($query);
 
+        // Implementar paginación con elementos configurables por página
+        $perPage = (int) request('per_page', 10); // Default 10 elementos por página
+        $perPage = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10; // Validar valores permitidos
+        
+        $cuotasMoraPaginadas = $query->orderBy('fecha_vencimiento', 'asc')
+            ->paginate($perPage)
+            ->withQueryString(); // Mantener los filtros en la paginación
+
         return [
-            'cuotas_mora' => $query->get(),
+            'cuotas_mora' => $cuotasMoraPaginadas,
             'filtros_activos' => $this->obtenerFiltrosActivos()
         ];
     }
