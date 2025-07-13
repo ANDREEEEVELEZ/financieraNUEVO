@@ -236,37 +236,7 @@
             });
         </script>
 
-        <!-- Indicador de resultados con estilo de Filament -->
-        <div class="flex justify-between items-center mt-6 mb-4">
-            <div class="flex items-center space-x-2">
-                <label for="per_page" class="text-sm text-gray-700 dark:text-gray-300">Mostrar:</label>
-                <select id="per_page" name="per_page" onchange="changePerPage(this.value)" 
-                        class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="10" {{ request('per_page', 10) == 10 ? 'selected' : '' }}>10</option>
-                    <option value="25" {{ request('per_page', 10) == 25 ? 'selected' : '' }}>25</option>
-                    <option value="50" {{ request('per_page', 10) == 50 ? 'selected' : '' }}>50</option>
-                    <option value="100" {{ request('per_page', 10) == 100 ? 'selected' : '' }}>100</option>
-                </select>
-                <span class="text-sm text-gray-700 dark:text-gray-300">elementos por página</span>
-            </div>
-            
-            <div class="text-sm text-gray-700 dark:text-gray-300">
-                @if(isset($cuotas_mora) && $cuotas_mora->total() > 0)
-                    Se muestran de {{ $cuotas_mora->firstItem() ?? 1 }} a {{ $cuotas_mora->lastItem() ?? 10 }} de {{ $cuotas_mora->total() }} resultados
-                @else
-                    No hay resultados
-                @endif
-            </div>
-        </div>
 
-        <script>
-            function changePerPage(perPage) {
-                const url = new URL(window.location.href);
-                url.searchParams.set('per_page', perPage);
-                url.searchParams.delete('page'); // Reset a la primera página
-                window.location.href = url.toString();
-            }
-        </script>
 
         <!-- Tabla -->
         <table class="w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow text-sm leading-tight">
@@ -422,11 +392,36 @@
             </tbody>
         </table>
         
-        <!-- Paginación nativa de Filament -->
-        @if($cuotas_mora->hasPages())
-            <div class="mt-6">
-                {{ $cuotas_mora->withQueryString()->links() }}
+        <!-- Paginación estilo Filament idéntica a la imagen de usuarios -->
+        @if($cuotas_mora->hasPages() || $cuotas_mora->total() > 10)
+            <div class="flex flex-col sm:flex-row gap-4 justify-between items-center mt-6 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+                <!-- Selector de elementos por página (izquierda) -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-700 dark:text-gray-300">por página</span>
+                    <select onchange="changePerPage(this.value)" 
+                            class="text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 px-2 py-1">
+                        @foreach([10, 25, 50, 100] as $size)
+                            <option value="{{ $size }}" {{ request('per_page', 10) == $size ? 'selected' : '' }}>
+                                {{ $size }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                
+                <!-- Navegación de páginas (derecha) -->
+                <div class="flex items-center gap-1">
+                    {{ $cuotas_mora->withQueryString()->links('custom.pagination') }}
+                </div>
             </div>
+            
+            <script>
+                function changePerPage(perPage) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('per_page', perPage);
+                    url.searchParams.delete('page'); // Reset a la primera página
+                    window.location.href = url.toString();
+                }
+            </script>
         @endif
     </div>
 </x-filament::page>

@@ -81,8 +81,8 @@ class Moras extends Page
 
         $query = $this->aplicarFiltros($query);
 
-        // Implementar paginación con elementos configurables por página
-        $perPage = (int) request('per_page', 10); // Default 10 elementos por página
+        // Implementar paginación idéntica a Filament con selector de elementos por página
+        $perPage = (int) request('per_page', 10); 
         $perPage = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10; // Validar valores permitidos
         
         $cuotasMoraPaginadas = $query->orderBy('fecha_vencimiento', 'asc')
