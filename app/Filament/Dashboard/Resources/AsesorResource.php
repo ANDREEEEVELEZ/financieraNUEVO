@@ -51,9 +51,12 @@ class AsesorResource extends Resource
                 ->numeric()
                 ->prefixIcon('heroicon-o-identification')
                 ->rule('regex:/^[0-9]{8}$/')
-                ->rules([
-                    new UniqueDNI()
-                ])
+                ->rules(function ($livewire) {
+                    if ($livewire instanceof \Filament\Resources\Pages\EditRecord) {
+                        return [new UniqueDNI($livewire->record->persona_id)];
+                    }
+                    return [new UniqueDNI()];
+                })
                 ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                 ->mask('99999999')
                 ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
@@ -93,9 +96,12 @@ class AsesorResource extends Resource
                 ->required()
                 ->prefixIcon('heroicon-o-phone')
                 ->rule('regex:/^[0-9]{9}$/')
-                ->rules([
-                    new UniqueCelular()
-                ])
+                ->rules(function ($livewire) {
+                    if ($livewire instanceof \Filament\Resources\Pages\EditRecord) {
+                        return [new UniqueCelular($livewire->record->persona_id)];
+                    }
+                    return [new UniqueCelular()];
+                })
                 ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                 ->mask('999999999'),
             TextInput::make('correo')
@@ -103,9 +109,12 @@ class AsesorResource extends Resource
                 ->email()
                 ->required()
                 ->prefixIcon('heroicon-o-envelope')
-                ->rules([
-                    new UniqueCorreo()
-                ])
+                ->rules(function ($livewire) {
+                    if ($livewire instanceof \Filament\Resources\Pages\EditRecord) {
+                        return [new UniqueCorreo($livewire->record->persona_id)];
+                    }
+                    return [new UniqueCorreo()];
+                })
                 ->dehydrateStateUsing(fn ($state) => strtoupper($state))
                 ->formatStateUsing(fn ($state) => strtoupper($state)),
             TextInput::make('direccion')
