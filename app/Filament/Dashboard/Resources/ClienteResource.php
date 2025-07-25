@@ -345,6 +345,19 @@ class ClienteResource extends Resource
                         }
                         return $query;
                     }),
+                // Filtro de condición personal
+                Tables\Filters\SelectFilter::make('condicion_personal')
+                    ->label('Condición')
+                    ->options([
+                        'Capacitado' => 'Capacitado',
+                        'Iletrado' => 'Iletrado',
+                        'PEP' => 'PEP',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when($data['value'], function (Builder $query, string $value): Builder {
+                            return $query->where('condicion_personal', $value);
+                        });
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
