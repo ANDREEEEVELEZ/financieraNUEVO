@@ -230,6 +230,67 @@ class ListClientes extends ListRecords
                 ->modalHeading('🔄 Trasladar Clientes Entre Asesores')
                 ->modalSubmitActionLabel('Ejecutar Traslado')
                 ->modalWidth('5xl'),
+            
+            // Acción para generar PDF de Declaración Jurada PEP
+            Actions\Action::make('generar_pep_pdf')
+                ->label('Generar DJ PEP')
+                ->icon('heroicon-o-document-text')
+                ->color('info')
+                ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de creditos', 'Jefe de operaciones']))
+                ->form([
+                    Forms\Components\Select::make('cliente_id')
+                        ->label('Seleccionar Cliente PEP')
+                        ->placeholder('Buscar cliente...')
+                        ->options(function () {
+                            return \App\Models\Cliente::where('condicion_personal', 'PEP')
+                                ->where('estado_cliente', 'Activo')
+                                ->with('persona')
+                                ->get()
+                                ->mapWithKeys(function ($cliente) {
+                                    return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' - DNI: ' . $cliente->persona->DNI];
+                                });
+                        })
+                        ->searchable()
+                        ->required()
+                        ->helperText('Solo se muestran clientes con condición PEP activos')
+                ])
+                ->action(function ($data) {
+                    $cliente = \App\Models\Cliente::with('persona')->find($data['cliente_id']);
+                    
+                    if (!$cliente) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('Error')
+                            ->body('Cliente no encontrado.')
+                            ->send();
+                        return;
+                    }
+
+                    try {
+                        $pdfContent = app(\App\Services\PepDocumentService::class)->generatePdf($cliente);
+                        $filename = "DJ_PEP_{$cliente->persona->DNI}_{$cliente->persona->nombre}_{$cliente->persona->apellidos}.pdf";
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('PDF Generado')
+                            ->body('Declaración Jurada PEP generada exitosamente.')
+                            ->send();
+
+                        return response()->streamDownload(function () use ($pdfContent) {
+                            echo $pdfContent;
+                        }, $filename);
+                        
+                    } catch (\Exception $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('Error al generar PDF')
+                            ->body('Ocurrió un error al generar el documento: ' . $e->getMessage())
+                            ->send();
+                    }
+                })
+                ->modalHeading('📄 Generar Declaración Jurada PEP')
+                ->modalSubmitActionLabel('Generar PDF')
+                ->modalWidth('lg'),
         ];
     }
 
