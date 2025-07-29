@@ -77,4 +77,26 @@ class CicloHelper
         
         return $ciclo;
     }
+
+    /**
+     * Calcula el ciclo que debería tener un cliente basado en préstamos completados
+     */
+    public static function calcularCicloPorPrestamos($prestamosCompletados)
+    {
+        // Cada 2 préstamos completados sube un ciclo
+        // Ciclo base = 1 (I), máximo = 4 (IV)
+        $nuevoCiclo = min(4, 1 + floor($prestamosCompletados / 2));
+        return self::toRoman($nuevoCiclo);
+    }
+
+    /**
+     * Verifica si un cliente puede subir de ciclo
+     */
+    public static function puedeSubirCiclo($cicloActual, $prestamosCompletados)
+    {
+        $cicloActualNumero = self::toInteger($cicloActual);
+        $cicloCalculado = 1 + floor($prestamosCompletados / 2);
+        
+        return $cicloCalculado > $cicloActualNumero && $cicloActualNumero < 4;
+    }
 }

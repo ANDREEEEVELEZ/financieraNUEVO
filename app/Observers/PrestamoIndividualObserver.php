@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\PrestamoIndividual;
 use App\Models\Prestamo;
+use App\Helpers\CicloHelper;
 
 class PrestamoIndividualObserver
 {    public function updated(PrestamoIndividual $prestamoIndividual): void
@@ -13,6 +14,11 @@ class PrestamoIndividualObserver
             'prestamo_id' => $prestamoIndividual->prestamo_id,
             'monto_prestado_individual' => $prestamoIndividual->monto_prestado_individual
         ]);
+        
+        // Verificar si el estado cambió a "Completado" para actualizar ciclo
+        if ($prestamoIndividual->isDirty('estado') && $prestamoIndividual->estado === 'Completado') {
+            $this->actualizarCicloCliente($prestamoIndividual->cliente);
+        }
         
         $this->recalcularCamposIndividuales($prestamoIndividual, false);
         $this->recalcularTotales($prestamoIndividual->prestamo_id);
@@ -132,5 +138,38 @@ class PrestamoIndividualObserver
             'monto_devolver_individual' => round($montoDevolver, 2),
             'monto_cuota_prestamo_individual' => round($cuotaIndividual, 2),
         ]);
+    }
+
+    /**
+     * Actualiza el ciclo del cliente basado en los préstamos completados
+     */
+    private function actualizarCicloCliente($cliente): void
+    {
+        if (!$cliente) return;
+
+        // Contar préstamos completados del cliente
+        $prestamosCompletados = PrestamoIndividual::where('cliente_id', $cliente->id)
+            ->where('estado', 'Completado')
+            ->count();
+
+        // Verificar si puede subir de ciclo usando el helper
+        if (CicloHelper::puedeSubirCiclo($cliente->ciclo, $prestamosCompletados)) {
+            $cicloAnterior = $cliente->ciclo;
+            $nuevoCiclo = CicloHelper::calcularCicloPorPrestamos($prestamosCompletados);
+            
+            $cliente->updateQuietly([
+                'ciclo' => $nuevoCiclo
+            ]);
+
+            // Log del cambio para auditoría
+            \Illuminate\Support\Facades\Log::info('Cliente subió de ciclo automáticamente', [
+                'cliente_id' => $cliente->id,
+                'nombre_cliente' => $cliente->persona->nombre ?? 'N/A',
+                'ciclo_anterior' => $cicloAnterior,
+                'ciclo_nuevo' => $nuevoCiclo,
+                'prestamos_completados' => $prestamosCompletados,
+                'evento' => 'actualizacion_automatica_ciclo'
+            ]);
+        }
     }
 }
