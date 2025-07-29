@@ -46,9 +46,51 @@ class CuotasGrupalesObserver
                 
                 PrestamoIndividual::where('prestamo_id', $prestamo->id)->update(['estado' => 'Finalizado']);
                 
+                // Actualizar ciclo de todos los clientes del préstamo
+                $this->actualizarCiclosClientes($prestamo);
+                
                 Log::info('CuotasGrupalesObserver: Estado cambiado exitosamente', [
                     'prestamo_id' => $prestamo->id,
                     'nuevo_estado' => $prestamo->estado,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Actualiza el ciclo de todos los clientes cuando un préstamo se finaliza
+     */
+    private function actualizarCiclosClientes($prestamo): void
+    {
+        if (!$prestamo || !$prestamo->grupo) return;
+
+        // Obtener todos los clientes del grupo con sus préstamos individuales
+        $clientesDelGrupo = $prestamo->grupo->clientes;
+
+        foreach ($clientesDelGrupo as $cliente) {
+            // Contar préstamos completados del cliente (tanto Completado como Finalizado)
+            $prestamosCompletados = PrestamoIndividual::where('cliente_id', $cliente->id)
+                ->whereIn('estado', ['Completado', 'Finalizado'])
+                ->count();
+
+            // Verificar si puede subir de ciclo usando el helper
+            if (\App\Helpers\CicloHelper::puedeSubirCiclo($cliente->ciclo, $prestamosCompletados)) {
+                $cicloAnterior = $cliente->ciclo;
+                $nuevoCiclo = \App\Helpers\CicloHelper::calcularCicloPorPrestamos($prestamosCompletados);
+                
+                $cliente->updateQuietly([
+                    'ciclo' => $nuevoCiclo
+                ]);
+
+                // Log del cambio para auditoría
+                \Illuminate\Support\Facades\Log::info('Cliente subió de ciclo automáticamente', [
+                    'cliente_id' => $cliente->id,
+                    'nombre_cliente' => $cliente->persona->nombre ?? 'N/A',
+                    'ciclo_anterior' => $cicloAnterior,
+                    'ciclo_nuevo' => $nuevoCiclo,
+                    'prestamos_completados' => $prestamosCompletados,
+                    'evento' => 'prestamo_finalizado_cuotas_pagadas',
+                    'prestamo_id' => $prestamo->id
                 ]);
             }
         }

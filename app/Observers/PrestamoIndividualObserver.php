@@ -15,8 +15,9 @@ class PrestamoIndividualObserver
             'monto_prestado_individual' => $prestamoIndividual->monto_prestado_individual
         ]);
         
-        // Verificar si el estado cambió a "Completado" para actualizar ciclo
-        if ($prestamoIndividual->isDirty('estado') && $prestamoIndividual->estado === 'Completado') {
+        // Verificar si el estado cambió a "Completado" o "Finalizado" para actualizar ciclo
+        if ($prestamoIndividual->isDirty('estado') && 
+            in_array($prestamoIndividual->estado, ['Completado', 'Finalizado'])) {
             $this->actualizarCicloCliente($prestamoIndividual->cliente);
         }
         
@@ -147,9 +148,9 @@ class PrestamoIndividualObserver
     {
         if (!$cliente) return;
 
-        // Contar préstamos completados del cliente
+        // Contar préstamos completados del cliente (tanto Completado como Finalizado)
         $prestamosCompletados = PrestamoIndividual::where('cliente_id', $cliente->id)
-            ->where('estado', 'Completado')
+            ->whereIn('estado', ['Completado', 'Finalizado'])
             ->count();
 
         // Verificar si puede subir de ciclo usando el helper
