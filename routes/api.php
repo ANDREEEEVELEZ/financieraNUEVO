@@ -28,4 +28,36 @@ Route::middleware('auth:web')->group(function () {
             'unreadCount' => count($formattedNotifications),
         ]);
     });
+
+    // Endpoint de prueba temporal
+    Route::get('/notifications-debug', function (Request $request) {
+        $user = $request->user();
+        
+        // Información básica del usuario
+        $userInfo = [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'user_roles' => $user->getRoleNames()->toArray(),
+        ];
+        
+        // Contar préstamos por estado
+        $prestamosCount = \App\Models\Prestamo::select('estado')
+            ->selectRaw('count(*) as total')
+            ->groupBy('estado')
+            ->get()
+            ->keyBy('estado')
+            ->map->total
+            ->toArray();
+        
+        // Probar el servicio
+        $notificationService = app(NotificationService::class);
+        $notifications = $notificationService->getNotifications();
+        
+        return response()->json([
+            'user_info' => $userInfo,
+            'prestamos_count' => $prestamosCount,
+            'notifications_count' => count($notifications),
+            'notifications' => $notifications,
+        ]);
+    });
 });

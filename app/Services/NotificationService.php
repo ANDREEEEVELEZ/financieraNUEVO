@@ -8,6 +8,7 @@ use App\Models\Pago;
 use App\Models\Asesor;
 use App\Models\Mora;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class NotificationService
@@ -79,8 +80,13 @@ class NotificationService
     {
         $notifications = [];
 
-        // Préstamos pendientes de aprobación
-        $prestamosPendientes = Prestamo::where('estado', 'Pendiente')->get();
+        // Debug: Log cuántos préstamos hay en cada estado
+        $todosLosPrestamos = Prestamo::select('estado')->get();
+        Log::info('Préstamos por estado:', $todosLosPrestamos->groupBy('estado')->map->count()->toArray());
+
+        // Préstamos pendientes de aprobación - buscar tanto 'Pendiente' como 'pendiente'
+        $prestamosPendientes = Prestamo::whereIn('estado', ['Pendiente', 'pendiente'])->get();
+        Log::info('Préstamos pendientes encontrados:', ['count' => $prestamosPendientes->count()]);
         
         foreach ($prestamosPendientes as $prestamo) {
             $notifications[] = [
