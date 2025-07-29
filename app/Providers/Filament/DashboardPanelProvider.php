@@ -12,6 +12,7 @@ use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\View\PanelsRenderHook;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -75,6 +76,10 @@ class DashboardPanelProvider extends PanelProvider
             ])
             ->authGuard('web')
             // ->passwordReset() // Deshabilitado: opción "Olvidó contraseña"
-            ->emailVerification();
+            ->emailVerification()
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_END,
+                fn (): string => view('filament.hooks.notification-header')->render()
+            );
     }
 }

@@ -79,6 +79,22 @@ class Cliente extends Model
         return $this->belongsTo(Asesor::class);
     }
 
+    /**
+     * Relación con préstamos individuales
+     */
+    public function prestamosIndividuales()
+    {
+        return $this->hasMany(PrestamoIndividual::class);
+    }
+
+    /**
+     * Relación con préstamos individuales completados
+     */
+    public function prestamosCompletados()
+    {
+        return $this->hasMany(PrestamoIndividual::class)->where('estado', 'Completado');
+    }
+
 
     /**
      * Verifica si el cliente ya pertenece a un grupo activo
@@ -134,5 +150,21 @@ class Cliente extends Model
     public function getMontoMaximoAttribute()
     {
         return \App\Helpers\CicloHelper::getMontoMaximo($this->ciclo_romano);
+    }
+
+    /**
+     * Obtiene el número de préstamos completados
+     */
+    public function getPrestamosCompletadosCountAttribute()
+    {
+        return $this->prestamosCompletados()->count();
+    }
+
+    /**
+     * Verifica si el cliente puede subir de ciclo
+     */
+    public function puedeSubirCiclo()
+    {
+        return \App\Helpers\CicloHelper::puedeSubirCiclo($this->ciclo, $this->prestamos_completados_count);
     }
 }

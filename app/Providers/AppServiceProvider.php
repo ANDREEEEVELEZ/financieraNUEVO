@@ -12,6 +12,7 @@ use App\Observers\PagoObserver;
 use App\Observers\PrestamoObserver;
 use App\Observers\CuotasGrupalesObserver;
 use App\Observers\PrestamoIndividualObserver;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,7 +22,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Registrar el servicio de notificaciones como singleton
+        $this->app->singleton(NotificationService::class, function ($app) {
+            return new NotificationService();
+        });
     }
 
     /**

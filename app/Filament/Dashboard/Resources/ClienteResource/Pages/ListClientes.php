@@ -238,6 +238,7 @@ class ListClientes extends ListRecords
                 ->color('info')
                 ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de creditos', 'Jefe de operaciones']))
                 ->form([
+                    // Selector de cliente
                     Forms\Components\Select::make('cliente_id')
                         ->label('Seleccionar Cliente PEP')
                         ->placeholder('Buscar cliente...')
@@ -252,7 +253,126 @@ class ListClientes extends ListRecords
                         })
                         ->searchable()
                         ->required()
-                        ->helperText('Solo se muestran clientes con condición PEP activos')
+                        ->reactive()
+                        ->helperText('Solo se muestran clientes con condición PEP activos'),
+                        
+                    // Separador
+                    Forms\Components\Section::make('Completar Información Adicional')
+                        ->description('Complete los campos adicionales para la declaración jurada')
+                        ->schema([
+                            // Campos editables
+                            Forms\Components\TextInput::make('conyuge_conviviente')
+                                ->label('Nombres y apellidos del cónyuge o conviviente')
+                                ->maxLength(255),
+                                
+                            Forms\Components\TextInput::make('telefono_fijo')
+                                ->label('N° Teléfono Fijo (indicar código de ciudad)')
+                                ->maxLength(20),
+                                
+                            Forms\Components\Textarea::make('proposito_relacion')
+                                ->label('Propósito de la relación comercial o de negocio')
+                                ->rows(3)
+                                ->maxLength(500),
+                                
+                            // Sección PEP
+                            Forms\Components\Section::make('Información PEP')
+                                ->schema([
+                                    Forms\Components\Select::make('es_pep')
+                                        ->label('¿Es o ha sido PEP?')
+                                        ->options([
+                                            'si_soy' => 'SÍ SOY',
+                                            'si_he_sido' => 'SÍ HE SIDO',
+                                            'no_soy' => 'NO SOY',
+                                            'no_he_sido' => 'NO HE SIDO',
+                                        ])
+                                        ->reactive()
+                                        ->native(false),
+                                        
+                                    Forms\Components\Select::make('es_colaborador_pep')
+                                        ->label('¿Ha sido colaborador directo de la máxima autoridad?')
+                                        ->options([
+                                            'si_soy' => 'SÍ SOY',
+                                            'si_he_sido' => 'SÍ HE SIDO',
+                                            'no_soy' => 'NO SOY',
+                                            'no_he_sido' => 'NO HE SIDO',
+                                        ])
+                                        ->native(false),
+                                        
+                                    Forms\Components\TextInput::make('cargo_pep')
+                                        ->label('Cargo')
+                                        ->visible(fn (callable $get) => in_array($get('es_pep'), ['si_soy', 'si_he_sido']))
+                                        ->maxLength(255),
+                                        
+                                    Forms\Components\TextInput::make('institucion_pep')
+                                        ->label('Nombre de la institución (organismo público u organización internacional)')
+                                        ->visible(fn (callable $get) => in_array($get('es_pep'), ['si_soy', 'si_he_sido']))
+                                        ->maxLength(255),
+                                ])->columns(2),
+                                
+                            // Parientes PEP
+                            Forms\Components\Section::make('Parientes PEP')
+                                ->schema([
+                                    Forms\Components\Select::make('es_pariente_pep')
+                                        ->label('¿Es pariente de PEP hasta el 2do grado?')
+                                        ->options([
+                                            'si_soy' => 'SÍ SOY',
+                                            'no_soy' => 'NO SOY',
+                                        ])
+                                        ->reactive()
+                                        ->native(false),
+                                        
+                                    Forms\Components\Repeater::make('parientes_pep')
+                                        ->label('Datos de Parientes PEP')
+                                        ->visible(fn (callable $get) => $get('es_pariente_pep') === 'si_soy')
+                                        ->schema([
+                                            Forms\Components\TextInput::make('nombre_pariente')
+                                                ->label('Nombres y Apellidos del PEP')
+                                                ->required(),
+                                            Forms\Components\TextInput::make('parentesco')
+                                                ->label('Indicar Parentesco')
+                                                ->required(),
+                                        ])
+                                        ->columns(2)
+                                        ->addActionLabel('Agregar Pariente')
+                                        ->maxItems(5),
+                                ]),
+                                
+                            // Beneficiario de la operación
+                            Forms\Components\Section::make('Beneficiario de la Operación')
+                                ->schema([
+                                    Forms\Components\Select::make('operacion_favor')
+                                        ->label('Realiza esta operación a favor de:')
+                                        ->options([
+                                            'mi_mismo' => 'De mi mismo',
+                                            'tercero_natural' => 'De un tercero persona natural',
+                                            'persona_juridica' => 'Persona jurídica',
+                                            'ente_juridico' => 'Ente jurídico',
+                                        ])
+                                        ->reactive()
+                                        ->native(false),
+                                        
+                                    Forms\Components\TextInput::make('tercero_nombres')
+                                        ->label('Nombres y apellido del tercero persona natural')
+                                        ->visible(fn (callable $get) => $get('operacion_favor') === 'tercero_natural'),
+                                        
+                                    Forms\Components\TextInput::make('tercero_documento')
+                                        ->label('Tipo y número de documento de identidad')
+                                        ->visible(fn (callable $get) => $get('operacion_favor') === 'tercero_natural'),
+                                        
+                                    Forms\Components\TextInput::make('razon_social')
+                                        ->label('Denominación o Razón Social')
+                                        ->visible(fn (callable $get) => in_array($get('operacion_favor'), ['persona_juridica', 'ente_juridico'])),
+                                        
+                                    Forms\Components\TextInput::make('ruc')
+                                        ->label('Número de RUC')
+                                        ->visible(fn (callable $get) => in_array($get('operacion_favor'), ['persona_juridica', 'ente_juridico'])),
+                                ]),
+                                
+                            Forms\Components\Textarea::make('observaciones')
+                                ->label('Observaciones adicionales')
+                                ->rows(2)
+                                ->maxLength(500),
+                        ])->visible(fn (callable $get) => $get('cliente_id'))
                 ])
                 ->action(function ($data) {
                     $cliente = \App\Models\Cliente::with('persona')->find($data['cliente_id']);
@@ -267,7 +387,26 @@ class ListClientes extends ListRecords
                     }
 
                     try {
-                        $pdfContent = app(\App\Services\PepDocumentService::class)->generatePdf($cliente);
+                        // Combinar datos del cliente con datos del formulario
+                        $pepData = [
+                            'conyuge_conviviente' => $data['conyuge_conviviente'] ?? '',
+                            'telefono_fijo' => $data['telefono_fijo'] ?? '',
+                            'proposito_relacion' => $data['proposito_relacion'] ?? '',
+                            'es_pep' => $data['es_pep'] ?? '',
+                            'es_colaborador_pep' => $data['es_colaborador_pep'] ?? '',
+                            'cargo_pep' => $data['cargo_pep'] ?? '',
+                            'institucion_pep' => $data['institucion_pep'] ?? '',
+                            'es_pariente_pep' => $data['es_pariente_pep'] ?? '',
+                            'parientes_pep' => $data['parientes_pep'] ?? [],
+                            'operacion_favor' => $data['operacion_favor'] ?? '',
+                            'tercero_nombres' => $data['tercero_nombres'] ?? '',
+                            'tercero_documento' => $data['tercero_documento'] ?? '',
+                            'razon_social' => $data['razon_social'] ?? '',
+                            'ruc' => $data['ruc'] ?? '',
+                            'observaciones' => $data['observaciones'] ?? '',
+                        ];
+                        
+                        $pdfContent = app(\App\Services\PepDocumentService::class)->generatePdfWithData($cliente, $pepData);
                         $filename = "DJ_PEP_{$cliente->persona->DNI}_{$cliente->persona->nombre}_{$cliente->persona->apellidos}.pdf";
                         
                         \Filament\Notifications\Notification::make()
@@ -289,8 +428,9 @@ class ListClientes extends ListRecords
                     }
                 })
                 ->modalHeading('📄 Generar Declaración Jurada PEP')
-                ->modalSubmitActionLabel('Generar PDF')
-                ->modalWidth('lg'),
+                ->modalSubmitActionLabel('Generar PDF Completo')
+                ->modalWidth('7xl')
+                ->slideOver(),
         ];
     }
 

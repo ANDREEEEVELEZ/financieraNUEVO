@@ -115,7 +115,7 @@
         <tr>
             <td class="number-cell">5</td>
             <td class="content-cell">
-                <span class="bold">Nombres y apellidos del cónyuge o conviviente:</span> <span class="underline" style="width: 300px;"></span>
+                <span class="bold">Nombres y apellidos del cónyuge o conviviente:</span> <span class="underline" style="width: 300px;">{{ $pep_data['conyuge_conviviente'] ?? '' }}</span>
             </td>
         </tr>
         
@@ -146,7 +146,7 @@
         <tr>
             <td class="number-cell">8</td>
             <td class="content-cell">
-                <span class="bold">N° Teléfono Fijo (indicar código de cuidad):</span> <span class="underline" style="width: 120px;"></span>
+                <span class="bold">N° Teléfono Fijo (indicar código de cuidad):</span> <span class="underline" style="width: 120px;">{{ $pep_data['telefono_fijo'] ?? '' }}</span>
                 <span class="bold">Celular:</span> <span class="underline">{{ $persona->celular }}</span>
                 <span class="bold">Correo electrónico:</span> <span class="underline">{{ strtolower($persona->correo) }}</span>
             </td>
@@ -157,7 +157,7 @@
             <td class="number-cell">9</td>
             <td class="content-cell">
                 <span class="bold">Propósito de la relación comercial o de negocio (siempre que esta se desprenda directamente del objeto del contrato):</span><br>
-                <span class="underline" style="width: 100%; height: 20px; display: block;"></span>
+                <span class="underline" style="width: 100%; min-height: 20px; display: block;">{{ $pep_data['proposito_relacion'] ?? '' }}</span>
             </td>
         </tr>
         
