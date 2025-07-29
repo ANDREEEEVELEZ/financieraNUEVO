@@ -1,9 +1,54 @@
-<div 
-    x-data="notificationComponent()"
-    x-init="init()"
-    class="flex items-center space-x-4"
->
-    <div class="relative">
+<div class="flex items-center space-x-4">
+    <div class="relative" x-data="{ 
+        open: false, 
+        notifications: [], 
+        unreadCount: 0,
+        loading: false,
+        
+        async init() {
+            await this.loadNotifications();
+            // Refrescar cada 30 segundos
+            setInterval(() => {
+                this.loadNotifications();
+            }, 30000);
+        },
+        
+        async loadNotifications() {
+            this.loading = true;
+            try {
+                const response = await fetch('/api/notifications', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    this.notifications = data.notifications || [];
+                    this.unreadCount = data.unreadCount || 0;
+                    console.log('Notificaciones cargadas:', this.notifications.length);
+                } else {
+                    console.error('Error al cargar notificaciones:', response.status);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        toggleDropdown() {
+            this.open = !this.open;
+            console.log('Dropdown toggled:', this.open);
+        },
+        
+        redirectTo(url) {
+            this.open = false;
+            window.location.href = url;
+        }
+    }" x-init="init()">
+        
         <!-- Botón de notificaciones -->
         <button 
             @click="toggleDropdown()"
@@ -26,14 +71,14 @@
 
         <!-- Dropdown de notificaciones -->
         <div 
-            x-show="showDropdown"
+            x-show="open"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 scale-95"
             x-transition:enter-end="opacity-100 scale-100"
             x-transition:leave="transition ease-in duration-75"
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
-            @click.away="showDropdown = false"
+            @click.away="open = false"
             class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
             style="display: none;"
         >
@@ -41,13 +86,7 @@
             <div class="px-4 py-3 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-gray-900">Notificaciones</h3>
-                    <button 
-                        x-show="unreadCount > 0"
-                        @click="markAllAsRead()"
-                        class="text-xs text-primary-600 hover:text-primary-800 font-medium"
-                    >
-                        Marcar todas como leídas
-                    </button>
+                    <span x-show="loading" class="text-xs text-gray-500">Cargando...</span>
                 </div>
             </div>
 
@@ -55,7 +94,7 @@
             <div class="max-h-96 overflow-y-auto">
                 <template x-for="notification in notifications" :key="notification.id">
                     <div 
-                        @click="redirectToNotification(notification)"
+                        @click="redirectTo(notification.url)"
                         class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors duration-150"
                     >
                         <div class="flex items-start space-x-3">
@@ -70,26 +109,12 @@
                                 <p class="text-sm text-gray-500 mt-1" x-text="notification.description"></p>
                                 <p class="text-xs text-gray-400 mt-1" x-text="notification.time"></p>
                             </div>
-                            
-                            <!-- Indicador de color -->
-                            <div class="flex-shrink-0">
-                                <div 
-                                    class="w-2 h-2 rounded-full"
-                                    :class="{
-                                        'bg-green-400': notification.color === 'success',
-                                        'bg-yellow-400': notification.color === 'warning',
-                                        'bg-red-400': notification.color === 'danger',
-                                        'bg-blue-400': notification.color === 'info',
-                                        'bg-gray-400': !notification.color || notification.color === 'default'
-                                    }"
-                                ></div>
-                            </div>
                         </div>
                     </div>
                 </template>
 
                 <!-- Estado vacío -->
-                <div x-show="notifications.length === 0" class="px-4 py-8 text-center">
+                <div x-show="notifications.length === 0 && !loading" class="px-4 py-8 text-center">
                     <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                               d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -97,73 +122,6 @@
                     <p class="mt-2 text-sm text-gray-500">No tienes notificaciones</p>
                 </div>
             </div>
-
-            <!-- Footer del dropdown -->
-            <div x-show="notifications.length > 0" class="px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <a 
-                    href="/dashboard" 
-                    class="text-sm text-primary-600 hover:text-primary-800 font-medium block text-center"
-                >
-                    Ver todas las notificaciones
-                </a>
-            </div>
         </div>
     </div>
 </div>
-
-<script>
-function notificationComponent() {
-    return {
-        notifications: [],
-        unreadCount: 0,
-        showDropdown: false,
-        refreshInterval: null,
-
-        init() {
-            this.loadNotifications();
-            this.startRefreshInterval();
-        },
-
-        async loadNotifications() {
-            try {
-                const response = await fetch('/api/notifications', {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    this.notifications = data.notifications || [];
-                    this.unreadCount = data.unreadCount || 0;
-                }
-            } catch (error) {
-                console.error('Error loading notifications:', error);
-            }
-        },
-
-        toggleDropdown() {
-            this.showDropdown = !this.showDropdown;
-        },
-
-        redirectToNotification(notification) {
-            this.showDropdown = false;
-            window.location.href = notification.url;
-        },
-
-        markAllAsRead() {
-            this.unreadCount = 0;
-            this.showDropdown = false;
-            // Aquí podrías hacer una llamada al servidor para marcar como leídas
-        },
-
-        startRefreshInterval() {
-            // Refrescar cada 30 segundos
-            this.refreshInterval = setInterval(() => {
-                this.loadNotifications();
-            }, 30000);
-        }
-    }
-}
-</script>
