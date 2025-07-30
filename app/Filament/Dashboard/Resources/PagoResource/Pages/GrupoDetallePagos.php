@@ -665,14 +665,14 @@ public function closeEditActionModal()
 
     public function getTitle(): string
     {
-        return "Pagos del Grupo: {$this->grupo->nombre_grupo} | Préstamo #{$this->prestamo->id}";
+        return "Pagos del Grupo: {$this->grupo->nombre_grupo}";
     }
 
     public function getBreadcrumbs(): array
     {
         return [
             PagoResource::getUrl('index') => 'Pagos',
-            '' => "Grupo: {$this->grupo->nombre_grupo} | Préstamo #{$this->prestamo->id}",
+            '' => "Grupo: {$this->grupo->nombre_grupo} ",
         ];
     }
 }
