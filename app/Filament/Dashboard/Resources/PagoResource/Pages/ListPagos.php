@@ -323,13 +323,13 @@ class ListPagos extends ListRecords
                         }
                     }),
             ])
-            ->recordUrl(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->grupo_id]))
+            ->recordUrl(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->grupo_id, 'prestamo' => $record->id]))
             ->actions([
                 Tables\Actions\Action::make('ver_pagos')
                     ->label('Ver Pagos')
                     ->icon('heroicon-m-eye')
                     ->color('danger')
-                    ->url(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->grupo_id]))
+                    ->url(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->grupo_id, 'prestamo' => $record->id]))
                     ->openUrlInNewTab(false),
             ])
             ->defaultSort('ultimo_pago_reciente', 'desc')

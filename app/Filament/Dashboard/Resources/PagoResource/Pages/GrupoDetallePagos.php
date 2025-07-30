@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Auth;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 
+
+use App\Models\Prestamo;
+
 class GrupoDetallePagos extends Page implements HasTable
 {
     use InteractsWithTable;
@@ -23,18 +26,20 @@ class GrupoDetallePagos extends Page implements HasTable
     protected static string $view = 'filament.dashboard.pages.grupo-detalle-pagos';
 
     public Grupo $grupo;
+    public Prestamo $prestamo;
 
-
-    public function mount(int|Grupo $grupo): void
+    public function mount(Grupo|int $grupo, Prestamo|int $prestamo): void
     {
-
-        if (is_int($grupo)) {
-            $this->grupo = Grupo::findOrFail($grupo);
-        } else {
-
+        if ($grupo instanceof Grupo) {
             $this->grupo = $grupo;
+        } else {
+            $this->grupo = Grupo::findOrFail($grupo);
         }
-
+        if ($prestamo instanceof Prestamo) {
+            $this->prestamo = $prestamo;
+        } else {
+            $this->prestamo = Prestamo::where('id', $prestamo)->where('grupo_id', $this->grupo->id)->firstOrFail();
+        }
 
         $user = Auth::user();
         if ($user->hasRole('Asesor')) {
@@ -48,8 +53,8 @@ class GrupoDetallePagos extends Page implements HasTable
     protected function getTableQuery(): Builder
     {
         return Pago::query()
-            ->whereHas('cuotaGrupal.prestamo', function ($query) {
-                $query->where('grupo_id', $this->grupo->id);
+            ->whereHas('cuotaGrupal', function ($query) {
+                $query->where('prestamo_id', $this->prestamo->id);
             })
             ->with([
                 'cuotaGrupal.prestamo.grupo',
@@ -657,16 +662,17 @@ public function closeEditActionModal()
     $this->dispatch('closeEditAction');
 }
 
+
     public function getTitle(): string
     {
-        return "Pagos del Grupo: {$this->grupo->nombre_grupo}";
+        return "Pagos del Grupo: {$this->grupo->nombre_grupo} | Préstamo #{$this->prestamo->id}";
     }
 
     public function getBreadcrumbs(): array
     {
         return [
             PagoResource::getUrl('index') => 'Pagos',
-            '' => "Grupo: {$this->grupo->nombre_grupo}",
+            '' => "Grupo: {$this->grupo->nombre_grupo} | Préstamo #{$this->prestamo->id}",
         ];
     }
 }
