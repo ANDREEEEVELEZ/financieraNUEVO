@@ -5,7 +5,6 @@ namespace App\Filament\Dashboard\Resources\RetanqueoResource\Pages;
 use App\Filament\Dashboard\Resources\RetanqueoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Widgets\StatsOverviewWidget;
 use App\Models\Retanqueo;
 
 class ListRetanqueos extends ListRecords
@@ -31,14 +30,16 @@ class ListRetanqueos extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
-            RetanqueoStatsWidget::class,
+            // Removemos el widget personalizado para evitar el error
         ];
     }
-}
 
-class RetanqueoStatsWidget extends StatsOverviewWidget
-{
-    protected function getStats(): array
+    public function getTitle(): string
+    {
+        return 'Retanqueos';
+    }
+
+    protected function getHeaderData(): array
     {
         $user = request()->user();
         
@@ -65,35 +66,12 @@ class RetanqueoStatsWidget extends StatsOverviewWidget
             ->sum('monto_retanqueo');
 
         return [
-            StatsOverviewWidget\Stat::make('Total Solicitudes', $totalSolicitudes)
-                ->description('Todas las solicitudes de retanqueo')
-                ->descriptionIcon('heroicon-m-document-text')
-                ->color('primary'),
-
-            StatsOverviewWidget\Stat::make('Pendientes de Aprobación', $solicitudesPendientes)
-                ->description('Esperando revisión')
-                ->descriptionIcon('heroicon-m-clock')
-                ->color('warning'),
-
-            StatsOverviewWidget\Stat::make('Aprobados', $retanqueosAprobados)
-                ->description('Listos para ejecutar')
-                ->descriptionIcon('heroicon-m-check-circle')
-                ->color('success'),
-
-            StatsOverviewWidget\Stat::make('Ejecutados', $retanqueosEjecutados)
-                ->description('Retanqueos completados')
-                ->descriptionIcon('heroicon-m-play')
-                ->color('info'),
-
-            StatsOverviewWidget\Stat::make('Rechazados', $retanqueosRechazados)
-                ->description('Solicitudes rechazadas')
-                ->descriptionIcon('heroicon-m-x-circle')
-                ->color('danger'),
-
-            StatsOverviewWidget\Stat::make('Monto Total Retanqueado', 'S/ ' . number_format($montoTotalRetanqueado, 2))
-                ->description('Total de retanqueos ejecutados')
-                ->descriptionIcon('heroicon-m-banknotes')
-                ->color('success'),
+            'total' => $totalSolicitudes,
+            'pendientes' => $solicitudesPendientes,
+            'aprobados' => $retanqueosAprobados,
+            'ejecutados' => $retanqueosEjecutados,
+            'rechazados' => $retanqueosRechazados,
+            'monto_total' => $montoTotalRetanqueado,
         ];
     }
 }
