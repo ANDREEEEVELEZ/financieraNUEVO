@@ -132,10 +132,20 @@ class Prestamo extends Model
             $pagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
 
             if ($total > 0 && $total === $pagadas) {
+                // Verificar si hay retanqueos parciales donde algunas personas no retanquearon
+                if ($this->tieneIntegrantesNoRetanqueadosConDeudaPendiente()) {
+                    \Illuminate\Support\Facades\Log::info('No se puede finalizar automáticamente el préstamo: hay integrantes que no retanquearon con deuda pendiente', [
+                        'prestamo_id' => $this->id,
+                    ]);
+                    return false;
+                }
+                
                 $this->estado = 'Finalizado';
                 $this->save();
+                return true;
             }
         }
+        return false;
     }
 
     /**
@@ -155,6 +165,14 @@ class Prestamo extends Model
             ]);
             
             if ($totalCuotas > 0 && $cuotasPagadas === $totalCuotas) {
+                // Verificar si hay retanqueos parciales donde algunas personas no retanquearon
+                if ($this->tieneIntegrantesNoRetanqueadosConDeudaPendiente()) {
+                    \Illuminate\Support\Facades\Log::info('No se puede finalizar el préstamo: hay integrantes que no retanquearon con deuda pendiente', [
+                        'prestamo_id' => $this->id,
+                    ]);
+                    return false;
+                }
+                
                 $this->estado = 'Finalizado';
                 $this->save();
                 
@@ -230,11 +248,61 @@ class Prestamo extends Model
     {
         $totalCuotas = $this->cuotasGrupales()->count();
         $cuotasPagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
-        
-        return $totalCuotas > 0 && $cuotasPagadas === $totalCuotas;
+
+        return $totalCuotas > 0 && $totalCuotas === $cuotasPagadas;
     }
 
     /**
+     * Verifica si hay integrantes que no retanquearon y aún tienen deuda pendiente
+     */
+    public function tieneIntegrantesNoRetanqueadosConDeudaPendiente()
+    {
+        // Buscar retanqueos ejecutados relacionados con este préstamo
+        $retanqueos = \App\Models\Retanqueo::where('prestamo_id', $this->id)
+            ->where('estado_retanqueo', 'ejecutado')
+            ->get();
+
+        foreach ($retanqueos as $retanqueo) {
+            // Obtener integrantes que NO retanquearon
+            $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
+                ->where('participacion_tipo', 'no_retanquea')
+                ->with('cliente')
+                ->get();
+
+            foreach ($integrantesNoRetanqueados as $retanqueoIndividual) {
+                $cliente = $retanqueoIndividual->cliente;
+                if ($cliente && $this->grupo) {
+                    // Verificar si el cliente aún está en el grupo (no ha sido movido a ex-integrante)
+                    $sigueEnGrupo = $this->grupo->clientes()->where('clientes.id', $cliente->id)->exists();
+                    
+                    if ($sigueEnGrupo) {
+                        // Verificar si tiene préstamos individuales activos (no finalizados) en este préstamo
+                        $prestamoIndividual = $this->prestamoIndividual()
+                            ->where('cliente_id', $cliente->id)
+                            ->whereNotIn('estado', ['Finalizado', 'Completado'])
+                            ->first();
+                        
+                        if ($prestamoIndividual) {
+                            // También verificar que el monto a devolver sea mayor a 0
+                            $montoDevolver = (float)$prestamoIndividual->monto_devolver_individual;
+                            if ($montoDevolver > 0) {
+                                \Illuminate\Support\Facades\Log::info('Integrante que no retanqueó aún tiene deuda pendiente', [
+                                    'prestamo_id' => $this->id,
+                                    'cliente_id' => $cliente->id,
+                                    'prestamo_individual_id' => $prestamoIndividual->id,
+                                    'estado_prestamo_individual' => $prestamoIndividual->estado,
+                                    'monto_devolver' => $montoDevolver
+                                ]);
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }    /**
      * Método para aprobar un préstamo
      */
     public function aprobar()

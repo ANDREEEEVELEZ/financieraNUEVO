@@ -36,6 +36,18 @@ class CuotasGrupalesObserver
             $todasPagadas = $cuotasNoPagadas === 0;
             
             if ($todasPagadas && !in_array($prestamo->estado, ['Finalizado'])) {
+                Log::info('CuotasGrupalesObserver: Verificando si se puede finalizar préstamo', [
+                    'prestamo_id' => $prestamo->id,
+                ]);
+                
+                // Verificar si hay integrantes que no retanquearon con deuda pendiente
+                if ($prestamo->tieneIntegrantesNoRetanqueadosConDeudaPendiente()) {
+                    Log::info('CuotasGrupalesObserver: No se puede finalizar - hay integrantes que no retanquearon con deuda pendiente', [
+                        'prestamo_id' => $prestamo->id,
+                    ]);
+                    return; // No finalizar el préstamo
+                }
+                
                 Log::info('CuotasGrupalesObserver: Cambiando estado a Finalizado', [
                     'prestamo_id' => $prestamo->id,
                 ]);
