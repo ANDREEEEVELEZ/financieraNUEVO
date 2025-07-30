@@ -535,27 +535,18 @@ class PrestamoResource extends Resource
     public static function table(Table $table): Table
     {
         return $table->columns([
-            TextColumn::make('grupo.nombre_grupo')->label('Grupo')->searchable()->sortable(),
-            
-            // Nueva columna para identificar retanqueos
-            TextColumn::make('descripcion')
-                ->label('Tipo')
+            TextColumn::make('grupo.nombre_grupo')
+                ->label('Grupo')
                 ->getStateUsing(function ($record) {
-                    if ($record->es_retanqueo) {
-                        return $record->descripcion ?? 'Retanqueo';
+                    // Si es un retanqueo, mostrar el nombre del retanqueo en lugar del grupo
+                    if ($record->es_retanqueo && $record->descripcion) {
+                        return $record->descripcion;
                     }
-                    return 'Original';
+                    return $record->grupo->nombre_grupo ?? 'Sin grupo';
                 })
-                ->badge()
-                ->color(fn(string $state): string => match (true) {
-                    str_contains(strtolower($state), 'retanqueo') => 'warning',
-                    default => 'success',
-                })
-                ->icon(fn(string $state): string => match (true) {
-                    str_contains(strtolower($state), 'retanqueo') => 'heroicon-o-arrow-path',
-                    default => 'heroicon-o-banknotes',
-                })
-                ->sortable(),
+                ->searchable()
+                ->sortable()
+                ->wrap(),
                 
             TextColumn::make('monto_prestado_total')->label('Monto Prestado')->money('PEN')->sortable(),
             TextColumn::make('monto_devolver')->label('Monto a Devolver')->money('PEN')->sortable(),
