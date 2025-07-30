@@ -143,7 +143,7 @@ class Prestamo extends Model
      */
     public function verificarYActualizarEstado()
     {
-        if ($this->estado === 'Aprobado') {
+        if ($this->estado === 'Aprobado' || $this->estado === 'Parcialmente_Retanqueado') {
             $totalCuotas = $this->cuotasGrupales()->count();
             $cuotasPagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
             
@@ -161,6 +161,9 @@ class Prestamo extends Model
                 // Actualizar también los préstamos individuales
                 $this->prestamoIndividual()->update(['estado' => 'Finalizado']);
                 
+                // Mover integrantes que no retanquearon a ex-integrantes
+                $this->moverIntegrantesNoRetanqueadosAExIntegrantes();
+                
                 \Illuminate\Support\Facades\Log::info('Estado del préstamo actualizado a Finalizado', [
                     'prestamo_id' => $this->id,
                 ]);
@@ -170,6 +173,65 @@ class Prestamo extends Model
         }
         
         return false;
+    }
+
+    /**
+     * Método para generar descripción de retanqueo
+     */
+    public function generarDescripcionRetanqueo()
+    {
+        if (!$this->grupo) return $this->descripcion;
+        
+        // Contar cuántos retanqueos previos ha tenido este grupo
+        $numeroRetanqueo = self::whereHas('grupo', function($query) {
+            $query->where('id', $this->grupo_id);
+        })->where('es_retanqueo', true)->count();
+        
+        return "Retanqueo #{$numeroRetanqueo} - {$this->grupo->nombre_grupo}";
+    }
+
+    /**
+     * Mueve integrantes que no retanquearon a ex-integrantes cuando terminan de pagar
+     */
+    public function moverIntegrantesNoRetanqueadosAExIntegrantes()
+    {
+        // Buscar retanqueos relacionados con este préstamo
+        $retanqueos = \App\Models\Retanqueo::where('prestamo_id', $this->id)
+            ->where('estado_retanqueo', 'ejecutado')
+            ->get();
+
+        foreach ($retanqueos as $retanqueo) {
+            // Obtener integrantes que NO retanquearon
+            $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
+                ->where('participacion_tipo', 'no_retanquea')
+                ->with('cliente')
+                ->get();
+
+            foreach ($integrantesNoRetanqueados as $retanqueoIndividual) {
+                $cliente = $retanqueoIndividual->cliente;
+                if ($cliente && $this->grupo) {
+                    // Mover a ex-integrante
+                    $this->grupo->removerCliente($cliente->id, now());
+                    
+                    \Illuminate\Support\Facades\Log::info('Cliente movido a ex-integrante por completar pagos post-retanqueo', [
+                        'cliente_id' => $cliente->id,
+                        'grupo_id' => $this->grupo->id,
+                        'prestamo_id' => $this->id
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Verifica si este préstamo puede ser finalizado considerando retanqueos
+     */
+    public function puedeSerFinalizado()
+    {
+        $totalCuotas = $this->cuotasGrupales()->count();
+        $cuotasPagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
+        
+        return $totalCuotas > 0 && $cuotasPagadas === $totalCuotas;
     }
 
     /**

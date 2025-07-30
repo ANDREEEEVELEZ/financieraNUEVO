@@ -361,9 +361,9 @@ class RetanqueoService
             'frecuencia' => $prestamoAntiguo->frecuencia ?? 'semanal',
             'estado' => 'Aprobado',
             'calificacion' => 'A',
-            'descripcion' => $descripcionRetanqueo, // Campo para identificar retanqueos
-            'es_retanqueo' => true, // Si existe este campo
-            'prestamo_origen_id' => $prestamoAntiguo->id // Referencia al préstamo original
+            'descripcion' => $descripcionRetanqueo,
+            'es_retanqueo' => true,
+            'prestamo_origen_id' => $prestamoAntiguo->id
         ]);
     }
 
@@ -511,15 +511,36 @@ class RetanqueoService
             }
         }
 
-        // Verificar si el préstamo antiguo se completó
+        // Verificar si todos los integrantes retanquearon
+        $totalIntegrantes = $prestamoAntiguo->grupo->clientes()->count();
+        $integrantesQueRetanquean = $retanqueo->retanqueosIndividuales()
+            ->whereIn('participacion_tipo', ['retanquea', 'nueva'])
+            ->count();
+
+        // Verificar cuotas pendientes restantes
         $cuotasPendientesRestantes = $prestamoAntiguo->cuotasGrupales()
             ->where('estado_pago', '!=', 'pagado')
             ->where('saldo_pendiente', '>', 0)
             ->count();
 
         if ($cuotasPendientesRestantes === 0) {
+            // Todas las cuotas están pagadas - finalizar préstamo
             $prestamoAntiguo->update(['estado' => 'Finalizado']);
             $retanqueo->update(['prestamo_antiguo_estado' => 1]);
+            
+            // Si todos retanquearon, no hay ex-integrantes por manejar
+            // Si algunos no retanquearon, ya se cubrió todo con el retanqueo
+        } else {
+            // Hay cuotas pendientes
+            if ($integrantesQueRetanquean === $totalIntegrantes) {
+                // Todos retanquearon pero aún hay saldo - cambiar a finalizado de todos modos
+                $prestamoAntiguo->update(['estado' => 'Finalizado']);
+                $retanqueo->update(['prestamo_antiguo_estado' => 1]);
+            } else {
+                // Algunos no retanquearon - cambiar estado a parcialmente retanqueado
+                $prestamoAntiguo->update(['estado' => 'Parcialmente_Retanqueado']);
+                $retanqueo->update(['prestamo_antiguo_estado' => 0]);
+            }
         }
 
         // Actualizar saldo restante en el retanqueo

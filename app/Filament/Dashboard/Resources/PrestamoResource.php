@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Builder;
 class PrestamoResource extends Resource
 {
     protected static ?string $model = Prestamo::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
     public static function form(Forms\Form $form): Forms\Form
@@ -428,12 +429,15 @@ class PrestamoResource extends Resource
                 ->options([
                     'Pendiente' => 'Pendiente',
                     'Aprobado' => 'Aprobado',
+                    'Parcialmente_Retanqueado' => 'Parcialmente Retanqueado',
+                    'Finalizado' => 'Finalizado',
                     'Rechazado' => 'Rechazado',
                 ])
                 ->default('Pendiente')
                 ->required()
                 ->disabled(fn() => !$puedeEditarEstado)
-                ->dehydrated(true),
+                ->dehydrated(true)
+                ->helperText('📝 "Parcialmente Retanqueado" indica que algunos integrantes no participaron en el retanqueo.'),
 
             Select::make('calificacion')
                 ->prefixIcon('heroicon-o-star')
@@ -564,6 +568,8 @@ class PrestamoResource extends Resource
                 ->color(fn(string $state) => match (strtolower($state)) {
                     'aprobado' => 'success',
                     'activo' => 'warning',
+                    'parcialmente_retanqueado' => 'info',
+                    'parcialmente retanqueado' => 'info',
                     'rechazado' => 'danger',
                     'finalizado' => 'primary',
                     default => 'warning',
@@ -616,6 +622,7 @@ class PrestamoResource extends Resource
                         'Pendiente' => 'Pendiente',
                         'Aprobado' => 'Aprobado',
                         'Activo' => 'Activo',
+                        'Parcialmente_Retanqueado' => 'Parcialmente Retanqueado',
                         'Rechazado' => 'Rechazado',
                         'Finalizado' => 'Finalizado',
                     ])

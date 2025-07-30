@@ -35,7 +35,7 @@ class CuotasGrupalesObserver
             
             $todasPagadas = $cuotasNoPagadas === 0;
             
-            if ($todasPagadas && $prestamo->estado !== 'Finalizado') {
+            if ($todasPagadas && !in_array($prestamo->estado, ['Finalizado'])) {
                 Log::info('CuotasGrupalesObserver: Cambiando estado a Finalizado', [
                     'prestamo_id' => $prestamo->id,
                 ]);
@@ -45,6 +45,12 @@ class CuotasGrupalesObserver
                 $prestamo->save();
                 
                 PrestamoIndividual::where('prestamo_id', $prestamo->id)->update(['estado' => 'Finalizado']);
+                
+                // Si el préstamo estaba en estado Parcialmente_Retanqueado, 
+                // mover a ex-integrantes a quienes no retanquearon
+                if ($prestamo->estado === 'Parcialmente_Retanqueado') {
+                    $prestamo->moverIntegrantesNoRetanqueadosAExIntegrantes();
+                }
                 
                 // Actualizar ciclo de todos los clientes del préstamo
                 $this->actualizarCiclosClientes($prestamo);
