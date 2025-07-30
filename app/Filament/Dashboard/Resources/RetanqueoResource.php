@@ -135,7 +135,7 @@ class RetanqueoResource extends Resource
                                     ->prefixIcon('heroicon-o-calendar-days')
                                     ->numeric()
                                     ->required()
-                                    ->default(20)
+                                    ->default(2)
                                     ->minValue(4)
                                     ->maxValue(52)
                                     ->helperText('Entre 4 y 52 cuotas')
