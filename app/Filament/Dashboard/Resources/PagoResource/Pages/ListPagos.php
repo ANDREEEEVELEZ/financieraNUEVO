@@ -21,18 +21,26 @@ class ListPagos extends ListRecords
     {
         $user = Auth::user();
 
-        // Crear query base para grupos que tienen pagos
-        $query = Grupo::query()
-            ->whereHas('prestamos.cuotasGrupales.pagos')
-            ->with(['prestamos.cuotasGrupales.pagos' => function($q) {
+        // Ahora la tabla será por préstamo, no por grupo
+        $query = \App\Models\Prestamo::query()
+            ->whereHas('cuotasGrupales.pagos')
+            ->with(['grupo', 'cuotasGrupales.pagos' => function($q) {
                 $q->orderBy('created_at', 'desc');
+            }])
+            ->addSelect(['ultimo_pago_reciente' => function($sub) {
+                $sub->selectRaw('MAX(pagos.created_at)')
+                    ->from('cuotas_grupales')
+                    ->join('pagos', 'pagos.cuota_grupal_id', '=', 'cuotas_grupales.id')
+                    ->whereColumn('cuotas_grupales.prestamo_id', 'prestamos.id');
             }]);
 
         // Filtrar por asesor si es necesario
         if ($user->hasRole('Asesor')) {
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
             if ($asesor) {
-                $query->where('asesor_id', $asesor->id);
+                $query->whereHas('grupo', function($q) use ($asesor) {
+                    $q->where('asesor_id', $asesor->id);
+                });
             } else {
                 return $query->whereRaw('1 = 0'); // No mostrar nada si no tiene asesor
             }
@@ -46,62 +54,155 @@ class ListPagos extends ListRecords
         return $table
             ->query($this->getTableQuery())
             ->columns([
-                Tables\Columns\TextColumn::make('nombre_grupo')
-                    ->label('Nombre del Grupo')
+                Tables\Columns\TextColumn::make('grupo.nombre_grupo')
+                    ->label('Grupo')
+                    ->tooltip('Nombre completo del grupo')
                     ->searchable()
                     ->sortable()
-                    ->weight('medium'),
+                    ->weight('medium')
+                    ->size('sm'),
+
+                Tables\Columns\TextColumn::make('numero_prestamo')
+                    ->label('N° Préstamo')
+                    ->tooltip('Número de préstamo para el grupo')
+                    ->size('sm')
+                    ->alignCenter()
+                    ->badge()
+                    ->color('secondary')
+                    ->getStateUsing(function ($record) {
+                        // Obtener todos los préstamos del grupo ordenados por fecha de creación
+                        $prestamos = $record->grupo->prestamos()->orderBy('created_at')->pluck('id')->toArray();
+                        // Buscar la posición del préstamo actual en ese array (base 1)
+                        $pos = array_search($record->id, $prestamos);
+                        return $pos !== false ? ($pos + 1) : '-';
+                    }),
 
                 Tables\Columns\TextColumn::make('total_cuotas')
-                    ->label('Total Cuotas')
+                    ->label('Cuotas')
+                    ->tooltip('Total de cuotas del préstamo')
                     ->getStateUsing(function ($record) {
-                        return $record->prestamos->sum(function ($prestamo) {
-                            return $prestamo->cuotasGrupales->count();
-                        });
+                        return $record->cuotasGrupales->count();
                     })
                     ->alignCenter()
                     ->badge()
                     ->color('gray'),
 
                 Tables\Columns\TextColumn::make('aprobadas')
-                    ->label('Aprobadas')
+                    ->label('Aprob.')
+                    ->tooltip('Cuotas aprobadas')
                     ->getStateUsing(function ($record) {
-                        return $record->prestamos->sum(function ($prestamo) {
-                            return $prestamo->cuotasGrupales->filter(function ($cuota) {
-                                return $cuota->pagos->where('estado_pago', 'aprobado')->count() > 0;
-                            })->count();
-                        });
+                        return $record->cuotasGrupales->filter(function ($cuota) {
+                            return $cuota->pagos->where('estado_pago', 'aprobado')->count() > 0;
+                        })->count();
                     })
                     ->alignCenter()
                     ->badge()
                     ->color('success'),
 
                 Tables\Columns\TextColumn::make('pendientes')
-                    ->label('Pendientes')
+                    ->label('Pend.')
+                    ->tooltip('Cuotas pendientes')
                     ->getStateUsing(function ($record) {
-                        return $record->prestamos->sum(function ($prestamo) {
-                            return $prestamo->cuotasGrupales->filter(function ($cuota) {
-                                return $cuota->pagos->where('estado_pago', 'Pendiente')->count() > 0;
-                            })->count();
-                        });
+                        return $record->cuotasGrupales->filter(function ($cuota) {
+                            return $cuota->pagos->where('estado_pago', 'Pendiente')->count() > 0;
+                        })->count();
                     })
                     ->alignCenter()
                     ->badge()
                     ->color('warning'),
 
                 Tables\Columns\TextColumn::make('rechazadas')
-                    ->label('Rechazadas')
+                    ->label('Rech.')
+                    ->tooltip('Cuotas rechazadas')
                     ->getStateUsing(function ($record) {
-                        return $record->prestamos->sum(function ($prestamo) {
-                            return $prestamo->cuotasGrupales->filter(function ($cuota) {
-                                return $cuota->pagos->where('estado_pago', 'Rechazado')->count() > 0;
-                            })->count();
-                        });
+                        return $record->cuotasGrupales->filter(function ($cuota) {
+                            return $cuota->pagos->where('estado_pago', 'Rechazado')->count() > 0;
+                        })->count();
                     })
                     ->alignCenter()
                     ->badge()
                     ->color('danger'),
 
+                Tables\Columns\TextColumn::make('monto_devolver_prestamo')
+                    ->label('Monto a Devolver')
+                    ->tooltip('Monto total a devolver del préstamo')
+                    ->size('sm')
+                    ->getStateUsing(function ($record) {
+                        $montoDevolver = 0;
+                        foreach ($record->cuotasGrupales as $cuota) {
+                            if (strtolower($cuota->estado_cuota_grupal ?? '') !== 'anulada') {
+                                $montoDevolver += floatval($cuota->monto_cuota_grupal);
+                            }
+                        }
+                        return 'S/. ' . number_format($montoDevolver, 2);
+                    })
+                    ->alignCenter()
+                    ->badge()
+                    ->color('info'),
+
+                Tables\Columns\TextColumn::make('total_pagado_aprobado')
+                    ->label('Total Pagado')
+                    ->tooltip('Total pagado (incluye mora)')
+                    ->size('sm')
+                    ->getStateUsing(function ($record) {
+                        $total = 0;
+                        foreach ($record->cuotasGrupales as $cuota) {
+                            $total += $cuota->pagos->where('estado_pago', 'aprobado')->sum('monto_pagado');
+                        }
+                        return 'S/. ' . number_format($total, 2);
+                    })
+                    ->alignCenter()
+                    ->badge()
+                    ->color('primary'),
+
+                Tables\Columns\TextColumn::make('monto_mora_pendiente')
+                    ->label('Mora pend.')
+                    ->tooltip('Monto de mora pendiente')
+                    ->size('sm')
+                    ->getStateUsing(function ($record) {
+                        $moraPendiente = 0;
+                        foreach ($record->cuotasGrupales as $cuota) {
+                            $estado = strtolower($cuota->estado_cuota_grupal ?? '');
+                            if ($estado !== 'cancelada' && $estado !== 'anulada' && $cuota->mora) {
+                                $montoMora = abs($cuota->mora->monto_mora_calculado);
+                                $moraPagada = $cuota->pagos->where('estado_pago', 'aprobado')->sum('monto_mora_pagada');
+                                $pendiente = $montoMora - $moraPagada;
+                                if ($pendiente > 0) {
+                                    $moraPendiente += $pendiente;
+                                }
+                            }
+                        }
+                        return 'S/. ' . number_format(max($moraPendiente, 0), 2);
+                    })
+                    ->alignCenter()
+                    ->badge()
+                    ->color('danger'),
+
+                Tables\Columns\TextColumn::make('saldo_pendiente_real')
+                    ->label('Saldo pend.')
+                    ->tooltip('Saldo pendiente real (incluye mora)')
+                    ->size('sm')
+                    ->getStateUsing(function ($record) {
+                        $montoDevolver = 0;
+                        $moraAcumulada = 0;
+                        $montoPagado = 0;
+                        foreach ($record->cuotasGrupales as $cuota) {
+                            if (strtolower($cuota->estado_cuota_grupal ?? '') !== 'anulada') {
+                                $montoDevolver += floatval($cuota->monto_cuota_grupal);
+                            }
+                            if ($cuota->mora && strtolower($cuota->estado_cuota_grupal ?? '') !== 'cancelada') {
+                                $moraAcumulada += abs($cuota->mora->monto_mora_calculado);
+                            }
+                            $montoPagado += $cuota->pagos->where('estado_pago', 'aprobado')->sum('monto_pagado');
+                        }
+                        $saldo = ($montoDevolver + $moraAcumulada) - $montoPagado;
+                        return 'S/. ' . number_format(max($saldo, 0), 2);
+                    })
+                    ->alignCenter()
+                    ->badge()
+                    ->color('warning'),
+
+                    /*
                 Tables\Columns\TextColumn::make('ultimo_pago')
                     ->label('Último Pago')
                     ->getStateUsing(function ($record) {
@@ -122,30 +223,23 @@ class ListPagos extends ListRecords
                         return $ultimoPago ? $ultimoPago->created_at->format('d/m/Y H:i') : 'Sin pagos';
                     })
                     ->alignCenter(),
-
+                    */
                 Tables\Columns\TextColumn::make('estado')
                     ->label('Estado')
+                    ->tooltip('Estado general del préstamo')
+                    ->size('sm')
                     ->getStateUsing(function ($record) {
-                        $totalCuotas = $record->prestamos->sum(function ($prestamo) {
-                            return $prestamo->cuotasGrupales->count();
-                        });
-
-                        $cuotasAprobadas = $record->prestamos->sum(function ($prestamo) {
-                            return $prestamo->cuotasGrupales->filter(function ($cuota) {
-                                return $cuota->pagos->where('estado_pago', 'aprobado')->count() > 0;
-                            })->count();
-                        });
-
-                        $cuotasPendientes = $record->prestamos->sum(function ($prestamo) {
-                            return $prestamo->cuotasGrupales->filter(function ($cuota) {
-                                return $cuota->pagos->where('estado_pago', 'Pendiente')->count() > 0;
-                            })->count();
-                        });
-
-                        if ($totalCuotas == $cuotasAprobadas) {
+                        $totalCuotas = $record->cuotasGrupales->count();
+                        $cuotasAprobadas = $record->cuotasGrupales->filter(function ($cuota) {
+                            return $cuota->pagos->where('estado_pago', 'aprobado')->count() > 0;
+                        })->count();
+                        $cuotasPendientes = $record->cuotasGrupales->filter(function ($cuota) {
+                            return $cuota->pagos->where('estado_pago', 'Pendiente')->count() > 0;
+                        })->count();
+                        if ($totalCuotas == $cuotasAprobadas && $totalCuotas > 0) {
                             return 'Completado';
                         } elseif ($cuotasPendientes > 0) {
-                            return 'Con pendientes';
+                            return 'pendientes';
                         } else {
                             return 'En proceso';
                         }
@@ -153,7 +247,7 @@ class ListPagos extends ListRecords
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Completado' => 'success',
-                        'Con pendientes' => 'warning',
+                        'pendientes' => 'warning',
                         'En proceso' => 'info',
                         default => 'gray',
                     }),
@@ -229,16 +323,16 @@ class ListPagos extends ListRecords
                         }
                     }),
             ])
-            ->recordUrl(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->id]))
+            ->recordUrl(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->grupo_id]))
             ->actions([
                 Tables\Actions\Action::make('ver_pagos')
                     ->label('Ver Pagos')
                     ->icon('heroicon-m-eye')
                     ->color('danger')
-                    ->url(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->id]))
+                    ->url(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->grupo_id]))
                     ->openUrlInNewTab(false),
             ])
-            ->defaultSort('nombre_grupo')
+            ->defaultSort('ultimo_pago_reciente', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);
     }
