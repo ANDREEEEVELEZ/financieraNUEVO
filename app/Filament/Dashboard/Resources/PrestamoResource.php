@@ -532,6 +532,27 @@ class PrestamoResource extends Resource
     {
         return $table->columns([
             TextColumn::make('grupo.nombre_grupo')->label('Grupo')->searchable()->sortable(),
+            
+            // Nueva columna para identificar retanqueos
+            TextColumn::make('descripcion')
+                ->label('Tipo')
+                ->getStateUsing(function ($record) {
+                    if ($record->es_retanqueo) {
+                        return $record->descripcion ?? 'Retanqueo';
+                    }
+                    return 'Original';
+                })
+                ->badge()
+                ->color(fn(string $state): string => match (true) {
+                    str_contains(strtolower($state), 'retanqueo') => 'warning',
+                    default => 'success',
+                })
+                ->icon(fn(string $state): string => match (true) {
+                    str_contains(strtolower($state), 'retanqueo') => 'heroicon-o-arrow-path',
+                    default => 'heroicon-o-banknotes',
+                })
+                ->sortable(),
+                
             TextColumn::make('monto_prestado_total')->label('Monto Prestado')->money('PEN')->sortable(),
             TextColumn::make('monto_devolver')->label('Monto a Devolver')->money('PEN')->sortable(),
             TextColumn::make('cantidad_cuotas')->label('N° Cuotas')->sortable(),
@@ -570,6 +591,24 @@ class PrestamoResource extends Resource
                 }),
         ])
             ->filters([
+                // Filtro por Tipo de Préstamo
+                Tables\Filters\SelectFilter::make('tipo_prestamo')
+                    ->label('Tipo de Préstamo')
+                    ->options([
+                        'original' => 'Original',
+                        'retanqueo' => 'Retanqueo',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (!empty($data['value'])) {
+                            if ($data['value'] === 'original') {
+                                $query->where('es_retanqueo', false);
+                            } elseif ($data['value'] === 'retanqueo') {
+                                $query->where('es_retanqueo', true);
+                            }
+                        }
+                        return $query;
+                    }),
+                    
                 // Filtro por Estado (visible para todos los roles)
                 Tables\Filters\SelectFilter::make('estado')
                     ->label('Estado del Préstamo')

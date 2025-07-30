@@ -21,6 +21,9 @@ class Prestamo extends Model
         'frecuencia',
         'estado',
         'calificacion',
+        'descripcion',
+        'es_retanqueo',
+        'prestamo_origen_id',
     ];
 
     protected $casts = [
@@ -29,6 +32,7 @@ class Prestamo extends Model
         'monto_devolver' => 'decimal:2',
         'cantidad_cuotas' => 'integer',
         'fecha_prestamo' => 'date',
+        'es_retanqueo' => 'boolean',
     ];
 
     // Relaciones
@@ -50,6 +54,27 @@ class Prestamo extends Model
     public function egresos()
     {
         return $this->hasMany(Egreso::class);
+    }
+
+    // Relaciones para retanqueos
+    public function prestamoOrigen()
+    {
+        return $this->belongsTo(Prestamo::class, 'prestamo_origen_id');
+    }
+
+    public function prestamosRetanqueados()
+    {
+        return $this->hasMany(Prestamo::class, 'prestamo_origen_id');
+    }
+
+    public function retanqueoComoAntiguo()
+    {
+        return $this->hasOne(Retanqueo::class, 'prestamo_id');
+    }
+
+    public function retanqueoComoNuevo()
+    {
+        return $this->hasOne(Retanqueo::class, 'prestamo_nuevo_id');
     }
 
 

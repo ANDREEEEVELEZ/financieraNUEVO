@@ -343,6 +343,14 @@ class RetanqueoService
     {
         $prestamoAntiguo = $retanqueo->prestamoAntiguo;
         
+        // Contar cuántos retanqueos previos ha tenido este grupo
+        $numeroRetanqueo = Retanqueo::whereHas('prestamoAntiguo', function($query) use ($grupo) {
+            $query->where('grupo_id', $grupo->id);
+        })->where('estado_retanqueo', 'ejecutado')->count() + 1;
+        
+        // Generar descripción identificativa del retanqueo
+        $descripcionRetanqueo = "Retanqueo #{$numeroRetanqueo} - {$grupo->nombre_grupo}";
+        
         return Prestamo::create([
             'grupo_id' => $grupo->id,
             'tasa_interes' => $prestamoAntiguo->tasa_interes ?? 17,
@@ -352,7 +360,10 @@ class RetanqueoService
             'fecha_prestamo' => now(),
             'frecuencia' => $prestamoAntiguo->frecuencia ?? 'semanal',
             'estado' => 'Aprobado',
-            'calificacion' => 'A'
+            'calificacion' => 'A',
+            'descripcion' => $descripcionRetanqueo, // Campo para identificar retanqueos
+            'es_retanqueo' => true, // Si existe este campo
+            'prestamo_origen_id' => $prestamoAntiguo->id // Referencia al préstamo original
         ]);
     }
 
