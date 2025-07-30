@@ -488,7 +488,7 @@ class RetanqueoService
                 $cuota->update([
                     'saldo_pendiente' => 0,
                     'estado_pago' => 'pagado',
-                    'estado_cuota_grupal' => 'pagada'
+                    'estado_cuota_grupal' => 'cancelada'
                 ]);
                 $montoRestante -= $saldoCuota;
             } else {
