@@ -75,8 +75,13 @@ class ActualizarEstadosRetanqueo extends Command
 
             $nuevoEstado = null;
 
-            if ($cuotasPendientes === 0) {
-                // No hay cuotas pendientes - debe estar finalizado
+            // NUEVA LÓGICA SIMPLIFICADA:
+            // - Si hay integrantes que no retanquearon: "Parcialmente_Retanqueado" 
+            // - Si todos retanquearon: "Finalizado"
+            // - No importa el estado de las cuotas al momento de ejecutar el retanqueo
+            
+            if ($integrantesQueRetanquean === $totalIntegrantes) {
+                // Todos retanquearon - finalizar
                 if ($prestamoAntiguo->estado !== 'Finalizado') {
                     $nuevoEstado = 'Finalizado';
                 } else {
@@ -84,17 +89,11 @@ class ActualizarEstadosRetanqueo extends Command
                     $this->line("  ✅ Ya está finalizado");
                 }
             } else {
-                // Hay cuotas pendientes
-                if ($integrantesQueRetanquean === $totalIntegrantes) {
-                    // Todos retanquearon - finalizar de todos modos
-                    $nuevoEstado = 'Finalizado';
+                // Algunos no retanquearon - parcialmente retanqueado SIEMPRE
+                if ($prestamoAntiguo->estado !== 'Parcialmente_Retanqueado') {
+                    $nuevoEstado = 'Parcialmente_Retanqueado';
                 } else {
-                    // Algunos no retanquearon - parcialmente retanqueado
-                    if ($prestamoAntiguo->estado !== 'Parcialmente_Retanqueado') {
-                        $nuevoEstado = 'Parcialmente_Retanqueado';
-                    } else {
-                        $this->line("  ✅ Ya está en estado correcto");
-                    }
+                    $this->line("  ✅ Ya está en estado correcto");
                 }
             }
 
@@ -104,10 +103,13 @@ class ActualizarEstadosRetanqueo extends Command
                 if (!$dryRun) {
                     $prestamoAntiguo->update(['estado' => $nuevoEstado]);
                     
-                    // Si se finaliza y había integrantes que no retanquearon, moverlos a ex-integrantes
-                    if ($nuevoEstado === 'Finalizado' && $integrantesQueRetanquean < $totalIntegrantes) {
-                        $prestamoAntiguo->moverIntegrantesNoRetanqueadosAExIntegrantes();
-                        $this->line("  👥 Ex-integrantes movidos automáticamente");
+                    // SOLO mover a ex-integrantes si se finaliza Y todos ya terminaron de pagar
+                    if ($nuevoEstado === 'Finalizado') {
+                        // Verificar si realmente no hay deuda pendiente individual
+                        if (!$prestamoAntiguo->tieneIntegrantesNoRetanqueadosConDeudaPendiente()) {
+                            $prestamoAntiguo->moverIntegrantesNoRetanqueadosAExIntegrantes();
+                            $this->line("  👥 Ex-integrantes movidos automáticamente");
+                        }
                     }
                 }
                 

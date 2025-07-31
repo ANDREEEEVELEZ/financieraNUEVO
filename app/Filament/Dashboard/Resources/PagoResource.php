@@ -52,11 +52,32 @@ public static function form(Form $form): Form
                     return [];
                 }
 
-                return $query->pluck('nombre_grupo', 'id');
+                // Modificar para mostrar nombres diferenciados
+                $grupos = $query->with(['prestamos' => function($q) {
+                    $q->where('estado', 'Aprobado');
+                }])->get();
+                
+                $opciones = [];
+                foreach ($grupos as $grupo) {
+                    foreach ($grupo->prestamos as $prestamo) {
+                        if ($prestamo->es_retanqueo) {
+                            // Para retanqueos, mostrar la descripción completa que ya incluye "RETANQUEO #X"
+                            $opciones[$grupo->id . '_' . $prestamo->id] = $prestamo->descripcion;
+                        } else {
+                            // Para originales, mostrar solo el nombre del grupo
+                            $opciones[$grupo->id . '_' . $prestamo->id] = $grupo->nombre_grupo;
+                        }
+                    }
+                }
+                
+                return $opciones;
             })
            ->afterStateHydrated(function ($component, $state, $record) {
                 if ($record && $record->cuotaGrupal && $record->cuotaGrupal->prestamo && $record->cuotaGrupal->prestamo->grupo) {
-                    $component->state($record->cuotaGrupal->prestamo->grupo->id);
+                    // Construir el valor correcto para el estado
+                    $grupoId = $record->cuotaGrupal->prestamo->grupo->id;
+                    $prestamoId = $record->cuotaGrupal->prestamo->id;
+                    $component->state($grupoId . '_' . $prestamoId);
 
                     $user = request()->user();
                     if (strtolower($record->estado_pago) !== 'pendiente' ||
@@ -68,8 +89,15 @@ public static function form(Form $form): Form
                 }
             })
             ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
-                        $query->where('grupo_id', $state);
+                // Extraer grupo_id y prestamo_id del estado
+                if (!$state || !str_contains($state, '_')) {
+                    return;
+                }
+                
+                [$grupoId, $prestamoId] = explode('_', $state, 2);
+                
+                $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                        $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
                     })
                     ->pluck('id');
 
@@ -96,8 +124,8 @@ public static function form(Form $form): Form
                     return;
                 }
 
-                $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($state) {
-                        $query->where('grupo_id', $state);
+                $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                        $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
                     })
                     ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
                     ->orderBy('numero_cuota', 'asc')
@@ -547,7 +575,7 @@ public static function form(Form $form): Form
                         ->label('Aprobar')
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                         ->action(function ($record) {
                             $record->aprobar();
                             \Filament\Notifications\Notification::make()
@@ -560,7 +588,7 @@ public static function form(Form $form): Form
                         ->label('Rechazar')
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                        ->visible(fn ($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                         ->action(function ($record) {
                             $record->rechazar();
                             \Filament\Notifications\Notification::make()

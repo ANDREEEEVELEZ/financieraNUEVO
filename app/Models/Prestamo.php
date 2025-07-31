@@ -194,6 +194,52 @@ class Prestamo extends Model
     }
 
     /**
+     * Obtiene integrantes para contrato según el tipo de préstamo
+     * Para préstamos originales: TODOS los integrantes históricos (inmutable)
+     * Para retanqueos: Solo los que participaron en el retanqueo
+     */
+    public function getIntegrantesParaContrato()
+    {
+        if ($this->es_retanqueo) {
+            // Para retanqueos: solo los que participaron
+            return $this->prestamoIndividual()
+                ->with('cliente.persona')
+                ->where('monto_prestado_individual', '>', 0)
+                ->get()
+                ->map(function($prestamoIndividual) {
+                    return [
+                        'cliente' => $prestamoIndividual->cliente,
+                        'persona' => $prestamoIndividual->cliente->persona,
+                        'monto_prestado' => $prestamoIndividual->monto_prestado_individual,
+                        'monto_devolver' => $prestamoIndividual->monto_devolver_individual,
+                        'estado' => 'activo'
+                    ];
+                });
+        } else {
+            // Para préstamos originales: TODOS los integrantes históricos
+            // Incluir tanto activos como ex-integrantes que estuvieron en el momento del préstamo
+            $integrantesActivos = $this->grupo->clientes()->with('persona')->get();
+            $exIntegrantes = $this->grupo->exIntegrantes()->with('persona')->get();
+            
+            $todosLosIntegrantes = $integrantesActivos->concat($exIntegrantes)->unique('id');
+            
+            return $todosLosIntegrantes->map(function($cliente) {
+                $prestamoIndividual = $this->prestamoIndividual()
+                    ->where('cliente_id', $cliente->id)
+                    ->first();
+                
+                return [
+                    'cliente' => $cliente,
+                    'persona' => $cliente->persona,
+                    'monto_prestado' => $prestamoIndividual ? $prestamoIndividual->monto_prestado_individual : 0,
+                    'monto_devolver' => $prestamoIndividual ? $prestamoIndividual->monto_devolver_individual : 0,
+                    'estado' => $this->grupo->clientes()->where('clientes.id', $cliente->id)->exists() ? 'activo' : 'ex_integrante'
+                ];
+            });
+        }
+    }
+
+    /**
      * Método para generar descripción de retanqueo
      */
     public function generarDescripcionRetanqueo()
@@ -205,7 +251,7 @@ class Prestamo extends Model
             $query->where('id', $this->grupo_id);
         })->where('es_retanqueo', true)->count();
         
-        return "Retanqueo #{$numeroRetanqueo} - {$this->grupo->nombre_grupo}";
+        return "RETANQUEO #{$numeroRetanqueo} {$this->grupo->nombre_grupo}";
     }
 
     /**
