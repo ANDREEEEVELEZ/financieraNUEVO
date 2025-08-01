@@ -18,14 +18,16 @@ class ContratoGrupoController extends Controller
         $grupo = Grupo::with(['clientes.persona', 'prestamos'])->findOrFail($grupoId);
         $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first(); // Toma el préstamo grupal más reciente
         
-        // Validar que el préstamo esté aprobado
-        if (!$prestamoGrupal || strtolower($prestamoGrupal->estado) !== 'aprobado') {
-            abort(403, 'Solo se pueden imprimir contratos de préstamos aprobados.');
+        // Validar que el préstamo esté en estado válido para contratos
+        if (!$prestamoGrupal || !in_array(strtolower($prestamoGrupal->estado), ['aprobado', 'parcialmente_retanqueado'])) {
+            abort(403, 'Solo se pueden imprimir contratos de préstamos aprobados o parcialmente retanqueados.');
         }
 
         $contratosHtml = '';
 
-        foreach ($grupo->clientes as $cliente) {
+        // Usar getIntegrantesParaContrato() para obtener los participantes correctos
+        foreach ($prestamoGrupal->getIntegrantesParaContrato() as $integrante) {
+            $cliente = $integrante['cliente'];
             $persona = $cliente->persona;
             $prestamoIndividual = PrestamoIndividual::where('prestamo_id', $prestamoGrupal->id ?? null)
                 ->where('cliente_id', $cliente->id)

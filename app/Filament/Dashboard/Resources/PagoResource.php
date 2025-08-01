@@ -38,7 +38,7 @@ public static function form(Form $form): Form
             ->options(function () {
                 $user = request()->user();
                 $query = \App\Models\Grupo::whereHas('prestamos', function($q) {
-                    $q->where('estado', 'Aprobado');
+                    $q->whereIn('estado', ['Aprobado', 'Parcialmente_Retanqueado']);
                 })->orderBy('nombre_grupo', 'asc');
 
                 if ($user->hasRole('Asesor')) {
@@ -54,7 +54,7 @@ public static function form(Form $form): Form
 
                 // Modificar para mostrar nombres diferenciados
                 $grupos = $query->with(['prestamos' => function($q) {
-                    $q->where('estado', 'Aprobado');
+                    $q->whereIn('estado', ['Aprobado', 'Parcialmente_Retanqueado']);
                 }])->get();
                 
                 $opciones = [];
