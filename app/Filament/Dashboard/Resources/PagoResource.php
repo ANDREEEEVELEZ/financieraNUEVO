@@ -127,22 +127,28 @@ public static function form(Form $form): Form
                 // Obtener el préstamo para verificar si es un retanqueo parcial
                 $prestamo = \App\Models\Prestamo::find($prestamoId);
                 
-                $cuotasQuery = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
-                        $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
-                    });
-                
-                // Para préstamos parcialmente retanqueados, incluir todas las cuotas que tengan saldo pendiente
+                // Para préstamos parcialmente retanqueados, usar lógica especial
                 if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
-                    $cuotas = $cuotasQuery
+                    // Buscar todas las cuotas que no estén completamente pagadas
+                    $todasLasCuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                            $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
+                        })
                         ->where('estado_pago', '!=', 'pagado')
                         ->orderBy('numero_cuota', 'asc')
-                        ->get()
-                        ->filter(function ($cuota) {
-                            return $cuota->saldoPendiente() > 0;
-                        });
+                        ->get();
+                    
+                    // Filtrar manualmente las que tienen saldo pendiente
+                    $cuotas = collect();
+                    foreach ($todasLasCuotas as $cuota) {
+                        if ($cuota->saldoPendiente() > 0) {
+                            $cuotas->push($cuota);
+                        }
+                    }
                 } else {
                     // Para préstamos normales, usar la lógica original
-                    $cuotas = $cuotasQuery
+                    $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                            $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
+                        })
                         ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
                         ->orderBy('numero_cuota', 'asc')
                         ->get();
@@ -175,20 +181,23 @@ public static function form(Form $form): Form
                 }
 
                 // Si no hay cuota seleccionada, o es la primera pendiente, setear normalmente
-                foreach ($cuotas as $cuota) {
-                    if ($cuota->saldoPendiente() > 0) {
-                        $set('cuota_grupal_id', $cuota->id);
-                        $set('numero_cuota', $cuota->numero_cuota);
-                        $set('monto_cuota', $cuota->monto_cuota_grupal);
-                        $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
-                        $set('saldo_pendiente_actual', $cuota->saldoPendiente());
-                        $tipoPago = $get('tipo_pago');
-                        if ($tipoPago === 'pago_completo') {
-                            $set('monto_pagado', $cuota->saldoPendiente());
-                        } else {
-                            $set('monto_pagado', 0.00);
+                if ($cuotas->count() > 0) {
+                    foreach ($cuotas as $cuota) {
+                        $saldoPendiente = $cuota->saldoPendiente();
+                        if ($saldoPendiente > 0) {
+                            $set('cuota_grupal_id', $cuota->id);
+                            $set('numero_cuota', $cuota->numero_cuota);
+                            $set('monto_cuota', $cuota->monto_cuota_grupal);
+                            $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+                            $set('saldo_pendiente_actual', $saldoPendiente);
+                            $tipoPago = $get('tipo_pago');
+                            if ($tipoPago === 'pago_completo') {
+                                $set('monto_pagado', $saldoPendiente);
+                            } else {
+                                $set('monto_pagado', 0.00);
+                            }
+                            return;
                         }
-                        return;
                     }
                 }
                 // Si no hay cuotas pendientes
@@ -318,37 +327,46 @@ public static function form(Form $form): Form
                         // Obtener el préstamo para verificar si es un retanqueo parcial
                         $prestamo = \App\Models\Prestamo::find($prestamoId);
                         
-                        $cuotasQuery = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
-                                $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
-                            });
-                        
-                        // Para préstamos parcialmente retanqueados, incluir todas las cuotas que tengan saldo pendiente
+                        // Para préstamos parcialmente retanqueados, usar lógica especial
                         if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
-                            $cuotas = $cuotasQuery
+                            // Buscar todas las cuotas que no estén completamente pagadas
+                            $todasLasCuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                                    $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
+                                })
                                 ->where('estado_pago', '!=', 'pagado')
                                 ->orderBy('numero_cuota', 'asc')
-                                ->get()
-                                ->filter(function ($cuota) {
-                                    return $cuota->saldoPendiente() > 0;
-                                });
+                                ->get();
+                            
+                            // Filtrar manualmente las que tienen saldo pendiente
+                            $cuotas = collect();
+                            foreach ($todasLasCuotas as $cuota) {
+                                if ($cuota->saldoPendiente() > 0) {
+                                    $cuotas->push($cuota);
+                                }
+                            }
                         } else {
                             // Para préstamos normales, usar la lógica original
-                            $cuotas = $cuotasQuery
+                            $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                                    $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
+                                })
                                 ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
                                 ->orderBy('numero_cuota', 'asc')
                                 ->get();
                         }
 
                         // Buscar la primera cuota con saldo pendiente
-                        foreach ($cuotas as $cuota) {
-                            if ($cuota->saldoPendiente() > 0) {
-                                $set('cuota_grupal_id', $cuota->id);
-                                $set('numero_cuota', $cuota->numero_cuota);
-                                $set('monto_cuota', $cuota->monto_cuota_grupal);
-                                $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
-                                $set('saldo_pendiente_actual', $cuota->saldoPendiente());
-                                $cuotaId = $cuota->id;
-                                break;
+                        if ($cuotas->count() > 0) {
+                            foreach ($cuotas as $cuota) {
+                                $saldoPendiente = $cuota->saldoPendiente();
+                                if ($saldoPendiente > 0) {
+                                    $set('cuota_grupal_id', $cuota->id);
+                                    $set('numero_cuota', $cuota->numero_cuota);
+                                    $set('monto_cuota', $cuota->monto_cuota_grupal);
+                                    $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+                                    $set('saldo_pendiente_actual', $saldoPendiente);
+                                    $cuotaId = $cuota->id;
+                                    break;
+                                }
                             }
                         }
                     }
