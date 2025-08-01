@@ -6,6 +6,7 @@ use App\Filament\Dashboard\Resources\PrestamoResource;
 use Filament\Resources\Pages\CreateRecord;
 use App\Models\PrestamoIndividual;
 use App\Models\Grupo;
+use Illuminate\Support\Facades\Log;
 
 class CreatePrestamo extends CreateRecord
 {
@@ -81,6 +82,17 @@ class CreatePrestamo extends CreateRecord
         $ciclo = max(1, min(4, $ciclo));
         $maxPrestamo = $ciclos[$ciclo]['max'];
         $montoSolicitado = min(floatval($cli['monto']), $maxPrestamo);
+
+        // DEBUG: Log para ver qué está pasando
+        Log::info('DEBUG PRESTAMO CREACION', [
+            'cliente_id' => $clienteId,
+            'cliente_nombre' => $cliente->persona->nombre ?? 'SIN_NOMBRE',
+            'ciclo_original' => $cliente->ciclo,
+            'ciclo_normalizado' => $ciclo,
+            'max_prestamo' => $maxPrestamo,
+            'monto_solicitado_formulario' => floatval($cli['monto']),
+            'monto_final_calculado' => $montoSolicitado
+        ]);
 
         if ($montoSolicitado <= 0) continue;
 
