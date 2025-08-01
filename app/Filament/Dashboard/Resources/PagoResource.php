@@ -124,12 +124,29 @@ public static function form(Form $form): Form
                     return;
                 }
 
-                $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                // Obtener el préstamo para verificar si es un retanqueo parcial
+                $prestamo = \App\Models\Prestamo::find($prestamoId);
+                
+                $cuotasQuery = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
                         $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
-                    })
-                    ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
-                    ->orderBy('numero_cuota', 'asc')
-                    ->get();
+                    });
+                
+                // Para préstamos parcialmente retanqueados, incluir todas las cuotas que tengan saldo pendiente
+                if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                    $cuotas = $cuotasQuery
+                        ->where('estado_pago', '!=', 'pagado')
+                        ->orderBy('numero_cuota', 'asc')
+                        ->get()
+                        ->filter(function ($cuota) {
+                            return $cuota->saldoPendiente() > 0;
+                        });
+                } else {
+                    // Para préstamos normales, usar la lógica original
+                    $cuotas = $cuotasQuery
+                        ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
+                        ->orderBy('numero_cuota', 'asc')
+                        ->get();
+                }
 
                 // Buscar la primera cuota con saldo pendiente
                 $primeraPendiente = $cuotas->first(function ($c) { return $c->saldoPendiente() > 0; });
@@ -298,12 +315,29 @@ public static function form(Form $form): Form
                     if ($grupoEstado && str_contains($grupoEstado, '_')) {
                         [$grupoId, $prestamoId] = explode('_', $grupoEstado, 2);
                         
-                        $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                        // Obtener el préstamo para verificar si es un retanqueo parcial
+                        $prestamo = \App\Models\Prestamo::find($prestamoId);
+                        
+                        $cuotasQuery = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
                                 $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
-                            })
-                            ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
-                            ->orderBy('numero_cuota', 'asc')
-                            ->get();
+                            });
+                        
+                        // Para préstamos parcialmente retanqueados, incluir todas las cuotas que tengan saldo pendiente
+                        if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                            $cuotas = $cuotasQuery
+                                ->where('estado_pago', '!=', 'pagado')
+                                ->orderBy('numero_cuota', 'asc')
+                                ->get()
+                                ->filter(function ($cuota) {
+                                    return $cuota->saldoPendiente() > 0;
+                                });
+                        } else {
+                            // Para préstamos normales, usar la lógica original
+                            $cuotas = $cuotasQuery
+                                ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
+                                ->orderBy('numero_cuota', 'asc')
+                                ->get();
+                        }
 
                         // Buscar la primera cuota con saldo pendiente
                         foreach ($cuotas as $cuota) {
