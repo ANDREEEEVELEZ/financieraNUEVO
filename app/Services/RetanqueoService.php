@@ -180,23 +180,32 @@ class RetanqueoService
     }
 
     /**
-     * Calcula el aporte de cobertura individual
+     * Calcula el aporte de cobertura individual basado en la cuota individual de cada cliente
      */
     private function calcularAporteCoberturaIndividual($prestamo, $participantes)
     {
+        // Obtener el total de integrantes del grupo
+        $totalIntegrantes = $prestamo->grupo->clientes()->count();
+        
+        if ($totalIntegrantes <= 0) {
+            return 0;
+        }
+        
+        // Calcular cuánto debe pagar cada cliente individualmente
         $saldoPendienteTotal = $prestamo->cuotasGrupales()
             ->where('estado_pago', '!=', 'pagado')
             ->sum('saldo_pendiente');
-
-        $integrantesQueRetanquean = collect($participantes)
-            ->where('participacion_tipo', 'retanquea')
-            ->count();
-
-        if ($integrantesQueRetanquean <= 0 || $saldoPendienteTotal <= 0) {
-            return 0;
-        }
-
-        return round($saldoPendienteTotal / $integrantesQueRetanquean, 2);
+            
+        // Cada cliente debe pagar su parte proporcional del saldo total
+        $saldoIndividualPorCliente = round($saldoPendienteTotal / $totalIntegrantes, 2);
+        
+        Log::info('RetanqueoService: Calculando aporte de cobertura individual', [
+            'saldo_pendiente_total' => $saldoPendienteTotal,
+            'total_integrantes' => $totalIntegrantes,
+            'saldo_individual_por_cliente' => $saldoIndividualPorCliente
+        ]);
+        
+        return $saldoIndividualPorCliente;
     }
 
     /**
@@ -469,7 +478,7 @@ class RetanqueoService
     }
 
     /**
-     * Actualiza el préstamo antiguo después del retanqueo
+     * Actualiza el préstamo antiguo después del retanqueo - COBERTURA INDIVIDUAL EXACTA
      */
     private function actualizarPrestamoAntiguo($retanqueo)
     {
@@ -480,18 +489,15 @@ class RetanqueoService
             return; // No hay nada que cubrir
         }
 
-        // Calcular la proporción de cobertura basada en los clientes que retanquean
+        // Obtener información del retanqueo
         $totalIntegrantes = $prestamoAntiguo->grupo->clientes()->count();
         $integrantesQueRetanquean = $retanqueo->retanqueosIndividuales()
             ->whereIn('participacion_tipo', ['retanquea', 'nueva'])
             ->count();
         
         if ($integrantesQueRetanquean <= 0 || $totalIntegrantes <= 0) {
-            return; // No hay proporción válida
+            return; // No hay información válida
         }
-        
-        // Calcular porcentaje de cobertura (ej: 2 de 3 = 66.67%)
-        $porcentajeCobertura = $integrantesQueRetanquean / $totalIntegrantes;
 
         // Obtener cuotas pendientes ordenadas por fecha
         $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()
@@ -500,48 +506,42 @@ class RetanqueoService
             ->orderBy('numero_cuota')
             ->get();
 
-        $montoRestantePorCubrir = $montoUsadoCobertura;
-
+        // NUEVA LÓGICA: Cubrir exactamente la parte de los clientes que retanquean
         foreach ($cuotasPendientes as $cuota) {
-            if ($montoRestantePorCubrir <= 0) break;
-
             $saldoActualCuota = $cuota->saldo_pendiente;
             
-            // Calcular cuánto corresponde cubrir de esta cuota (proporcionalmente)
-            $montoProporcionalACubrir = round($saldoActualCuota * $porcentajeCobertura, 2);
+            // Calcular cuánto corresponde a cada cliente en esta cuota
+            $saldoIndividualPorCliente = round($saldoActualCuota / $totalIntegrantes, 2);
             
-            // No cubrir más de lo que tenemos disponible
-            $montoACubrirEnEstaCuota = min($montoProporcionalACubrir, $montoRestantePorCubrir);
+            // Calcular cuánto cubrir: solo la parte de los que retanquean
+            $montoACubrirEnEstaCuota = round($saldoIndividualPorCliente * $integrantesQueRetanquean, 2);
             
-            if ($montoACubrirEnEstaCuota > 0) {
-                $nuevoSaldoPendiente = round($saldoActualCuota - $montoACubrirEnEstaCuota, 2);
-                
-                // Actualizar la cuota con el nuevo saldo
+            // El saldo que queda es solo para los que NO retanquearon
+            $nuevoSaldoPendiente = round($saldoActualCuota - $montoACubrirEnEstaCuota, 2);
+            
+            // Actualizar la cuota
+            $cuota->update([
+                'saldo_pendiente' => max(0, $nuevoSaldoPendiente)
+            ]);
+            
+            // Si la cuota quedó completamente pagada, actualizar estados
+            if ($nuevoSaldoPendiente <= 0) {
                 $cuota->update([
-                    'saldo_pendiente' => max(0, $nuevoSaldoPendiente)
-                ]);
-                
-                $montoRestantePorCubrir -= $montoACubrirEnEstaCuota;
-                
-                // Si la cuota quedó completamente pagada, actualizar estados
-                if ($nuevoSaldoPendiente <= 0) {
-                    $cuota->update([
-                        'estado_pago' => 'pagado',
-                        'estado_cuota_grupal' => 'cancelada'
-                    ]);
-                }
-                
-                Log::info('RetanqueoService: Cobertura proporcional aplicada', [
-                    'cuota_id' => $cuota->id,
-                    'numero_cuota' => $cuota->numero_cuota,
-                    'saldo_original' => $saldoActualCuota,
-                    'porcentaje_cobertura' => $porcentajeCobertura * 100 . '%',
-                    'monto_cubierto' => $montoACubrirEnEstaCuota,
-                    'nuevo_saldo' => $nuevoSaldoPendiente,
-                    'integrantes_que_retanquean' => $integrantesQueRetanquean,
-                    'total_integrantes' => $totalIntegrantes
+                    'estado_pago' => 'pagado',
+                    'estado_cuota_grupal' => 'cancelada'
                 ]);
             }
+            
+            Log::info('RetanqueoService: Cobertura individual exacta aplicada', [
+                'cuota_id' => $cuota->id,
+                'numero_cuota' => $cuota->numero_cuota,
+                'saldo_original' => $saldoActualCuota,
+                'saldo_individual_por_cliente' => $saldoIndividualPorCliente,
+                'integrantes_que_retanquean' => $integrantesQueRetanquean,
+                'monto_cubierto' => $montoACubrirEnEstaCuota,
+                'nuevo_saldo_pendiente' => $nuevoSaldoPendiente,
+                'total_integrantes' => $totalIntegrantes
+            ]);
         }
 
         // Determinar estado del préstamo
