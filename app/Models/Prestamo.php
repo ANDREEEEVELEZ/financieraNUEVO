@@ -409,4 +409,67 @@ class Prestamo extends Model
         
         return $this;
     }
+
+    /**
+     * Obtiene detalles del retanqueo para mostrar en pagos
+     */
+    public function getDetalleRetanqueoParaPago()
+    {
+        if ($this->estado !== 'Parcialmente_Retanqueado') {
+            return null;
+        }
+
+        $retanqueo = $this->retanqueos()->where('estado_retanqueo', 'ejecutado')->first();
+        if (!$retanqueo) {
+            return null;
+        }
+
+        $clientesRetanqueados = $retanqueo->retanqueosIndividuales()
+            ->where('participacion_tipo', 'retanquea')
+            ->with('cliente.persona')
+            ->get();
+
+        $detalles = [];
+        $totalCubierto = 0;
+
+        foreach ($clientesRetanqueados as $individual) {
+            $cliente = $individual->cliente;
+            if ($cliente && $cliente->persona) {
+                $montoCubierto = $individual->aporte_cobertura ?? 0;
+                $detalles[] = [
+                    'nombre' => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos,
+                    'monto_cubierto' => $montoCubierto
+                ];
+                $totalCubierto += $montoCubierto;
+            }
+        }
+
+        return [
+            'fecha_retanqueo' => $retanqueo->fecha_ejecucion,
+            'clientes' => $detalles,
+            'total_cubierto' => $totalCubierto
+        ];
+    }
+
+    /**
+     * Genera mensaje automático para observaciones de pago
+     */
+    public function generarMensajeRetanqueoPago()
+    {
+        $detalles = $this->getDetalleRetanqueoParaPago();
+        if (!$detalles) {
+            return '';
+        }
+
+        $fecha = \Carbon\Carbon::parse($detalles['fecha_retanqueo'])->format('d/m/Y');
+        $mensaje = "Cobertura automática por retanqueo ({$fecha}):\n";
+        
+        foreach ($detalles['clientes'] as $cliente) {
+            $mensaje .= "• {$cliente['nombre']}: S/ " . number_format($cliente['monto_cubierto'], 2) . " cubierto\n";
+        }
+        
+        $mensaje .= "Total: S/ " . number_format($detalles['total_cubierto'], 2) . " cubierto automáticamente";
+        
+        return $mensaje;
+    }
 }

@@ -182,6 +182,22 @@ public static function form(Form $form): Form
                 $set('saldo_pendiente_actual', 0.00);
                 $set('monto_pagado', 0.00);
                 $set('tipo_pago', null);
+                
+                // Auto-llenar observaciones si hay retanqueo
+                [$grupoIdReal, $prestamoId] = explode('_', $state, 2);
+                $prestamo = \App\Models\Prestamo::find($prestamoId);
+                if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                    $mensajeRetanqueo = $prestamo->generarMensajeRetanqueoPago();
+                    $observacionesActuales = $get('observaciones') ?? '';
+                    
+                    // Solo añadir si no existe ya el mensaje
+                    if (!str_contains($observacionesActuales, 'Cobertura automática por retanqueo')) {
+                        $nuevasObservaciones = $observacionesActuales ? 
+                            $observacionesActuales . "\n\n" . $mensajeRetanqueo : 
+                            $mensajeRetanqueo;
+                        $set('observaciones', $nuevasObservaciones);
+                    }
+                }
             })
             ->searchable()
            ->required()
@@ -382,6 +398,22 @@ public static function form(Form $form): Form
             ->label('Observaciones')
             ->prefixIcon('heroicon-o-pencil-square')
             ->maxLength(255)
+            ->default(function (callable $get) {
+                // Auto-llenar observaciones cuando hay retanqueo parcial
+                $grupoId = $get('grupo_id');
+                if (!$grupoId || !str_contains($grupoId, '_')) {
+                    return '';
+                }
+                
+                [$grupoIdReal, $prestamoId] = explode('_', $grupoId, 2);
+                $prestamo = \App\Models\Prestamo::find($prestamoId);
+                
+                if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                    return $prestamo->generarMensajeRetanqueoPago();
+                }
+                
+                return '';
+            })
             ->disabled(function ($record) {
                 $user = request()->user();
                 return $record !== null && (
