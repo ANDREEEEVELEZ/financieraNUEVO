@@ -480,6 +480,19 @@ class RetanqueoService
             return; // No hay nada que cubrir
         }
 
+        // Calcular la proporción de cobertura basada en los clientes que retanquean
+        $totalIntegrantes = $prestamoAntiguo->grupo->clientes()->count();
+        $integrantesQueRetanquean = $retanqueo->retanqueosIndividuales()
+            ->whereIn('participacion_tipo', ['retanquea', 'nueva'])
+            ->count();
+        
+        if ($integrantesQueRetanquean <= 0 || $totalIntegrantes <= 0) {
+            return; // No hay proporción válida
+        }
+        
+        // Calcular porcentaje de cobertura (ej: 2 de 3 = 66.67%)
+        $porcentajeCobertura = $integrantesQueRetanquean / $totalIntegrantes;
+
         // Obtener cuotas pendientes ordenadas por fecha
         $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()
             ->where('estado_pago', '!=', 'pagado')
@@ -487,45 +500,57 @@ class RetanqueoService
             ->orderBy('numero_cuota')
             ->get();
 
-        $montoRestante = $montoUsadoCobertura;
+        $montoRestantePorCubrir = $montoUsadoCobertura;
 
         foreach ($cuotasPendientes as $cuota) {
-            if ($montoRestante <= 0) break;
+            if ($montoRestantePorCubrir <= 0) break;
 
-            $saldoCuota = $cuota->saldo_pendiente;
+            $saldoActualCuota = $cuota->saldo_pendiente;
             
-            if ($montoRestante >= $saldoCuota) {
-                // Cubrir completamente esta cuota
+            // Calcular cuánto corresponde cubrir de esta cuota (proporcionalmente)
+            $montoProporcionalACubrir = round($saldoActualCuota * $porcentajeCobertura, 2);
+            
+            // No cubrir más de lo que tenemos disponible
+            $montoACubrirEnEstaCuota = min($montoProporcionalACubrir, $montoRestantePorCubrir);
+            
+            if ($montoACubrirEnEstaCuota > 0) {
+                $nuevoSaldoPendiente = round($saldoActualCuota - $montoACubrirEnEstaCuota, 2);
+                
+                // Actualizar la cuota con el nuevo saldo
                 $cuota->update([
-                    'saldo_pendiente' => 0,
-                    'estado_pago' => 'pagado',
-                    'estado_cuota_grupal' => 'cancelada'
+                    'saldo_pendiente' => max(0, $nuevoSaldoPendiente)
                 ]);
-                $montoRestante -= $saldoCuota;
-            } else {
-                // Cubrir parcialmente esta cuota
-                $cuota->update([
-                    'saldo_pendiente' => $saldoCuota - $montoRestante
+                
+                $montoRestantePorCubrir -= $montoACubrirEnEstaCuota;
+                
+                // Si la cuota quedó completamente pagada, actualizar estados
+                if ($nuevoSaldoPendiente <= 0) {
+                    $cuota->update([
+                        'estado_pago' => 'pagado',
+                        'estado_cuota_grupal' => 'cancelada'
+                    ]);
+                }
+                
+                Log::info('RetanqueoService: Cobertura proporcional aplicada', [
+                    'cuota_id' => $cuota->id,
+                    'numero_cuota' => $cuota->numero_cuota,
+                    'saldo_original' => $saldoActualCuota,
+                    'porcentaje_cobertura' => $porcentajeCobertura * 100 . '%',
+                    'monto_cubierto' => $montoACubrirEnEstaCuota,
+                    'nuevo_saldo' => $nuevoSaldoPendiente,
+                    'integrantes_que_retanquean' => $integrantesQueRetanquean,
+                    'total_integrantes' => $totalIntegrantes
                 ]);
-                $montoRestante = 0;
             }
         }
 
-        // Verificar si todos los integrantes retanquearon
-        $totalIntegrantes = $prestamoAntiguo->grupo->clientes()->count();
-        $integrantesQueRetanquean = $retanqueo->retanqueosIndividuales()
-            ->whereIn('participacion_tipo', ['retanquea', 'nueva'])
-            ->count();
-
-        // NUEVA LÓGICA: Siempre cambiar a Parcialmente_Retanqueado al ejecutar retanqueo
-        // Solo pasará a Finalizado cuando los que no retanquearon terminen de pagar
+        // Determinar estado del préstamo
         if ($integrantesQueRetanquean === $totalIntegrantes) {
             // Todos retanquearon - finalizar inmediatamente
             $prestamoAntiguo->update(['estado' => 'Finalizado']);
             $retanqueo->update(['prestamo_antiguo_estado' => 1]);
         } else {
-            // Algunos no retanquearon - SIEMPRE parcialmente retanqueado
-            // No importa si se cubrieron todas las cuotas o no
+            // Algunos no retanquearon - parcialmente retanqueado
             $prestamoAntiguo->update(['estado' => 'Parcialmente_Retanqueado']);
             $retanqueo->update(['prestamo_antiguo_estado' => 0]);
         }
