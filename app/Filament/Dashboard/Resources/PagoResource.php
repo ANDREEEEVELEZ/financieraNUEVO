@@ -292,13 +292,42 @@ public static function form(Form $form): Form
             ->dehydrated(true)
             ->afterStateUpdated(function ($state, callable $set, callable $get) {
                 $cuotaId = $get('cuota_grupal_id');
+                if (!$cuotaId) {
+                    // Si no hay cuota seleccionada, intentar recargar desde el grupo
+                    $grupoEstado = $get('grupo_id');
+                    if ($grupoEstado && str_contains($grupoEstado, '_')) {
+                        [$grupoId, $prestamoId] = explode('_', $grupoEstado, 2);
+                        
+                        $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
+                                $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
+                            })
+                            ->whereIn('estado_cuota_grupal', ['vigente', 'mora'])
+                            ->orderBy('numero_cuota', 'asc')
+                            ->get();
+
+                        // Buscar la primera cuota con saldo pendiente
+                        foreach ($cuotas as $cuota) {
+                            if ($cuota->saldoPendiente() > 0) {
+                                $set('cuota_grupal_id', $cuota->id);
+                                $set('numero_cuota', $cuota->numero_cuota);
+                                $set('monto_cuota', $cuota->monto_cuota_grupal);
+                                $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+                                $set('saldo_pendiente_actual', $cuota->saldoPendiente());
+                                $cuotaId = $cuota->id;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 if (!$cuotaId) return;
 
                 $cuota = CuotasGrupales::with('mora')->find($cuotaId);
-                $montoCuota = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
-                $montoMora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                $pagosAprobados = $cuota ? $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado') : 0;
+                if (!$cuota) return;
+                
+                $montoCuota = floatval($cuota->monto_cuota_grupal);
+                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
                 $saldoPendiente = round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);
 
                 if ($state === 'pago_completo') {
@@ -306,6 +335,7 @@ public static function form(Form $form): Form
                     $set('monto_mora_pagada', $montoMora);
                 } elseif ($state === 'pago_parcial') {
                     $set('monto_mora_pagada', $montoMora);
+                    $set('monto_pagado', 0);
                 }
             })
             ->disabled(function ($record) {
