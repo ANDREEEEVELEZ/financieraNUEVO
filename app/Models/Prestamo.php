@@ -259,30 +259,30 @@ class Prestamo extends Model
      */
     public function moverIntegrantesNoRetanqueadosAExIntegrantes()
     {
-        // Buscar retanqueos relacionados con este préstamo
-        $retanqueos = \App\Models\Retanqueo::where('prestamo_id', $this->id)
-            ->where('estado_retanqueo', 'ejecutado')
+        // Buscar retanqueo ejecutado relacionado con este préstamo
+        $retanqueo = $this->retanqueoComoAntiguo()->where('estado_retanqueo', 'ejecutado')->first();
+        
+        if (!$retanqueo) {
+            return;
+        }
+
+        // Obtener integrantes que NO retanquearon
+        $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
+            ->where('participacion_tipo', 'no_retanquea')
+            ->with('cliente')
             ->get();
 
-        foreach ($retanqueos as $retanqueo) {
-            // Obtener integrantes que NO retanquearon
-            $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
-                ->where('participacion_tipo', 'no_retanquea')
-                ->with('cliente')
-                ->get();
-
-            foreach ($integrantesNoRetanqueados as $retanqueoIndividual) {
-                $cliente = $retanqueoIndividual->cliente;
-                if ($cliente && $this->grupo) {
-                    // Mover a ex-integrante
-                    $this->grupo->removerCliente($cliente->id, now());
-                    
-                    \Illuminate\Support\Facades\Log::info('Cliente movido a ex-integrante por completar pagos post-retanqueo', [
-                        'cliente_id' => $cliente->id,
-                        'grupo_id' => $this->grupo->id,
-                        'prestamo_id' => $this->id
-                    ]);
-                }
+        foreach ($integrantesNoRetanqueados as $retanqueoIndividual) {
+            $cliente = $retanqueoIndividual->cliente;
+            if ($cliente && $this->grupo) {
+                // Mover a ex-integrante
+                $this->grupo->removerCliente($cliente->id, now());
+                
+                \Illuminate\Support\Facades\Log::info('Cliente movido a ex-integrante por completar pagos post-retanqueo', [
+                    'cliente_id' => $cliente->id,
+                    'grupo_id' => $this->grupo->id,
+                    'prestamo_id' => $this->id
+                ]);
             }
         }
     }
@@ -303,44 +303,44 @@ class Prestamo extends Model
      */
     public function tieneIntegrantesNoRetanqueadosConDeudaPendiente()
     {
-        // Buscar retanqueos ejecutados relacionados con este préstamo
-        $retanqueos = \App\Models\Retanqueo::where('prestamo_id', $this->id)
-            ->where('estado_retanqueo', 'ejecutado')
+        // Buscar retanqueo ejecutado relacionado con este préstamo
+        $retanqueo = $this->retanqueoComoAntiguo()->where('estado_retanqueo', 'ejecutado')->first();
+        
+        if (!$retanqueo) {
+            return false;
+        }
+        
+        // Obtener integrantes que NO retanquearon
+        $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
+            ->where('participacion_tipo', 'no_retanquea')
+            ->with('cliente')
             ->get();
 
-        foreach ($retanqueos as $retanqueo) {
-            // Obtener integrantes que NO retanquearon
-            $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
-                ->where('participacion_tipo', 'no_retanquea')
-                ->with('cliente')
-                ->get();
-
-            foreach ($integrantesNoRetanqueados as $retanqueoIndividual) {
-                $cliente = $retanqueoIndividual->cliente;
-                if ($cliente && $this->grupo) {
-                    // Verificar si el cliente aún está en el grupo (no ha sido movido a ex-integrante)
-                    $sigueEnGrupo = $this->grupo->clientes()->where('clientes.id', $cliente->id)->exists();
+        foreach ($integrantesNoRetanqueados as $retanqueoIndividual) {
+            $cliente = $retanqueoIndividual->cliente;
+            if ($cliente && $this->grupo) {
+                // Verificar si el cliente aún está en el grupo (no ha sido movido a ex-integrante)
+                $sigueEnGrupo = $this->grupo->clientes()->where('clientes.id', $cliente->id)->exists();
+                
+                if ($sigueEnGrupo) {
+                    // Verificar si tiene préstamos individuales activos (no finalizados) en este préstamo
+                    $prestamoIndividual = $this->prestamoIndividual()
+                        ->where('cliente_id', $cliente->id)
+                        ->whereNotIn('estado', ['Finalizado', 'Completado'])
+                        ->first();
                     
-                    if ($sigueEnGrupo) {
-                        // Verificar si tiene préstamos individuales activos (no finalizados) en este préstamo
-                        $prestamoIndividual = $this->prestamoIndividual()
-                            ->where('cliente_id', $cliente->id)
-                            ->whereNotIn('estado', ['Finalizado', 'Completado'])
-                            ->first();
-                        
-                        if ($prestamoIndividual) {
-                            // También verificar que el monto a devolver sea mayor a 0
-                            $montoDevolver = (float)$prestamoIndividual->monto_devolver_individual;
-                            if ($montoDevolver > 0) {
-                                \Illuminate\Support\Facades\Log::info('Integrante que no retanqueó aún tiene deuda pendiente', [
-                                    'prestamo_id' => $this->id,
-                                    'cliente_id' => $cliente->id,
-                                    'prestamo_individual_id' => $prestamoIndividual->id,
-                                    'estado_prestamo_individual' => $prestamoIndividual->estado,
-                                    'monto_devolver' => $montoDevolver
-                                ]);
-                                return true;
-                            }
+                    if ($prestamoIndividual) {
+                        // También verificar que el monto a devolver sea mayor a 0
+                        $montoDevolver = (float)$prestamoIndividual->monto_devolver_individual;
+                        if ($montoDevolver > 0) {
+                            \Illuminate\Support\Facades\Log::info('Integrante que no retanqueó aún tiene deuda pendiente', [
+                                'prestamo_id' => $this->id,
+                                'cliente_id' => $cliente->id,
+                                'prestamo_individual_id' => $prestamoIndividual->id,
+                                'estado_prestamo_individual' => $prestamoIndividual->estado,
+                                'monto_devolver' => $montoDevolver
+                            ]);
+                            return true;
                         }
                     }
                 }
@@ -348,7 +348,9 @@ class Prestamo extends Model
         }
 
         return false;
-    }    /**
+    }
+
+    /**
      * Método para aprobar un préstamo
      */
     public function aprobar()
@@ -419,7 +421,7 @@ class Prestamo extends Model
             return null;
         }
 
-        $retanqueo = $this->retanqueos()->where('estado_retanqueo', 'ejecutado')->first();
+        $retanqueo = $this->retanqueoComoAntiguo()->where('estado_retanqueo', 'ejecutado')->first();
         if (!$retanqueo) {
             return null;
         }
