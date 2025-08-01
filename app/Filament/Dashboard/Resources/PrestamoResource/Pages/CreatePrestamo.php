@@ -66,33 +66,14 @@ class CreatePrestamo extends CreateRecord
     $tasaInteres = $prestamo->tasa_interes ?? 17;
     $numCuotas = $prestamo->cantidad_cuotas;
 
-    $ciclos = [
-        1 => ['max' => 400],
-        2 => ['max' => 600],
-        3 => ['max' => 800],
-        4 => ['max' => 1000],
-    ];
-
     foreach ($clientesGrupo as $cli) {
         $clienteId = (int)($cli['id'] ?? 0);
         $cliente = $grupo->clientes()->where('clientes.id', $clienteId)->first();
         if (!$cliente) continue;
 
-        $ciclo = (int)($cliente->ciclo ?? 1);
-        $ciclo = max(1, min(4, $ciclo));
-        $maxPrestamo = $ciclos[$ciclo]['max'];
-        $montoSolicitado = min(floatval($cli['monto']), $maxPrestamo);
-
-        // DEBUG: Log para ver qué está pasando
-        Log::info('DEBUG PRESTAMO CREACION', [
-            'cliente_id' => $clienteId,
-            'cliente_nombre' => $cliente->persona->nombre ?? 'SIN_NOMBRE',
-            'ciclo_original' => $cliente->ciclo,
-            'ciclo_normalizado' => $ciclo,
-            'max_prestamo' => $maxPrestamo,
-            'monto_solicitado_formulario' => floatval($cli['monto']),
-            'monto_final_calculado' => $montoSolicitado
-        ]);
+        // Usar el monto exacto que se ingresó en el formulario
+        // El formulario ya valida que el monto no exceda el límite del ciclo
+        $montoSolicitado = floatval($cli['monto']);
 
         if ($montoSolicitado <= 0) continue;
 

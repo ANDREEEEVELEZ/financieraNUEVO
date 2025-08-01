@@ -143,25 +143,26 @@ class EditPrestamo extends EditRecord
             $tasaInteres = $prestamo->tasa_interes ?? 17;
             $numCuotas = $prestamo->cantidad_cuotas;
 
-            $ciclos = [
-                1 => ['max' => 400, 'seguro' => 6],
-                2 => ['max' => 600, 'seguro' => 7],
-                3 => ['max' => 800, 'seguro' => 8],
-                4 => ['max' => 1000, 'seguro' => 9],
-            ];
-
             foreach ($clientesGrupo as $cli) {
                 $clienteId = (int)($cli['id'] ?? 0);
                 $cliente = $grupo->clientes()->where('clientes.id', $clienteId)->first();
                 if (!$cliente) continue;
 
-                $ciclo = (int)($cliente->ciclo ?? 1);
-                $ciclo = $ciclo > 4 ? 4 : ($ciclo < 1 ? 1 : $ciclo);
-                $maxPrestamo = $ciclos[$ciclo]['max'];
-                $seguro = $ciclos[$ciclo]['seguro'];
-
-                $montoSolicitado = min(floatval($cli['monto']), $maxPrestamo);
+                // Usar el monto exacto que se ingresó en el formulario
+                // El formulario ya valida que el monto no exceda el límite del ciclo
+                $montoSolicitado = floatval($cli['monto']);
                 if ($montoSolicitado <= 0) continue;
+
+                // Calcular seguro según el monto solicitado
+                if ($montoSolicitado <= 400) {
+                    $seguro = 6;
+                } elseif ($montoSolicitado <= 600) {
+                    $seguro = 7;
+                } elseif ($montoSolicitado <= 800) {
+                    $seguro = 8;
+                } else {
+                    $seguro = 9;
+                }
 
                 $interes = $montoSolicitado * ($tasaInteres / 100);
                 $montoDevolver = $montoSolicitado + $interes + $seguro;
