@@ -389,6 +389,25 @@ public static function form(Form $form): Form
                     $set('monto_mora_pagada', $montoMora);
                     $set('monto_pagado', 0);
                 }
+                
+                // Auto-llenar observaciones si es retanqueo parcial
+                $grupoEstado = $get('grupo_id');
+                if ($grupoEstado && str_contains($grupoEstado, '_')) {
+                    [$grupoIdReal, $prestamoId] = explode('_', $grupoEstado, 2);
+                    $prestamo = \App\Models\Prestamo::find($prestamoId);
+                    if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                        $mensajeRetanqueo = $prestamo->generarMensajeRetanqueoPago();
+                        $observacionesActuales = $get('observaciones') ?? '';
+                        
+                        // Solo añadir si no existe ya el mensaje
+                        if ($mensajeRetanqueo && !str_contains($observacionesActuales, 'Cobertura automática por retanqueo')) {
+                            $nuevasObservaciones = $observacionesActuales ? 
+                                $observacionesActuales . "\n\n" . $mensajeRetanqueo : 
+                                $mensajeRetanqueo;
+                            $set('observaciones', $nuevasObservaciones);
+                        }
+                    }
+                }
             })
             ->disabled(function ($record) {
                 $user = request()->user();

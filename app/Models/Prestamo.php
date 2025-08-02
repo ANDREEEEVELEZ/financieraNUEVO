@@ -303,7 +303,22 @@ class Prestamo extends Model
      */
     public function tieneIntegrantesNoRetanqueadosConDeudaPendiente()
     {
-        // Buscar retanqueo ejecutado relacionado con este préstamo
+        // Para préstamos "Parcialmente_Retanqueado", verificar si hay cuotas grupales con saldo pendiente
+        if ($this->estado === 'Parcialmente_Retanqueado') {
+            $cuotasConSaldoPendiente = $this->cuotasGrupales()
+                ->where('estado_pago', '!=', 'pagado')
+                ->where('saldo_pendiente', '>', 0)
+                ->count();
+                
+            \Illuminate\Support\Facades\Log::info('Verificando cuotas pendientes para préstamo parcialmente retanqueado', [
+                'prestamo_id' => $this->id,
+                'cuotas_con_saldo_pendiente' => $cuotasConSaldoPendiente
+            ]);
+                
+            return $cuotasConSaldoPendiente > 0;
+        }
+        
+        // Para otros estados, mantener la lógica original
         $retanqueo = $this->retanqueoComoAntiguo()->where('estado_retanqueo', 'ejecutado')->first();
         
         if (!$retanqueo) {
