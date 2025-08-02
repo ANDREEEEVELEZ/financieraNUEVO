@@ -186,7 +186,7 @@ class RetanqueoService
     {
         // Si se proporciona un cliente específico, calcular su aporte individual
         if ($clienteId) {
-            $prestamoIndividual = $prestamo->prestamosIndividuales()
+            $prestamoIndividual = $prestamo->prestamoIndividual()
                 ->where('cliente_id', $clienteId)
                 ->first();
                 
@@ -521,7 +521,7 @@ class RetanqueoService
             
             // Calcular cuánto cubre cada cliente que retanquea según su cuota individual original
             foreach ($clientesQueRetanquean as $retanqueoIndividual) {
-                $prestamoIndividual = $prestamoAntiguo->prestamosIndividuales()
+                $prestamoIndividual = $prestamoAntiguo->prestamoIndividual()
                     ->where('cliente_id', $retanqueoIndividual->cliente_id)
                     ->first();
                     
