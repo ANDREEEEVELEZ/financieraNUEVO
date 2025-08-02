@@ -72,7 +72,8 @@ class Pago extends Model
     {
 
         $prestamo = $this->cuotaGrupal?->prestamo;
-        if (!$prestamo || strtolower($prestamo->estado) !== 'aprobado') {
+        $estadosValidos = ['aprobado', 'parcialmente_retanqueado'];
+        if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
             throw new \Exception('Solo se pueden aprobar pagos de préstamos aprobados.');
         }
 
@@ -137,7 +138,8 @@ class Pago extends Model
         {
 
             $prestamo = $this->cuotaGrupal?->prestamo;
-            if (!$prestamo || strtolower($prestamo->estado) !== 'aprobado') {
+            $estadosValidos = ['aprobado', 'parcialmente_retanqueado'];
+            if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
                 throw new \Exception('Solo se pueden rechazar pagos de préstamos aprobados.');
             }
 
