@@ -211,7 +211,8 @@ class Pago extends Model
 
             static::creating(function ($pago) {
                 $prestamo = $pago->cuotaGrupal?->prestamo;
-                if (!$prestamo || strtolower($prestamo->estado) !== 'aprobado') {
+                $estadosValidos = ['aprobado', 'parcialmente_retanqueado'];
+                if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
                     throw new \Exception('No se pueden registrar pagos para préstamos que no estén aprobados.');
                 }
             });
