@@ -281,8 +281,24 @@ class RetanqueoResource extends Resource
                                 }
 
                                 if ($integrantesRetanquean > 0) {
-                                    $totalCobertura = $estadoInfo['saldo_pendiente'] / $integrantesRetanquean * $integrantesRetanquean;
-                                    $totalCobertura = min($totalCobertura, $estadoInfo['saldo_pendiente']);
+                                    // Calcular cobertura basada en cuotas individuales de participantes que retanquean
+                                    $prestamoAntiguo = \App\Models\Prestamo::find($estadoInfo['prestamo_id']);
+                                    if ($prestamoAntiguo) {
+                                        $cuotasPendientes = $prestamoAntiguo->cuotas()->where('saldo_pendiente', '>', 0)->count();
+                                        $totalCobertura = 0;
+                                        
+                                        foreach ($participantes as $participante) {
+                                            if ($participante['participacion_tipo'] === 'retanquea') {
+                                                // Buscar el préstamo individual del participante
+                                                $prestamoIndividual = $prestamoAntiguo->prestamosIndividuales()
+                                                    ->where('cliente_id', $participante['cliente_id'])->first();
+                                                if ($prestamoIndividual) {
+                                                    $coberturaIndividual = $prestamoIndividual->cuota_individual * $cuotasPendientes;
+                                                    $totalCobertura += $coberturaIndividual;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
                                 $montoAEntregar = $totalNuevoPrestamo - $totalCobertura;
