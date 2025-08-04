@@ -262,8 +262,9 @@ class RetanqueoResource extends Resource
                             ->content(function (callable $get) {
                                 $participantes = $get('participantes') ?? [];
                                 $estadoInfo = $get('estado_prestamo_info');
+                                $prestamoId = $get('prestamo_id');
                                 
-                                if (empty($participantes) || !$estadoInfo) {
+                                if (empty($participantes) || (!$estadoInfo && !$prestamoId)) {
                                     return 'Configure los participantes para ver el resumen';
                                 }
 
@@ -281,8 +282,8 @@ class RetanqueoResource extends Resource
                                 }
 
                                 if ($integrantesRetanquean > 0) {
-                                    // Calcular cobertura basada en cuotas individuales de participantes que retanquean
-                                    $prestamoAntiguo = \App\Models\Prestamo::find($estadoInfo['prestamo_id']);
+                                    // Usar prestamo_id del formulario directamente 
+                                    $prestamoAntiguo = \App\Models\Prestamo::find($prestamoId);
                                     if ($prestamoAntiguo) {
                                         $cuotasPendientes = $prestamoAntiguo->cuotas()->where('saldo_pendiente', '>', 0)->count();
                                         $totalCobertura = 0;
@@ -301,8 +302,9 @@ class RetanqueoResource extends Resource
                                     }
                                 }
 
+                                $saldoPendiente = $estadoInfo['saldo_pendiente'] ?? 0;
                                 $montoAEntregar = $totalNuevoPrestamo - $totalCobertura;
-                                $saldoRestante = $estadoInfo['saldo_pendiente'] - $totalCobertura;
+                                $saldoRestante = $saldoPendiente - $totalCobertura;
 
                                 return new HtmlString(sprintf(
                                     '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
