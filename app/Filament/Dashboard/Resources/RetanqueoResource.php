@@ -285,7 +285,7 @@ class RetanqueoResource extends Resource
                                     // Usar prestamo_id del formulario directamente 
                                     $prestamoAntiguo = \App\Models\Prestamo::find($prestamoId);
                                     if ($prestamoAntiguo) {
-                                        $cuotasPendientes = $prestamoAntiguo->cuotas()->where('saldo_pendiente', '>', 0)->count();
+                                        $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()->where('saldo_pendiente', '>', 0)->count();
                                         $totalCobertura = 0;
                                         
                                         foreach ($participantes as $participante) {
