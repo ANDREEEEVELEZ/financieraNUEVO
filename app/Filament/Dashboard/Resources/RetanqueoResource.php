@@ -291,7 +291,7 @@ class RetanqueoResource extends Resource
                                         foreach ($participantes as $participante) {
                                             if ($participante['participacion_tipo'] === 'retanquea') {
                                                 // Buscar el préstamo individual del participante
-                                                $prestamoIndividual = $prestamoAntiguo->prestamosIndividuales()
+                                                $prestamoIndividual = $prestamoAntiguo->prestamoIndividual()
                                                     ->where('cliente_id', $participante['cliente_id'])->first();
                                                 if ($prestamoIndividual) {
                                                     $coberturaIndividual = $prestamoIndividual->cuota_individual * $cuotasPendientes;
