@@ -294,7 +294,7 @@ class RetanqueoResource extends Resource
                                                 $prestamoIndividual = $prestamoAntiguo->prestamoIndividual()
                                                     ->where('cliente_id', $participante['cliente_id'])->first();
                                                 if ($prestamoIndividual) {
-                                                    $coberturaIndividual = $prestamoIndividual->cuota_individual * $cuotasPendientes;
+                                                    $coberturaIndividual = $prestamoIndividual->monto_cuota_prestamo_individual * $cuotasPendientes;
                                                     $totalCobertura += $coberturaIndividual;
                                                 }
                                             }
