@@ -70,9 +70,52 @@ class CuotasGrupales extends Model
       public function saldoPendiente()
         {
             $montoCuota = floatval($this->monto_cuota_grupal);
-            $montoMora = $this->mora ? abs($this->mora->monto_mora_calculado) : 0;
+            $montoMoraTotal = $this->mora ? abs($this->mora->monto_mora_calculado) : 0;
             $pagosAprobados = $this->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
-            return round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);
+
+            // Aplicar pagos: PRIMERO A LA MORA, DESPUÉS A LA CUOTA
+            $saldoMoraPendiente = max(0, $montoMoraTotal - $pagosAprobados);
+            $pagoAplicadoACuota = max(0, $pagosAprobados - $montoMoraTotal);
+            $saldoCuotaPendiente = max(0, $montoCuota - $pagoAplicadoACuota);
+
+            return round($saldoMoraPendiente + $saldoCuotaPendiente, 2);
+        }
+
+        /**
+         * Obtiene el saldo pendiente de mora
+         */
+        public function getSaldoMoraPendiente()
+        {
+            if (!$this->mora) {
+                return 0;
+            }
+            $moraGenerada = abs($this->mora->monto_mora_calculado);
+            $pagadoMora = $this->pagos()->where('estado_pago', 'Aprobado')->sum('monto_mora_pagada');
+            return max($moraGenerada - $pagadoMora, 0);
+        }
+
+        /**
+         * Obtiene el saldo pendiente de la cuota (sin mora)
+         */
+        public function getSaldoCuotaPendiente()
+        {
+            $montoCuota = floatval($this->monto_cuota_grupal);
+            $pagosAprobados = $this->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
+            $pagadoMora = $this->pagos()->where('estado_pago', 'Aprobado')->sum('monto_mora_pagada');
+            $pagadoCuota = max(0, $pagosAprobados - $pagadoMora);
+            return max(0, $montoCuota - $pagadoCuota);
+        }
+
+        /**
+         * Obtiene el monto de mora ya pagada
+         */
+        public function getMoraPagada()
+        {
+            if (!$this->mora) {
+                return 0;
+            }
+            // Suma solo lo que se pagó de mora, no lo que se generó después
+            return $this->pagos()->where('estado_pago', 'Aprobado')->sum('monto_mora_pagada');
         }
 
 

@@ -13,12 +13,14 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Section;
 use Filament\Tables\Table;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\ActionGroup;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Notifications\Notification;
+use Filament\Forms\Components\Repeater;
 
 
 class PagoResource extends Resource
@@ -32,6 +34,8 @@ class PagoResource extends Resource
 public static function form(Form $form): Form
 {
     return $form->schema([
+        Section::make('Información del Pago')
+            ->schema([
         Select::make('grupo_id')
             ->label('Grupo')
             ->prefixIcon('heroicon-o-rectangle-stack')
@@ -56,7 +60,7 @@ public static function form(Form $form): Form
                 $grupos = $query->with(['prestamos' => function($q) {
                     $q->whereIn('estado', ['Aprobado', 'Parcialmente_Retanqueado']);
                 }])->get();
-                
+
                 $opciones = [];
                 foreach ($grupos as $grupo) {
                     foreach ($grupo->prestamos as $prestamo) {
@@ -69,7 +73,7 @@ public static function form(Form $form): Form
                         }
                     }
                 }
-                
+
                 return $opciones;
             })
            ->afterStateHydrated(function ($component, $state, $record) {
@@ -93,9 +97,9 @@ public static function form(Form $form): Form
                 if (!$state || !str_contains($state, '_')) {
                     return;
                 }
-                
+
                 [$grupoId, $prestamoId] = explode('_', $state, 2);
-                
+
                 $cuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
                         $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
                     })
@@ -126,7 +130,7 @@ public static function form(Form $form): Form
 
                 // Obtener el préstamo para verificar si es un retanqueo parcial
                 $prestamo = \App\Models\Prestamo::find($prestamoId);
-                
+
                 // Para préstamos parcialmente retanqueados, usar lógica especial
                 if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
                     // Buscar todas las cuotas que no estén completamente pagadas
@@ -136,7 +140,7 @@ public static function form(Form $form): Form
                         ->where('estado_pago', '!=', 'pagado')
                         ->orderBy('numero_cuota', 'asc')
                         ->get();
-                    
+
                     // Filtrar manualmente las que tienen saldo pendiente
                     $cuotas = collect();
                     foreach ($todasLasCuotas as $cuota) {
@@ -188,13 +192,13 @@ public static function form(Form $form): Form
                             $set('cuota_grupal_id', $cuota->id);
                             $set('numero_cuota', $cuota->numero_cuota);
                             $set('monto_cuota', $cuota->monto_cuota_grupal);
-                            $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+                            $set('monto_mora_pagada', $cuota->getSaldoMoraPendiente());
                             $set('saldo_pendiente_actual', $saldoPendiente);
                             $tipoPago = $get('tipo_pago');
                             if ($tipoPago === 'pago_completo') {
                                 $set('monto_pagado', $saldoPendiente);
                             } else {
-                                $set('monto_pagado', 0.00);
+                                $set('monto_pagado', null);
                             }
                             return;
                         }
@@ -208,18 +212,18 @@ public static function form(Form $form): Form
                 $set('saldo_pendiente_actual', 0.00);
                 $set('monto_pagado', 0.00);
                 $set('tipo_pago', null);
-                
+
                 // Auto-llenar observaciones si hay retanqueo
                 [$grupoIdReal, $prestamoId] = explode('_', $state, 2);
                 $prestamo = \App\Models\Prestamo::find($prestamoId);
                 if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
                     $mensajeRetanqueo = $prestamo->generarMensajeRetanqueoPago();
                     $observacionesActuales = $get('observaciones') ?? '';
-                    
+
                     // Solo añadir si no existe ya el mensaje
                     if (!str_contains($observacionesActuales, 'Cobertura automática por retanqueo')) {
-                        $nuevasObservaciones = $observacionesActuales ? 
-                            $observacionesActuales . "\n\n" . $mensajeRetanqueo : 
+                        $nuevasObservaciones = $observacionesActuales ?
+                            $observacionesActuales . "\n\n" . $mensajeRetanqueo :
                             $mensajeRetanqueo;
                         $set('observaciones', $nuevasObservaciones);
                     }
@@ -265,7 +269,7 @@ public static function form(Form $form): Form
             }),
 
         TextInput::make('monto_mora_pagada')
-            ->label('Monto de Mora Aplicado')
+            ->label('Monto de Mora Pendiente')
             ->prefix('S/.')
             ->numeric()
             ->disabled(true)
@@ -273,17 +277,18 @@ public static function form(Form $form): Form
             ->default(function (callable $get) {
                 $cuotaId = $get('cuota_grupal_id');
                 if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
-                    return $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0.00;
+                    return $cuota->getSaldoMoraPendiente();
                 }
                 return 0.00;
             })
             ->afterStateHydrated(function ($component, $state, $record, callable $get) {
-                if ($record && $record->cuotaGrupal && $record->cuotaGrupal->mora) {
-                    $component->state(abs($record->cuotaGrupal->mora->monto_mora_calculado));
+                if ($record && $record->cuotaGrupal) {
+                    // Para registros existentes, mostrar el monto que se pagó en ese registro específico
+                    $component->state($record->monto_mora_pagada ?? 0);
                 } else {
                     $cuotaId = $get('cuota_grupal_id');
                     if ($cuotaId && $cuota = CuotasGrupales::with('mora')->find($cuotaId)) {
-                        $component->state($cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0.00);
+                        $component->state($cuota->getSaldoMoraPendiente());
                     } else {
                         $component->state(0.00);
                     }
@@ -317,16 +322,34 @@ public static function form(Form $form): Form
             ->reactive()
             ->dehydrated(true)
             ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                // Autollenar detalles_pago al cambiar tipo de pago
+                $grupoEstado = $get('grupo_id');
+                if ($grupoEstado && str_contains($grupoEstado, '_')) {
+                    [$grupoId, $prestamoId] = explode('_', $grupoEstado, 2);
+                    $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->with('cliente.persona')->get();
+                    $set('detalles_pago', $integrantes->map(function($pi) use ($state) {
+                        $nombre = 'Sin nombre';
+                        if ($pi->cliente && $pi->cliente->persona) {
+                            $nombre = trim(($pi->cliente->persona->nombre ?? '') . ' ' . ($pi->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
+                        }
+                        return [
+                            'prestamo_individual_id' => $pi->id,
+                            'nombre_integrante' => $nombre,
+                            'monto_pagado' => $state === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : null,
+                        ];
+                    })->toArray());
+                }
+
                 $cuotaId = $get('cuota_grupal_id');
                 if (!$cuotaId) {
                     // Si no hay cuota seleccionada, intentar recargar desde el grupo
                     $grupoEstado = $get('grupo_id');
                     if ($grupoEstado && str_contains($grupoEstado, '_')) {
                         [$grupoId, $prestamoId] = explode('_', $grupoEstado, 2);
-                        
+
                         // Obtener el préstamo para verificar si es un retanqueo parcial
                         $prestamo = \App\Models\Prestamo::find($prestamoId);
-                        
+
                         // Para préstamos parcialmente retanqueados, usar lógica especial
                         if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
                             // Buscar todas las cuotas que no estén completamente pagadas
@@ -336,7 +359,7 @@ public static function form(Form $form): Form
                                 ->where('estado_pago', '!=', 'pagado')
                                 ->orderBy('numero_cuota', 'asc')
                                 ->get();
-                            
+
                             // Filtrar manualmente las que tienen saldo pendiente
                             $cuotas = collect();
                             foreach ($todasLasCuotas as $cuota) {
@@ -362,7 +385,7 @@ public static function form(Form $form): Form
                                     $set('cuota_grupal_id', $cuota->id);
                                     $set('numero_cuota', $cuota->numero_cuota);
                                     $set('monto_cuota', $cuota->monto_cuota_grupal);
-                                    $set('monto_mora_pagada', $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0);
+                                    $set('monto_mora_pagada', $cuota->getSaldoMoraPendiente());
                                     $set('saldo_pendiente_actual', $saldoPendiente);
                                     $cuotaId = $cuota->id;
                                     break;
@@ -376,20 +399,20 @@ public static function form(Form $form): Form
 
                 $cuota = CuotasGrupales::with('mora')->find($cuotaId);
                 if (!$cuota) return;
-                
+
                 $montoCuota = floatval($cuota->monto_cuota_grupal);
-                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
-                $saldoPendiente = round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);
+                $saldoMoraPendiente = $cuota->getSaldoMoraPendiente();
+                $saldoCuotaPendiente = $cuota->getSaldoCuotaPendiente();
+                $saldoPendiente = $saldoMoraPendiente + $saldoCuotaPendiente;
 
                 if ($state === 'pago_completo') {
                     $set('monto_pagado', $saldoPendiente);
-                    $set('monto_mora_pagada', $montoMora);
+                    $set('monto_mora_pagada', $saldoMoraPendiente);
                 } elseif ($state === 'pago_parcial') {
-                    $set('monto_mora_pagada', $montoMora);
-                    $set('monto_pagado', 0);
+                    $set('monto_mora_pagada', $saldoMoraPendiente);
+                    $set('monto_pagado', null);
                 }
-                
+
                 // Auto-llenar observaciones si es retanqueo parcial
                 $grupoEstado = $get('grupo_id');
                 if ($grupoEstado && str_contains($grupoEstado, '_')) {
@@ -398,11 +421,11 @@ public static function form(Form $form): Form
                     if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
                         $mensajeRetanqueo = $prestamo->generarMensajeRetanqueoPago();
                         $observacionesActuales = $get('observaciones') ?? '';
-                        
+
                         // Solo añadir si no existe ya el mensaje
                         if ($mensajeRetanqueo && !str_contains($observacionesActuales, 'Cobertura automática por retanqueo')) {
-                            $nuevasObservaciones = $observacionesActuales ? 
-                                $observacionesActuales . "\n\n" . $mensajeRetanqueo : 
+                            $nuevasObservaciones = $observacionesActuales ?
+                                $observacionesActuales . "\n\n" . $mensajeRetanqueo :
                                 $mensajeRetanqueo;
                             $set('observaciones', $nuevasObservaciones);
                         }
@@ -418,7 +441,7 @@ public static function form(Form $form): Form
             }),
 
         TextInput::make('monto_pagado')
-            ->label('Monto Pagado')
+            ->label('Monto Pagado Total')
             ->prefix('S/.')
             ->numeric()
             ->minValue(0)
@@ -505,14 +528,14 @@ public static function form(Form $form): Form
                 if (!$grupoId || !str_contains($grupoId, '_')) {
                     return '';
                 }
-                
+
                 [$grupoIdReal, $prestamoId] = explode('_', $grupoId, 2);
                 $prestamo = \App\Models\Prestamo::find($prestamoId);
-                
+
                 if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
                     return $prestamo->generarMensajeRetanqueoPago();
                 }
-                
+
                 return '';
             })
             ->disabled(function ($record) {
@@ -534,6 +557,93 @@ public static function form(Form $form): Form
             ->default('Pendiente')
             ->disabled(true)
             ->dehydrated(),
+            ])
+            ->columns(2), // Usar dos columnas para los campos principales
+
+        Section::make('Detalle de Pago por Integrante')
+            ->description('Distribución del pago entre los integrantes del grupo')
+            ->schema([
+        Repeater::make('detalles_pago')
+            ->label('Detalle de pago por integrante')
+            ->relationship('detallesPago')
+            ->schema([
+                Hidden::make('prestamo_individual_id'),
+
+                \Filament\Forms\Components\Placeholder::make('nombre_integrante')
+                    ->label('Integrante')
+                    ->content(function (callable $get) {
+                        $prestamoIndId = $get('prestamo_individual_id');
+                        if (!$prestamoIndId) return 'Sin nombre';
+                        $pi = \App\Models\PrestamoIndividual::with('cliente.persona')->find($prestamoIndId);
+                        if (!$pi || !$pi->cliente || !$pi->cliente->persona) return 'Sin nombre';
+                        return trim(($pi->cliente->persona->nombre ?? '') . ' ' . ($pi->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
+                    }),
+
+                TextInput::make('monto_pagado')
+                    ->label('Monto Pagado')
+                    ->prefix('S/.')
+                    ->numeric()
+                    ->required()
+                    ->minValue(0)
+                    ->rules(['numeric', 'min:0'])
+                    ->extraAttributes([
+                        'onkeydown' => "if (event.key === '-' || event.key === 'e' || event.key === 'E' || event.key === '+') event.preventDefault();",
+                        'inputmode' => 'decimal',
+                        'pattern' => '[0-9]*\.?[0-9]*'
+                    ])
+                    /*
+                    ->disabled(function (callable $get) {
+                        return $get('../../tipo_pago') === 'pago_completo';
+                    })
+                        */
+                    ->default(function (callable $get) {
+                        if ($get('../../tipo_pago') === 'pago_completo') {
+                            $prestamoIndId = $get('prestamo_individual_id');
+                            $pi = $prestamoIndId ? \App\Models\PrestamoIndividual::find($prestamoIndId) : null;
+                            return $pi ? $pi->monto_cuota_prestamo_individual : null;
+                        }
+                        return null;
+                    })
+                    ->placeholder(function (callable $get) {
+                        return $get('../../tipo_pago') === 'monto' ?'pago_parcial' : '';
+                    }),
+            ])
+            ->minItems(function (callable $get) {
+                $grupoPrestamo = $get('grupo_id');
+                if (!$grupoPrestamo || !str_contains($grupoPrestamo, '_')) return 0;
+                [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
+                return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
+            })
+            ->maxItems(function (callable $get) {
+                $grupoPrestamo = $get('grupo_id');
+                if (!$grupoPrestamo || !str_contains($grupoPrestamo, '_')) return 0;
+                [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
+                return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
+            })
+            ->grid(4) // Cambiar de 3 a 4 columnas para mejor distribución
+            ->defaultItems(0)
+            ->addable(false) // Deshabilitar botón "Añadir"
+            ->deletable(false) // Deshabilitar botón "Eliminar"
+            ->reorderable(false) // Deshabilitar reordenamiento
+            ->hidden(function (callable $get) {
+                $grupoPrestamo = $get('grupo_id');
+                return !$grupoPrestamo || !str_contains($grupoPrestamo, '_');
+            })
+            ->afterStateHydrated(function ($component, $state, $record, callable $get) {
+                if (!$state && $get('grupo_id') && str_contains($get('grupo_id'), '_')) {
+                    [$grupoId, $prestamoId] = explode('_', $get('grupo_id'), 2);
+                    $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->get();
+                    $tipoPago = $get('tipo_pago');
+                    $component->state($integrantes->map(function($pi) use ($tipoPago) {
+                        return [
+                            'prestamo_individual_id' => $pi->id,
+                            'monto_pagado' => $tipoPago === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : null,
+                            'estado_pago_individual' => $tipoPago === 'pago_completo' ? 'Pagada' : null,
+                        ];
+                    })->toArray());
+                }
+            }),
+            ]), // Cierre de la segunda sección
 
         TextInput::make('saldo_pendiente')
             ->label('Saldo Pendiente (Total a Pagar)')
@@ -564,7 +674,7 @@ public static function form(Form $form): Form
                     $component->state(null);
                 }
             })
-    ]);
+    ]); // Cierre del schema principal del formulario
 }
 
     public static function table(Table $table): Table

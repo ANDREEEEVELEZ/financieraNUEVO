@@ -27,6 +27,7 @@ class Pago extends Model
 
     protected $casts = [
         'fecha_pago' => 'datetime',
+        'saldo_pendiente' => 'decimal:2',
     ];
     protected $attributes = [
     'estado_pago' => 'pendiente',
@@ -37,6 +38,14 @@ class Pago extends Model
     {
 
         return $this->belongsTo(CuotasGrupales::class, 'cuota_grupal_id');
+    }
+
+    /**
+     * Relación: Un pago tiene muchos detalles de pago
+     */
+    public function detallesPago()
+    {
+        return $this->hasMany(DetallePago::class, 'pago_id');
     }
 
     public function ingreso(): \Illuminate\Database\Eloquent\Relations\HasOne
@@ -68,73 +77,86 @@ class Pago extends Model
         return $this->fecha_pago ? $this->fecha_pago->format('d/m/Y H:i') : null;
     }
 
-    public function aprobar()
-    {
+   public function aprobar()
+{
+    $prestamo = $this->cuotaGrupal?->prestamo;
+    $estadosValidos = ['aprobado', 'parcialmente_retanqueado'];
+    if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
+        throw new \Exception('Solo se pueden aprobar pagos de préstamos aprobados.');
+    }
 
-        $prestamo = $this->cuotaGrupal?->prestamo;
-        $estadosValidos = ['aprobado', 'parcialmente_retanqueado'];
-        if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
-            throw new \Exception('Solo se pueden aprobar pagos de préstamos aprobados.');
-        }
+    if (strtolower($this->estado_pago) !== 'pendiente') {
+        return;
+    }
 
-        if (strtolower($this->estado_pago) !== 'pendiente') {
-            return;
-        }
+    $this->estado_pago = 'aprobado';
+    $this->save();
 
-        $this->estado_pago = 'aprobado';
+    $cuota = $this->cuotaGrupal;
+    if ($cuota) {
+        $montoCuota = floatval($cuota->monto_cuota_grupal);
+        $montoPagado = floatval($this->monto_pagado);
+
+        // Calcular mora generada hasta la fecha de este pago
+        $montoMoraTotal = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+
+        // Sumar pagos de mora previos (aprobados y distintos a este)
+        $pagosMoraPrevios = $cuota->pagos()
+            ->where('estado_pago', 'Aprobado')
+            ->where('id', '!=', $this->id)
+            ->sum('monto_mora_pagada');
+
+        // Lo primero que cubre este pago es la mora generada hasta este momento
+        $saldoMoraPorPagar = max(0, $montoMoraTotal - $pagosMoraPrevios);
+        $moraPagadaEnEstePago = min($montoPagado, $saldoMoraPorPagar);
+        $this->monto_mora_pagada = $moraPagadaEnEstePago;
         $this->save();
 
-        $cuota = $this->cuotaGrupal;
-        if ($cuota) {
-            $montoCuota = $cuota->monto_cuota_grupal;
-            $montoPagado = floatval($this->monto_pagado);
-            $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-            $totalAPagar = $montoCuota + $montoMora;
+        // El resto del pago va a cuota
+        $montoRestanteParaCuota = max(0, $montoPagado - $moraPagadaEnEstePago);
 
+        // Suma pagos válidos de cuota (solo lo que fue a cuota, incluyendo este pago)
+        $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->get();
+        $totalPagadoCuota = 0;
+        foreach ($pagosAprobados as $pago) {
+            $totalPagadoCuota += max(0, $pago->monto_pagado - $pago->monto_mora_pagada);
+        }
 
-            if ($this->tipo_pago === 'pago_completo') {
-                if ($montoPagado >= $totalAPagar) {
-                    $cuota->saldo_pendiente = 0;
-                    $cuota->estado_pago = 'pagado';
-                    if ($cuota->mora) {
-                        $cuota->mora->estado_mora = 'pagada';
-                        $cuota->mora->save();
-                    }
-                    $cuota->estado_cuota_grupal = 'cancelada';
-                } else {
-                    $cuota->saldo_pendiente = $totalAPagar - $montoPagado;
-                    $cuota->estado_pago = 'parcial';
-                    $cuota->estado_cuota_grupal = 'mora';
-                    if ($cuota->mora) {
-                        $cuota->mora->estado_mora = 'parcial';
-                        $cuota->mora->save();
-                    }
-                }
+        // Calcula saldos
+        $saldoCuotaPendiente = max(0, $montoCuota - $totalPagadoCuota);
+        $saldoMoraPendiente = max(0, $montoMoraTotal - ($pagosMoraPrevios + $moraPagadaEnEstePago));
+        $saldoTotalPendiente = $saldoCuotaPendiente + $saldoMoraPendiente;
+
+        // Actualiza mora
+        if ($cuota->mora) {
+            if ($saldoMoraPendiente == 0 && $saldoCuotaPendiente == 0) {
+                $cuota->mora->estado_mora = 'pagada';
+            } elseif ($saldoMoraPendiente > 0 && $saldoCuotaPendiente == 0) {
+                $cuota->mora->estado_mora = 'pendiente';
+            } else {
+                $cuota->mora->estado_mora = 'parcialmente_pagada';
             }
+            $cuota->mora->save();
+        }
 
-            else if ($this->tipo_pago === 'pago_parcial') {
-                if ($montoPagado >= $cuota->saldo_pendiente) {
-                    $cuota->saldo_pendiente = 0;
-                    $cuota->estado_pago = 'pagado';
+        // Actualiza saldo y estado cuota
+        $cuota->saldo_pendiente = round($saldoTotalPendiente, 2);
+        if ($saldoTotalPendiente == 0) {
+            $cuota->estado_pago = 'pagado';
+            $cuota->estado_cuota_grupal = 'cancelada';
+        } else {
+            $cuota->estado_pago = 'parcial';
+            $cuota->estado_cuota_grupal = $saldoMoraPendiente > 0 ? 'mora' : 'vigente';
+        }
+        $cuota->save();
 
-                    $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'cancelada';
-                } else {
-                    $cuota->saldo_pendiente -= $montoPagado;
-                    $cuota->estado_pago = 'parcial';
-                    $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
-                }
-            }
-
-            $cuota->save();
-            
-            // Verificar si el préstamo debe cambiar a estado "Finalizado"
-            $prestamo = $cuota->prestamo;
-            if ($prestamo) {
-                $prestamo->verificarYActualizarEstado();
-            }
+        // Actualiza estado préstamo si aplica
+        $prestamo = $cuota->prestamo;
+        if ($prestamo) {
+            $prestamo->verificarYActualizarEstado();
         }
     }
-        public function rechazar()
+}        public function rechazar()
         {
 
             $prestamo = $this->cuotaGrupal?->prestamo;
@@ -173,9 +195,9 @@ class Pago extends Model
                         $cuota->mora->save();
                     }
                 } else {
-                  
+
                     if ($totalPagado >= ($totalAPagar + $montoMora)) {
-                    $cuota->saldo_pendiente = 0;
+                    $cuota->update(['saldo_pendiente' => 0]);
                     $cuota->estado_pago = 'pagado';
                     $cuota->estado_cuota_grupal = 'cancelada';
                     if ($cuota->mora) {
@@ -183,7 +205,7 @@ class Pago extends Model
                         $cuota->mora->save();
                     }
                 } else {
-                    $cuota->saldo_pendiente = $totalAPagar - $totalPagado;
+                    $cuota->update(['saldo_pendiente' => round($totalAPagar - $totalPagado, 2)]);
                     $cuota->estado_pago = $totalPagado > 0 ? 'parcial' : 'pendiente';
                     $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
                     if ($cuota->mora) {
@@ -194,7 +216,7 @@ class Pago extends Model
 
                 }
                 $cuota->save();
-                
+
                 // Verificar si el préstamo debe cambiar su estado
                 $prestamo = $cuota->prestamo;
                 if ($prestamo) {

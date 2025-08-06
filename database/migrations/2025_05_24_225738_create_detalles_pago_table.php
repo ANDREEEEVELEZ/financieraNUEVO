@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Database\Migrations\Migration;
@@ -14,9 +15,9 @@ return new class extends Migration
         Schema::create('detalles_pago', function (Blueprint $table) {
             $table->id();
             $table->foreignId('pago_id')->constrained('pagos')->onDelete('cascade');
-            $table->foreignId('prestamo_individual_id')->constrained('prestamo_individual')->onDelete('cascade');
-            $table->decimal('monto_pagado', 10, 2)->nullable();
-            $table->enum('estado_pago_individual', ['Pagada', 'Parcial', 'Mora']);
+             $table->foreignId('prestamo_individual_id')->constrained('prestamo_individual')->onDelete('cascade');
+             $table->decimal('monto_pagado', 10, 2)->nullable();
+             $table->enum('estado_pago_individual', ['Pagada', 'Parcial', 'Mora']);
             $table->timestamps();
         });
     }
@@ -26,6 +27,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('detalle_pago');
+        Schema::dropIfExists('detalles_pago');
     }
 };
+

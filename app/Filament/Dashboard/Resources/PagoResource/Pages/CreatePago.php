@@ -46,7 +46,7 @@ class CreatePago extends CreateRecord
 
                 $this->form->fill([
                     'cuota_grupal_id' => $cuota->id,
-                    'grupo_id' => $cuota->prestamo->grupo->id ?? null,
+                    'grupo_id' => $cuota->prestamo->grupo->id . '_' . $cuota->prestamo->id,
                     'numero_cuota' => $cuota->numero_cuota,
                     'monto_cuota' => $cuota->monto_cuota_grupal,
                     'monto_mora_pagada' => $montoMora,

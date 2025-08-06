@@ -52,8 +52,10 @@ class ListPagos extends ListRecords
     public function table(Table $table): Table
     {
         return $table
+            ->contentGrid(['md' => 1])
             ->query($this->getTableQuery())
             ->columns([
+
                 Tables\Columns\TextColumn::make('grupo.nombre_grupo')
                     ->label('Grupo')
                     ->tooltip('Nombre completo del grupo')
@@ -61,6 +63,24 @@ class ListPagos extends ListRecords
                     ->sortable()
                     ->weight('medium')
                     ->size('sm'),
+
+                Tables\Columns\TextColumn::make('tipo_prestamo')
+                    ->label('Tipo')
+                    ->tooltip('Tipo de préstamo: Préstamo o Retanqueo')
+                    ->getStateUsing(function ($record) {
+                        // Ajusta el campo según tu modelo. Ejemplo: tipo_prestamo o es_retanqueo
+                        if (property_exists($record, 'tipo_prestamo')) {
+                            return ucfirst($record->tipo_prestamo);
+                        } elseif (property_exists($record, 'es_retanqueo')) {
+                            return $record->es_retanqueo ? 'Retanqueo' : 'Préstamo';
+                        } else {
+                            return 'Préstamo';
+                        }
+                    })
+                    ->alignCenter()
+                    ->badge()
+                    ->size('sm')
+                    ->color(fn ($state) => strtolower($state) === 'retanqueo' ? 'warning' : 'primary'),
 
                 Tables\Columns\TextColumn::make('numero_prestamo')
                     ->label('N° Préstamo')
@@ -278,49 +298,50 @@ class ListPagos extends ListRecords
                     ])
                     ->query(function (Builder $query, array $data) {
                         if (!empty($data['from'])) {
-                            $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) use ($data) {
-                                $q->whereDate('created_at', '>=', $data['from']);
-                            });
+                            $query->whereDate('created_at', '>=', $data['from']);
                         }
                         if (!empty($data['until'])) {
-                            $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) use ($data) {
-                                $q->whereDate('created_at', '<=', $data['until']);
-                            });
+                            $query->whereDate('created_at', '<=', $data['until']);
                         }
                         return $query;
                     }),
-                Tables\Filters\SelectFilter::make('estado_pagos')
-                    ->label('Filtrar por Estado de Pagos')
+                Tables\Filters\SelectFilter::make('estado_general')
+                    ->label('Filtrar por Estado')
                     ->options([
-                        '' => 'Todos',
-                        'solo_aprobados' => 'Aprobados',
-                        'con_pendientes' => 'Pendientes',
-                        'con_rechazados' => 'Rechazados',
+                        'Completado' => 'Completado',
+                        'pendientes' => 'Pendientes',
+                        'En proceso' => 'En proceso',
                     ])
+                    ->searchable(false)
                     ->query(function (Builder $query, array $data) {
                         if (!isset($data['value']) || $data['value'] === '') {
                             return $query;
                         }
 
-                        if ($data['value'] === 'con_pendientes') {
-                            return $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) {
-                                $q->where('estado_pago', 'Pendiente');
-                            });
+                        // Filtrar por estado general del préstamo
+                        $all = $query->get();
+                        $ids = [];
+                        foreach ($all as $prestamo) {
+                            $totalCuotas = $prestamo->cuotasGrupales->count();
+                            $cuotasAprobadas = $prestamo->cuotasGrupales->filter(function ($cuota) {
+                                return $cuota->pagos->where('estado_pago', 'aprobado')->count() > 0;
+                            })->count();
+                            $cuotasPendientes = $prestamo->cuotasGrupales->filter(function ($cuota) {
+                                return $cuota->pagos->where('estado_pago', 'Pendiente')->count() > 0;
+                            })->count();
+                            $estado = '';
+                            if ($totalCuotas == $cuotasAprobadas && $totalCuotas > 0) {
+                                $estado = 'Completado';
+                            } elseif ($cuotasPendientes > 0) {
+                                $estado = 'pendientes';
+                            } else {
+                                $estado = 'En proceso';
+                            }
+                            if ($estado === $data['value']) {
+                                $ids[] = $prestamo->id;
+                            }
                         }
-
-                        if ($data['value'] === 'solo_aprobados') {
-                            return $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) {
-                                $q->where('estado_pago', 'aprobado');
-                            })->whereDoesntHave('prestamos.cuotasGrupales.pagos', function ($q) {
-                                $q->whereIn('estado_pago', ['Pendiente', 'Rechazado']);
-                            });
-                        }
-
-                        if ($data['value'] === 'con_rechazados') {
-                            return $query->whereHas('prestamos.cuotasGrupales.pagos', function ($q) {
-                                $q->where('estado_pago', 'Rechazado');
-                            });
-                        }
+                        return $query->whereIn('id', $ids);
                     }),
             ])
             ->recordUrl(fn ($record) => PagoResource::getUrl('grupo-detalle', ['grupo' => $record->grupo_id, 'prestamo' => $record->id]))

@@ -58,7 +58,8 @@ class GrupoDetallePagos extends Page implements HasTable
             })
             ->with([
                 'cuotaGrupal.prestamo.grupo',
-                'cuotaGrupal.mora'
+                'cuotaGrupal.mora',
+                'detallesPago.prestamoIndividual.cliente.persona'
             ])
             ->orderBy('created_at', 'desc');
     }
@@ -121,15 +122,10 @@ public function table(Table $table): Table
                 ->alignRight()
                 ->weight('medium'),
 
-            Tables\Columns\TextColumn::make('monto_mora')
-                ->label('Mora')
+            Tables\Columns\TextColumn::make('monto_mora_pagada')
+                ->label('Mora Pagada')
                 ->money('PEN')
-                ->alignRight()
-                ->getStateUsing(function ($record) {
-                    return $record->cuotaGrupal && $record->cuotaGrupal->mora
-                        ? abs($record->cuotaGrupal->mora->monto_mora_calculado)
-                        : 0;
-                }),
+                ->alignRight(),
 
             Tables\Columns\TextColumn::make('monto_pagado')
                 ->label('Monto Pagado')
@@ -358,8 +354,33 @@ public function table(Table $table): Table
 
                                                 if ($state === 'pago_completo') {
                                                     $set('monto_pagado', $saldoPendiente);
+                                                    // Poblar detallesPago igual que en PagoResource
+                                                    if ($record->cuotaGrupal && $record->cuotaGrupal->prestamo) {
+                                                        $prestamoId = $record->cuotaGrupal->prestamo->id;
+                                                        $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->with('cliente.persona')->get();
+                                                        $detalles = $integrantes->map(function($pi) {
+                                                            $persona = optional($pi->cliente->persona);
+                                                            $nombre = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
+                                                            return [
+                                                                'prestamo_individual_id' => $pi->id,
+                                                                'nombre_integrante' => $nombre,
+                                                                'monto_pagado' => $pi->monto_cuota_prestamo_individual,
+                                                            ];
+                                                        })->toArray();
+                                                        $set('detallesPago', $detalles);
+                                                    }
                                                 } elseif ($state === 'pago_parcial') {
                                                     $set('monto_pagado', null);
+                                                    // Limpiar los montos de los integrantes
+                                                    $detalles = $get('detallesPago') ?? [];
+                                                    $detallesLimpios = collect($detalles)->map(function($detalle) {
+                                                        return [
+                                                            'prestamo_individual_id' => $detalle['prestamo_individual_id'] ?? null,
+                                                            'nombre_integrante' => $detalle['nombre_integrante'] ?? 'Sin nombre',
+                                                            'monto_pagado' => null,
+                                                        ];
+                                                    })->toArray();
+                                                    $set('detallesPago', $detallesLimpios);
                                                 }
                                             }),
 
@@ -500,33 +521,141 @@ public function table(Table $table): Table
                             ])
                            // ->collapsible()
                             ->collapsed(false),
+
+                        // Sección de detalle por integrante (solo lectura)
+                        \Filament\Forms\Components\Section::make('Detalle por integrante')
+                            ->description('Detalle de pago por cada integrante registrado en este pago')
+                            ->icon('heroicon-o-users')
+                            ->schema([
+                               \Filament\Forms\Components\Repeater::make('detallesPago')
+                                ->label('Integrantes')
+                                ->schema([
+                                    \Filament\Forms\Components\Placeholder::make('nombre_integrante')
+                                        ->label('Integrante')
+                                        ->content(function ($record, callable $get) {
+                                            // Si existe el campo nombre_integrante en el array, úsalo
+                                            $nombre = $get('nombre_integrante');
+                                            if ($nombre && $nombre !== 'Sin nombre') {
+                                                return $nombre;
+                                            }
+                                            // Si no, buscar por la relación
+                                            if ($record && $record->prestamoIndividual) {
+                                                $persona = optional($record->prestamoIndividual->cliente->persona);
+                                                return trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
+                                            }
+                                            return 'Sin nombre';
+                                        }),
+                                    \Filament\Forms\Components\TextInput::make('monto_pagado')
+                                        ->label('Monto Pagado')
+                                        ->prefix('S/.')
+                                        ->numeric()
+                                        ->minValue(0)
+                                        ->step(0.01)
+
+
+                                        ->disabled(function ($record, callable $get) {
+                                            // Solo permitir edición si el pago está pendiente y es pago parcial
+                                            $pagoRecord = $get('../../'); // Obtener el record del pago principal
+                                            if (!$pagoRecord) return true;
+
+                                            $user = Auth::user();
+                                            $esPendiente = strtolower($pagoRecord['estado_pago'] ?? '') === 'pendiente';
+                                            $esAsesor = $user->hasRole('Asesor');
+                                           // $esPagoParcial = ($pagoRecord['tipo_pago'] ?? '') === 'pago_parcial';
+
+                                            //return !($esPendiente && $esAsesor && $esPagoParcial);
+                                        })
+
+                                        // CAMBIO CRÍTICO: Remover afterStateHydrated y dejar que Filament maneje la hidratación automáticamente
+                                        // El repeater con relationship() ya hidrata automáticamente los campos de la relación
+                                        ->rules(['numeric', 'min:0'])
+                                        ->extraAttributes(function ($record, callable $get) {
+                                            $pagoRecord = $get('../../');
+                                            $esPendiente = strtolower($pagoRecord['estado_pago'] ?? '') === 'pendiente';
+                                            $esPagoParcial = ($pagoRecord['tipo_pago'] ?? '') === 'pago_parcial';
+
+                                            if ($esPendiente && $esPagoParcial) {
+                                                return [
+                                                    'oninput' => 'this.value = this.value.replace(/[^0-9.]/g, "")',
+                                                    'onkeypress' => 'return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 46'
+                                                ];
+                                            }
+                                            return [];
+                                        })
+                                ])
+                                ->minItems(0)
+                                ->maxItems(50)
+                                ->grid(3)
+                                ->addable(false)
+                                ->deletable(false)
+                                ->reorderable(false)
+                                ->visible(function ($record, callable $get) {
+                                    // Mostrar si hay detalles en la relación o en el array seteado manualmente
+                                    $detalles = $get('detallesPago');
+                                    if (is_array($detalles) && count($detalles) > 0) {
+                                        return true;
+                                    }
+                                    return $record && $record->detallesPago && $record->detallesPago->count() > 0;
+                                }),
+                            ])
+                            ->collapsible()
+                            ->collapsed(false),
                     ])
-                    ->mutateRecordDataUsing(function (array $data, $record): array {
-                        $data['grupo_id'] = $record->cuotaGrupal?->prestamo?->grupo?->id;
-                        $data['numero_cuota'] = $record->cuotaGrupal?->numero_cuota;
-                        $data['monto_cuota'] = $record->cuotaGrupal?->monto_cuota_grupal;
-                        $data['monto_mora_pagada'] = $record->cuotaGrupal && $record->cuotaGrupal->mora
-                            ? abs($record->cuotaGrupal->mora->monto_mora_calculado)
-                            : 0;
+                ->mutateRecordDataUsing(function (array $data, $record): array {
+                    // Cargar todas las relaciones necesarias
+                    $record->load([
+                        'detallesPago.prestamoIndividual.cliente.persona',
+                        'cuotaGrupal.prestamo.grupo',
+                        'cuotaGrupal.mora'
+                    ]);
 
+                    $data['grupo_id'] = $record->cuotaGrupal?->prestamo?->grupo?->id;
+                    $data['numero_cuota'] = $record->cuotaGrupal?->numero_cuota;
+                    $data['monto_cuota'] = $record->cuotaGrupal?->monto_cuota_grupal;
+                    $data['monto_mora_pagada'] = $record->cuotaGrupal && $record->cuotaGrupal->mora
+                        ? abs($record->cuotaGrupal->mora->monto_mora_calculado)
+                        : 0;
 
-                        if ($record->cuotaGrupal) {
-                            $cuota = $record->cuotaGrupal;
-                            $montoCuota = floatval($cuota->monto_cuota_grupal);
-                            $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+                    if ($record->cuotaGrupal) {
+                        $cuota = $record->cuotaGrupal;
+                        $montoCuota = floatval($cuota->monto_cuota_grupal);
+                        $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
-                            $pagosAprobados = $cuota->pagos()
-                                ->where('estado_pago', 'aprobado')
-                                ->where('id', '!=', $record->id)
-                                ->sum('monto_pagado');
+                        $pagosAprobados = $cuota->pagos()
+                            ->where('estado_pago', 'aprobado')
+                            ->where('id', '!=', $record->id)
+                            ->sum('monto_pagado');
 
-                            $data['saldo_pendiente_actual'] = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                        } else {
-                            $data['saldo_pendiente_actual'] = 0;
-                        }
+                        $data['saldo_pendiente_actual'] = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                    } else {
+                        $data['saldo_pendiente_actual'] = 0;
+                    }
 
-                        return $data;
-                    })
+                    // Mapear todos los integrantes del grupo, mostrando monto_pagado si existe en detallesPago, o 0 si no existe
+                    $integrantes = [];
+                    if ($record->cuotaGrupal && $record->cuotaGrupal->prestamo) {
+                        $prestamoId = $record->cuotaGrupal->prestamo->id;
+                        $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->with('cliente.persona')->get();
+                    }
+
+                    // Indexar detallesPago por prestamo_individual_id para acceso rápido
+                    $detallesPagoById = $record->detallesPago->keyBy('prestamo_individual_id');
+
+                    $data['detallesPago'] = collect($integrantes)->map(function($pi) use ($detallesPagoById) {
+                        $persona = optional($pi->cliente->persona);
+                        $nombre = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
+                        $detalle = $detallesPagoById->get($pi->id);
+                        // Si existe el detalle, usar el monto_pagado registrado (incluso si es 0), si no, dejar null
+                        $monto = $detalle !== null ? floatval($detalle->monto_pagado) : null;
+                        return [
+                            'prestamo_individual_id' => $pi->id,
+                            'nombre_integrante' => $nombre,
+                            'monto_pagado' => $monto,
+                        ];
+                    })->toArray();
+
+                    return $data;
+                })
 
                     ->visible(function ($record) {
                         $user = Auth::user();
@@ -552,7 +681,32 @@ public function table(Table $table): Table
                         $esAsesor = $user->hasRole('Asesor');
 
                         if ($esPendiente && $esAsesor) {
-                            $record->update($data);
+                            // Actualizar campos simples
+                            $record->tipo_pago = $data['tipo_pago'] ?? $record->tipo_pago;
+                            $record->codigo_operacion = $data['codigo_operacion'] ?? $record->codigo_operacion;
+                            $record->fecha_pago = $data['fecha_pago'] ?? $record->fecha_pago;
+                            $record->observaciones = $data['observaciones'] ?? $record->observaciones;
+
+                            // Actualizar detalles por integrante (detallesPago)
+                            $nuevoMontoPagado = 0;
+                            if (isset($data['detallesPago']) && is_array($data['detallesPago'])) {
+                                // Eliminar los detalles existentes y crear los nuevos
+                                $record->detallesPago()->delete();
+                                foreach ($data['detallesPago'] as $detalle) {
+                                    if (isset($detalle['prestamo_individual_id'])) {
+                                        $nuevoMontoPagado += floatval($detalle['monto_pagado'] ?? 0);
+                                        $record->detallesPago()->create([
+                                            'prestamo_individual_id' => $detalle['prestamo_individual_id'],
+                                            'monto_pagado' => $detalle['monto_pagado'] ?? 0,
+                                        ]);
+                                    }
+                                }
+                            }
+
+                            // Actualizar el monto_pagado principal con la suma de los detalles
+                            $record->monto_pagado = $nuevoMontoPagado;
+                            $record->save();
+
                             Notification::make()
                                 ->title('Pago actualizado correctamente')
                                 ->success()
