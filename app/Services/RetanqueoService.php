@@ -18,6 +18,7 @@ class RetanqueoService
 {
     /**
      * Obtiene los grupos elegibles para retanqueo
+     * RESTRICCIÓN: Solo préstamos que tengan EXACTAMENTE 1 cuota pendiente
      */
     public function obtenerGruposElegibles($asesorId = null)
     {
@@ -29,7 +30,7 @@ class RetanqueoService
         }
 
         return $query->get()->filter(function ($grupo) {
-            // Verificar que tenga préstamos activos con saldo pendiente
+            // Verificar que tenga préstamos activos con EXACTAMENTE 1 cuota pendiente
             $prestamoActivo = $grupo->prestamos()
                 ->where('estado', 'Aprobado')
                 ->whereHas('cuotasGrupales', function ($q) {
@@ -38,12 +39,24 @@ class RetanqueoService
                 })
                 ->first();
 
-            return $prestamoActivo !== null;
+            if (!$prestamoActivo) {
+                return false;
+            }
+
+            // VALIDACIÓN CRÍTICA: Contar exactamente las cuotas pendientes
+            $cuotasPendientes = $prestamoActivo->cuotasGrupales()
+                ->where('estado_pago', '!=', 'pagado')
+                ->where('saldo_pendiente', '>', 0)
+                ->count();
+
+            // Solo permitir retanqueo si queda EXACTAMENTE 1 cuota pendiente
+            return $cuotasPendientes === 1;
         });
     }
 
     /**
      * Calcula el estado actual de un préstamo para retanqueo
+     * VALIDACIÓN CRÍTICA: Verificar que solo quede 1 cuota pendiente
      */
     public function calcularEstadoPrestamo($prestamoId)
     {
@@ -56,6 +69,11 @@ class RetanqueoService
         $cuotasTotal = $prestamo->cuotasGrupales->count();
         $cuotasPagadas = $prestamo->cuotasGrupales->where('estado_pago', 'pagado')->count();
         $cuotasPendientes = $cuotasTotal - $cuotasPagadas;
+        
+        // VALIDACIÓN CRÍTICA FINANCIERA: Solo permitir retanqueo con EXACTAMENTE 1 cuota pendiente
+        if ($cuotasPendientes !== 1) {
+            throw new \Exception("Error: Este préstamo no es elegible para retanqueo. Tiene {$cuotasPendientes} cuotas pendientes, pero solo se permiten retanqueos cuando queda EXACTAMENTE 1 cuota por pagar.");
+        }
         
         $saldoPendienteTotal = $prestamo->cuotasGrupales
             ->where('estado_pago', '!=', 'pagado')
@@ -322,6 +340,17 @@ class RetanqueoService
             }
 
             $prestamoAntiguo = $retanqueo->prestamoAntiguo;
+            
+            // VALIDACIÓN CRÍTICA FINANCIERA: Verificar que el préstamo antiguo tenga EXACTAMENTE 1 cuota pendiente
+            $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()
+                ->where('estado_pago', '!=', 'pagado')
+                ->where('saldo_pendiente', '>', 0)
+                ->count();
+                
+            if ($cuotasPendientes !== 1) {
+                throw new \Exception("EJECUTIÓN BLOQUEADA: El préstamo {$prestamoAntiguo->id} tiene {$cuotasPendientes} cuotas pendientes. Solo se permiten retanqueos cuando queda EXACTAMENTE 1 cuota por pagar. Operación cancelada por seguridad financiera.");
+            }
+            
             $grupo = $prestamoAntiguo->grupo;
 
             // 1. Crear nuevo préstamo

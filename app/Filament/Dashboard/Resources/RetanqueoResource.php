@@ -47,6 +47,29 @@ class RetanqueoResource extends Resource
 
         return $form
             ->schema([
+                // Información crítica sobre restricciones de retanqueo
+                Forms\Components\Placeholder::make('restriccion_retanqueo')
+                    ->label('⚠️ RESTRICCIÓN IMPORTANTE DE RETANQUEOS')
+                    ->content(new \Illuminate\Support\HtmlString(
+                        '<div style="background-color: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <svg style="width: 24px; height: 24px; color: #f59e0b;" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8.485 3.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 3.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                                </svg>
+                                <strong style="color: #92400e; font-size: 16px;">POLÍTICA FINANCIERA DE RETANQUEOS</strong>
+                            </div>
+                            <ul style="margin: 0; padding-left: 24px; color: #92400e; font-size: 14px;">
+                                <li><strong>✅ REQUISITO OBLIGATORIO:</strong> Solo se pueden retanquear préstamos que tengan <strong>EXACTAMENTE 1 cuota pendiente por pagar</strong></li>
+                                <li><strong>❌ NO ELEGIBLES:</strong> Préstamos con 2 o más cuotas pendientes</li>
+                                <li><strong>🔒 SEGURIDAD:</strong> Esta restricción protege la estabilidad financiera del sistema</li>
+                            </ul>
+                            <p style="margin: 12px 0 0 0; color: #92400e; font-size: 13px; font-style: italic;">
+                                📋 Si no ve ningún préstamo disponible, significa que ningún grupo cumple con este requisito.
+                            </p>
+                        </div>'
+                    ))
+                    ->columnSpanFull(),
+                    
                 Section::make('Información de la Solicitud')
                     ->description('Detalles generales del retanqueo')
                     ->icon('heroicon-o-information-circle')
@@ -128,7 +151,7 @@ class RetanqueoResource extends Resource
                                             }
                                         }
                                     })
-                                    ->helperText('Seleccione el préstamo que desea retanquear'),
+                                    ->helperText('🔍 Solo aparecen préstamos con EXACTAMENTE 1 cuota pendiente (requisito obligatorio para retanqueo)'),
 
                                 TextInput::make('cantidad_cuotas_nuevo')
                                     ->label('Cantidad de Cuotas (Nuevo Préstamo)')
