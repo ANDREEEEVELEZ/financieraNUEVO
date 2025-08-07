@@ -376,7 +376,7 @@ class RetanqueoService
             'fecha_prestamo' => now(),
             'frecuencia' => $prestamoAntiguo->frecuencia ?? 'semanal',
             'estado' => 'Aprobado',
-            'calificacion' => 'A',
+            // 'calificacion' => 'A',
             'descripcion' => $descripcionRetanqueo,
             'es_retanqueo' => true,
             'prestamo_origen_id' => $prestamoAntiguo->id

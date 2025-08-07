@@ -439,24 +439,24 @@ class PrestamoResource extends Resource
                 ->dehydrated(true)
                 ->helperText('📝 "Parcialmente Retanqueado" indica que algunos integrantes no participaron en el retanqueo.'),
 
-            Select::make('calificacion')
-                ->prefixIcon('heroicon-o-star')
-                ->options([
-                    '1' => '1',
-                    '2' => '2',
-                    '3' => '3',
-                    '4' => '4',
-                    '5' => '5',
-                    '6' => '6',
-                    '7' => '7',
-                    '8' => '8',
-                    '9' => '9',
-                    '10' => '10',
-                ])
-                ->native(false)
-                ->required()
-                ->rules(['numeric', 'between:1,10'])
-                ->disabled(fn() => !$puedeEditarCampos),
+            // Select::make('calificacion')
+            //     ->prefixIcon('heroicon-o-star')
+            //     ->options([
+            //         '1' => '1',
+            //         '2' => '2',
+            //         '3' => '3',
+            //         '4' => '4',
+            //         '5' => '5',
+            //         '6' => '6',
+            //         '7' => '7',
+            //         '8' => '8',
+            //         '9' => '9',
+            //         '10' => '10',
+            //     ])
+            //     ->native(false)
+            //     ->required()
+            //     ->rules(['numeric', 'between:1,10'])
+            //     ->disabled(fn() => !$puedeEditarCampos),
         ]);
     }
 
