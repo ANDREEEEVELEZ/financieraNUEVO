@@ -46,8 +46,14 @@ class PrestamoResource extends Resource
                     $puedeEditarCampos = true;
                 }
             } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                // Jefes NO pueden editar campos de solicitud cuando el préstamo existe, solo el estado
-                $puedeEditarCampos = false;
+                // Jefes pueden crear préstamos y editar solo cuando está en estado Pendiente
+                if ($prestamo) {
+                    // Si el préstamo existe, solo puede editar si está en estado Pendiente
+                    $puedeEditarCampos = $prestamo->estado === 'Pendiente';
+                } else {
+                    // Si es creación, sí puede editar
+                    $puedeEditarCampos = true;
+                }
             }
         }
         
