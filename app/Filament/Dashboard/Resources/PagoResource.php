@@ -335,11 +335,11 @@ public static function form(Form $form): Form
                         return [
                             'prestamo_individual_id' => $pi->id,
                             'nombre_integrante' => $nombre,
+                            // ✅ VERIFICAR: Este debe ser el monto individual de cada integrante
                             'monto_pagado' => $state === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : null,
                         ];
                     })->toArray());
                 }
-
                 $cuotaId = $get('cuota_grupal_id');
                 if (!$cuotaId) {
                     // Si no hay cuota seleccionada, intentar recargar desde el grupo
@@ -440,7 +440,7 @@ public static function form(Form $form): Form
                 );
             }),
 
-        TextInput::make('monto_pagado')
+                TextInput::make('monto_pagado')
             ->label('Monto Pagado Total')
             ->prefix('S/.')
             ->numeric()
@@ -455,7 +455,7 @@ public static function form(Form $form): Form
                 $user = request()->user();
 
                 // Si es super_admin o jefe, siempre deshabilitar
-                if ($user->hasAnyRole([ 'Jefe de creditos'])) { // AQUI PEGAR EL CODIGO DE ROL
+                if ($user->hasAnyRole(['Jefe de creditos'])) {
                     return true;
                 }
 
@@ -463,7 +463,8 @@ public static function form(Form $form): Form
                     return true;
                 }
 
-                return $get('tipo_pago') === 'pago_completo';
+                // CAMBIO PRINCIPAL: Deshabilitar tanto para pago_completo como para pago_parcial
+                return in_array($get('tipo_pago'), ['pago_completo', 'pago_parcial']);
             })
             ->dehydrated()
             ->live(onBlur: true)
@@ -477,12 +478,17 @@ public static function form(Form $form): Form
             })
             ->helperText(function (callable $get) {
                 $saldoPendiente = $get('saldo_pendiente_actual');
+                $tipoPago = $get('tipo_pago');
+
+                if ($tipoPago === 'pago_parcial') {
+                    return 'Este campo se calculará automáticamente sumando los montos individuales';
+                }
+
                 if ($saldoPendiente > 0) {
                     return 'Máximo a pagar: S/. ' . number_format($saldoPendiente, 2);
                 }
                 return null;
             }),
-
         TextInput::make('codigo_operacion')
             ->label('Código de Operación')
             ->prefixIcon('heroicon-o-finger-print')
@@ -564,85 +570,156 @@ public static function form(Form $form): Form
             ->description('Distribución del pago entre los integrantes del grupo')
             ->schema([
         Repeater::make('detalles_pago')
-            ->label('Detalle de pago por integrante')
-            ->relationship('detallesPago')
-            ->schema([
-                Hidden::make('prestamo_individual_id'),
+    ->label('Detalle de pago por integrante')
+    ->relationship('detallesPago')
+    ->schema([
+        Hidden::make('prestamo_individual_id'),
 
-                \Filament\Forms\Components\Placeholder::make('nombre_integrante')
-                    ->label('Integrante')
-                    ->content(function (callable $get) {
-                        $prestamoIndId = $get('prestamo_individual_id');
-                        if (!$prestamoIndId) return 'Sin nombre';
-                        $pi = \App\Models\PrestamoIndividual::with('cliente.persona')->find($prestamoIndId);
-                        if (!$pi || !$pi->cliente || !$pi->cliente->persona) return 'Sin nombre';
-                        return trim(($pi->cliente->persona->nombre ?? '') . ' ' . ($pi->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
-                    }),
 
-                TextInput::make('monto_pagado')
-                    ->label('Monto Pagado')
-                    ->prefix('S/.')
-                    ->numeric()
-                    ->required()
-                    ->minValue(0)
-                    ->rules(['numeric', 'min:0'])
-                    ->extraAttributes([
-                        'onkeydown' => "if (event.key === '-' || event.key === 'e' || event.key === 'E' || event.key === '+') event.preventDefault();",
-                        'inputmode' => 'decimal',
-                        'pattern' => '[0-9]*\.?[0-9]*'
-                    ])
-                    /*
-                    ->disabled(function (callable $get) {
-                        return $get('../../tipo_pago') === 'pago_completo';
-                    })
-                        */
-                    ->default(function (callable $get) {
-                        if ($get('../../tipo_pago') === 'pago_completo') {
-                            $prestamoIndId = $get('prestamo_individual_id');
-                            $pi = $prestamoIndId ? \App\Models\PrestamoIndividual::find($prestamoIndId) : null;
-                            return $pi ? $pi->monto_cuota_prestamo_individual : null;
-                        }
-                        return null;
-                    })
-                    ->placeholder(function (callable $get) {
-                        return $get('../../tipo_pago') === 'monto' ?'pago_parcial' : '';
-                    }),
-            ])
-            ->minItems(function (callable $get) {
-                $grupoPrestamo = $get('grupo_id');
-                if (!$grupoPrestamo || !str_contains($grupoPrestamo, '_')) return 0;
-                [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
-                return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
-            })
-            ->maxItems(function (callable $get) {
-                $grupoPrestamo = $get('grupo_id');
-                if (!$grupoPrestamo || !str_contains($grupoPrestamo, '_')) return 0;
-                [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
-                return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
-            })
-            ->grid(4) // Cambiar de 3 a 4 columnas para mejor distribución
-            ->defaultItems(0)
-            ->addable(false) // Deshabilitar botón "Añadir"
-            ->deletable(false) // Deshabilitar botón "Eliminar"
-            ->reorderable(false) // Deshabilitar reordenamiento
-            ->hidden(function (callable $get) {
-                $grupoPrestamo = $get('grupo_id');
-                return !$grupoPrestamo || !str_contains($grupoPrestamo, '_');
-            })
-            ->afterStateHydrated(function ($component, $state, $record, callable $get) {
-                if (!$state && $get('grupo_id') && str_contains($get('grupo_id'), '_')) {
-                    [$grupoId, $prestamoId] = explode('_', $get('grupo_id'), 2);
-                    $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->get();
-                    $tipoPago = $get('tipo_pago');
-                    $component->state($integrantes->map(function($pi) use ($tipoPago) {
-                        return [
-                            'prestamo_individual_id' => $pi->id,
-                            'monto_pagado' => $tipoPago === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : null,
-                            'estado_pago_individual' => $tipoPago === 'pago_completo' ? 'Pagada' : null,
-                        ];
-                    })->toArray());
-                }
+        \Filament\Forms\Components\Placeholder::make('nombre_integrante')
+            ->label('Integrante')
+            ->content(function (callable $get) {
+                $prestamoIndId = $get('prestamo_individual_id');
+                if (!$prestamoIndId) return 'Sin nombre';
+                $pi = \App\Models\PrestamoIndividual::with('cliente.persona')->find($prestamoIndId);
+                if (!$pi || !$pi->cliente || !$pi->cliente->persona) return 'Sin nombre';
+                return trim(($pi->cliente->persona->nombre ?? '') . ' ' . ($pi->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
             }),
+           
+
+        TextInput::make('monto_pagado')
+            ->label('Monto Pagado')
+            ->prefix('S/.')
+            ->numeric()
+            ->required()
+            ->minValue(0)
+            ->rules(['numeric', 'min:0'])
+            ->extraAttributes([
+                'onkeydown' => "if (event.key === '-' || event.key === 'e' || event.key === 'E' || event.key === '+') event.preventDefault();",
+                'inputmode' => 'decimal',
+                'pattern' => '[0-9]*\.?[0-9]*'
+            ])
+            ->disabled(function (callable $get) {
+                // CAMBIO PRINCIPAL: Deshabilitar solo cuando es pago_completo
+                return $get('../../tipo_pago') === 'pago_completo';
+            })
+             ->dehydrated(true)
+                ->default(function (callable $get) {
+                    if ($get('../../tipo_pago') === 'pago_completo') {
+                        $prestamoIndId = $get('prestamo_individual_id');
+                        $pi = $prestamoIndId ? \App\Models\PrestamoIndividual::find($prestamoIndId) : null;
+                        // ✅ VERIFICAR: Debe retornar el monto individual de cada integrante
+                        return $pi ? $pi->monto_cuota_prestamo_individual : null;
+                    }
+                    return null;
+                })
+            ->live(onBlur: true)
+            // NUEVO: Agregar afterStateUpdated para calcular la suma automática
+            ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                // Solo calcular suma si es pago parcial
+                if ($get('../../tipo_pago') !== 'pago_parcial') {
+                    return;
+                }
+
+                // Obtener todos los detalles de pago
+                $detallesPago = $get('../../detalles_pago') ?? [];
+                $sumaTotal = 0;
+
+                // Sumar todos los montos individuales
+                foreach ($detallesPago as $detalle) {
+                    if (isset($detalle['monto_pagado']) && is_numeric($detalle['monto_pagado'])) {
+                        $sumaTotal += floatval($detalle['monto_pagado']);
+                    }
+                }
+
+                // Actualizar el monto total pagado
+                $set('../../monto_pagado', $sumaTotal);
+
+                // Validar que no exceda el saldo pendiente
+                $saldoPendiente = floatval($get('../../saldo_pendiente_actual') ?? 0);
+                if ($sumaTotal > $saldoPendiente && $saldoPendiente > 0) {
+                    // Mostrar notificación de advertencia
+                    \Filament\Notifications\Notification::make()
+                        ->title('Monto excedido')
+                        ->body('La suma de los pagos individuales no puede exceder el saldo pendiente de S/. ' . number_format($saldoPendiente, 2))
+                        ->warning()
+                        ->send();
+                }
+            })
+            ->placeholder(function (callable $get) {
+                return $get('../../tipo_pago') === 'pago_parcial' ? '' : '';
+            })
+            ->helperText(function (callable $get) {
+                if ($get('../../tipo_pago') === 'pago_parcial') {
+                    return 'Ingrese el monto ';
+                }
+                return null;
+            }),
+    ])
+    ->minItems(function (callable $get) {
+        $grupoPrestamo = $get('grupo_id');
+        if (!$grupoPrestamo || !str_contains($grupoPrestamo, '_')) return 0;
+        [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
+        return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
+    })
+    ->maxItems(function (callable $get) {
+        $grupoPrestamo = $get('grupo_id');
+        if (!$grupoPrestamo || !str_contains($grupoPrestamo, '_')) return 0;
+        [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
+        return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
+    })
+    ->grid(4)
+    ->defaultItems(0)
+    ->addable(false)
+    ->deletable(false)
+    ->reorderable(false)
+    ->hidden(function (callable $get) {
+        $grupoPrestamo = $get('grupo_id');
+        return !$grupoPrestamo || !str_contains($grupoPrestamo, '_');
+    })
+    ->afterStateHydrated(function ($component, $state, $record, callable $get) {
+        if (!$state && $get('grupo_id') && str_contains($get('grupo_id'), '_')) {
+            [$grupoId, $prestamoId] = explode('_', $get('grupo_id'), 2);
+            $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->get();
+            $tipoPago = $get('tipo_pago');
+            $component->state($integrantes->map(function($pi) use ($tipoPago) {
+                return [
+                    'prestamo_individual_id' => $pi->id,
+                    'monto_pagado' => $tipoPago === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : null,
+                    'estado_pago_individual' => $tipoPago === 'pago_completo' ? 'Pagada' : null,
+                ];
+            })->toArray());
+        }
+    })
+    // NUEVO: Agregar validación personalizada para asegurar que la suma no exceda el saldo
+    ->rules([
+        function (callable $get) {
+            return function (string $attribute, $value, \Closure $fail) use ($get) {
+                if ($get('tipo_pago') !== 'pago_parcial') {
+                    return;
+                }
+
+                $saldoPendiente = floatval($get('saldo_pendiente_actual') ?? 0);
+                $sumaTotal = 0;
+
+                if (is_array($value)) {
+                    foreach ($value as $detalle) {
+                        if (isset($detalle['monto_pagado']) && is_numeric($detalle['monto_pagado'])) {
+                            $sumaTotal += floatval($detalle['monto_pagado']);
+                        }
+                    }
+                }
+
+                if ($sumaTotal > $saldoPendiente) {
+                    $fail('La suma de los pagos individuales (S/. ' . number_format($sumaTotal, 2) . ') no puede exceder el saldo pendiente (S/. ' . number_format($saldoPendiente, 2) . ')');
+                }
+
+                if ($sumaTotal <= 0) {
+                    $fail('Debe ingresar al menos un monto mayor a 0 para algún integrante');
+                }
+            };
+        }
+    ]),
             ]), // Cierre de la segunda sección
 
         TextInput::make('saldo_pendiente')
