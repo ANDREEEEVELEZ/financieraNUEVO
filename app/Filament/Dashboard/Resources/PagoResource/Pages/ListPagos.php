@@ -68,14 +68,8 @@ class ListPagos extends ListRecords
                     ->label('Tipo')
                     ->tooltip('Tipo de préstamo: Préstamo o Retanqueo')
                     ->getStateUsing(function ($record) {
-                        // Ajusta el campo según tu modelo. Ejemplo: tipo_prestamo o es_retanqueo
-                        if (property_exists($record, 'tipo_prestamo')) {
-                            return ucfirst($record->tipo_prestamo);
-                        } elseif (property_exists($record, 'es_retanqueo')) {
-                            return $record->es_retanqueo ? 'Retanqueo' : 'Préstamo';
-                        } else {
-                            return 'Préstamo';
-                        }
+                        // $record es un modelo Prestamo, accedemos directamente al campo es_retanqueo
+                        return $record->es_retanqueo ? 'Retanqueo' : 'Préstamo';
                     })
                     ->alignCenter()
                     ->badge()
