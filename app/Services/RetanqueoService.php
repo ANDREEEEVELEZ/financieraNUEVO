@@ -467,10 +467,10 @@ class RetanqueoService
      */
     private function calcularSeguro($monto)
     {
-        if ($monto <= 400) return 6;
-        if ($monto <= 600) return 7;
-        if ($monto <= 800) return 8;
-        return 9;
+        if ($monto <= 400) return 7;
+        if ($monto <= 600) return 8;
+        if ($monto <= 800) return 9;
+        return 10;
     }
 
     /**

@@ -222,13 +222,13 @@ class PrestamoResource extends Resource
                             
                             // Calcular seguro según el monto
                             if ($monto <= 400) {
-                                $seguro = 6;
-                            } elseif ($monto <= 600) {
                                 $seguro = 7;
-                            } elseif ($monto <= 800) {
+                            } elseif ($monto <= 600) {
                                 $seguro = 8;
-                            } else {
+                            } elseif ($monto <= 800) {
                                 $seguro = 9;
+                            } else {
+                                $seguro = 10;
                             }
                             
                             // Calcular interés

@@ -41,13 +41,13 @@ class CreatePrestamo extends CreateRecord
             $monto = floatval($cli['monto'] ?? 0);
 
             if ($monto <= 400) {
-                $totalSeguro += 6;
-            } elseif ($monto <= 600) {
                 $totalSeguro += 7;
-            } elseif ($monto <= 800) {
+            } elseif ($monto <= 600) {
                 $totalSeguro += 8;
-            } else {
+            } elseif ($monto <= 800) {
                 $totalSeguro += 9;
+            } else {
+                $totalSeguro += 10;
             }
         }
 
@@ -79,13 +79,13 @@ class CreatePrestamo extends CreateRecord
 
         // Cálculo del seguro según el monto solicitado
         if ($montoSolicitado <= 400) {
-            $seguro = 6;
-        } elseif ($montoSolicitado <= 600) {
             $seguro = 7;
-        } elseif ($montoSolicitado <= 800) {
+        } elseif ($montoSolicitado <= 600) {
             $seguro = 8;
-        } else {
+        } elseif ($montoSolicitado <= 800) {
             $seguro = 9;
+        } else {
+            $seguro = 10;
         }
 
         $interes = $montoSolicitado * ($tasaInteres / 100);

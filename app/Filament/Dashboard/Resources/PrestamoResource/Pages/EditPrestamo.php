@@ -155,13 +155,13 @@ class EditPrestamo extends EditRecord
 
                 // Calcular seguro según el monto solicitado
                 if ($montoSolicitado <= 400) {
-                    $seguro = 6;
-                } elseif ($montoSolicitado <= 600) {
                     $seguro = 7;
-                } elseif ($montoSolicitado <= 800) {
+                } elseif ($montoSolicitado <= 600) {
                     $seguro = 8;
-                } else {
+                } elseif ($montoSolicitado <= 800) {
                     $seguro = 9;
+                } else {
+                    $seguro = 10;
                 }
 
                 $interes = $montoSolicitado * ($tasaInteres / 100);
