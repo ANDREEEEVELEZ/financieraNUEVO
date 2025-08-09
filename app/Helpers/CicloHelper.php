@@ -153,9 +153,9 @@ class CicloHelper
     }
     
     /**
-     * Obtiene las opciones para el select de montos con información del seguro
+     * Obtiene las opciones para el select de montos (solo monto, sin información adicional)
      * LÓGICA ACUMULATIVA: Muestra todos los montos disponibles hasta el ciclo actual
-     * Formato: ['monto' => 'S/ monto (Seguro: S/ seguro)']
+     * Formato simplificado: ['monto' => 'S/ monto']
      */
     public static function getMontosPermitidosParaSelect($ciclo)
     {
@@ -171,9 +171,7 @@ class CicloHelper
         sort($montos);
         
         foreach ($montos as $monto) {
-            $seguro = self::getSeguroPorMonto($monto);
-            $cicloDelMonto = self::getCicloPorMonto($monto);
-            $options[$monto] = "S/ " . number_format($monto, 0) . " (Seguro: S/ " . number_format($seguro, 0) . " - Ciclo {$cicloDelMonto})";
+            $options[$monto] = "S/ " . number_format($monto, 0);
         }
         
         return $options;
