@@ -230,7 +230,7 @@ class RetanqueoResource extends Resource
                                                     ->whereHas('persona')
                                                     ->whereDoesntHave('grupos', function ($q) {
                                                         $q->whereNull('grupo_cliente.fecha_salida') // Cliente activo en el grupo
-                                                          ->where('estado', 'Activo'); // Y el grupo está activo
+                                                          ->where('estado_grupo', 'Activo'); // Y el grupo está activo
                                                     });
 
                                                 // Filtrar por asesor si es necesario
@@ -267,7 +267,7 @@ class RetanqueoResource extends Resource
                                                         $enGrupoActivo = \App\Models\Cliente::find($value)
                                                             ->grupos()
                                                             ->whereNull('grupo_cliente.fecha_salida') // Cliente activo en el grupo
-                                                            ->where('estado', 'Activo') // Y el grupo está activo
+                                                            ->where('estado_grupo', 'Activo') // Y el grupo está activo
                                                             ->exists();
                                                             
                                                         if ($enGrupoActivo) {
