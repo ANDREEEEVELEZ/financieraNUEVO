@@ -158,27 +158,40 @@ class PrestamoResource extends Resource
                     TextInput::make('apellidos')->disabled(),
                     TextInput::make('dni')->disabled(),
                     TextInput::make('ciclo')->disabled(),
-                    TextInput::make('monto')
+                    Select::make('monto')
                         ->label(function (callable $get) {
                             $ciclo = \App\Helpers\CicloHelper::normalize($get('ciclo') ?? 'I');
-                            $monto = \App\Helpers\CicloHelper::getMontoMaximo($ciclo);
-                            return 'Monto a Prestar (MAX: S/ ' . $monto . ')';
+                            return 'Monto a Prestar (Ciclo ' . $ciclo . ')';
                         })
-                        ->numeric()
-                        ->required()
-                        ->live(debounce: 1000)
-                        ->minValue(100)
-                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                        ->options(function (callable $get) {
                             $ciclo = \App\Helpers\CicloHelper::normalize($get('ciclo') ?? 'I');
-                            $montoMaximo = \App\Helpers\CicloHelper::getMontoMaximo($ciclo);
-                            if ($state < 100) {
-                                \Filament\Notifications\Notification::make()->title('Mínimo S/ 100')->danger()->send();
-                                $set('monto', 100);
+                            return \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($ciclo);
+                        })
+                        ->required()
+                        ->reactive()
+                        ->placeholder('Selecciona un monto')
+                        ->rules([
+                            function (callable $get) {
+                                return function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    $ciclo = \App\Helpers\CicloHelper::normalize($get('ciclo') ?? 'I');
+                                    if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $ciclo)) {
+                                        $fail('El monto seleccionado no es válido para el ciclo ' . $ciclo);
+                                    }
+                                };
+                            },
+                        ])
+                        ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                            // Validar que el monto seleccionado sea válido para el ciclo
+                            $ciclo = \App\Helpers\CicloHelper::normalize($get('ciclo') ?? 'I');
+                            if (!\App\Helpers\CicloHelper::validarMontoExacto($state, $ciclo)) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Monto no válido para el ciclo ' . $ciclo)
+                                    ->danger()
+                                    ->send();
+                                return;
                             }
-                            if ($state > $montoMaximo) {
-                                \Filament\Notifications\Notification::make()->title('Máximo S/ ' . $montoMaximo)->danger()->send();
-                                $set('monto', $montoMaximo);
-                            }
+                            
+                            // Actualizar totales del préstamo
                             $cs = $get('../../clientes_grupo') ?? [];
                             $t = array_sum(array_map(fn($c) => floatval($c['monto'] ?? 0), $cs));
                             $set('../../monto_prestado_total', $t);

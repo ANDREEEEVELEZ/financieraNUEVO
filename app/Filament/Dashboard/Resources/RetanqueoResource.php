@@ -245,24 +245,33 @@ class RetanqueoResource extends Resource
                                                 }
                                             }),
 
-                                        TextInput::make('monto_solicitado')
+                                        Select::make('monto_solicitado')
                                             ->label('Monto Solicitado')
-                                            ->prefix('S/.')
-                                            ->numeric()
-                                            ->minValue(0)
+                                            ->options(function (callable $get) {
+                                                $cliente = $get('cliente');
+                                                if (!$cliente || !isset($cliente['ciclo'])) {
+                                                    return [];
+                                                }
+                                                $ciclo = \App\Helpers\CicloHelper::normalize($cliente['ciclo']);
+                                                return \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($ciclo);
+                                            })
                                             ->reactive()
                                             ->disabled(fn (callable $get) => $get('participacion_tipo') === 'no_retanquea')
-                                            ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                                                $montoMaximo = $get('monto_maximo') ?? 400;
-                                                if ($state > $montoMaximo) {
-                                                    $set('monto_solicitado', $montoMaximo);
-                                                    Notification::make()
-                                                        ->warning()
-                                                        ->title('Monto ajustado')
-                                                        ->body("El monto se ajustó al máximo permitido: S/ {$montoMaximo}")
-                                                        ->send();
-                                                }
-                                            }),
+                                            ->placeholder('Selecciona un monto')
+                                            ->rules([
+                                                function (callable $get) {
+                                                    return function (string $attribute, $value, \Closure $fail) use ($get) {
+                                                        $cliente = $get('cliente');
+                                                        if (!$cliente || !isset($cliente['ciclo'])) {
+                                                            return;
+                                                        }
+                                                        $ciclo = \App\Helpers\CicloHelper::normalize($cliente['ciclo']);
+                                                        if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $ciclo)) {
+                                                            $fail('El monto seleccionado no es válido para el ciclo ' . $ciclo);
+                                                        }
+                                                    };
+                                                },
+                                            ]),
 
                                         Forms\Components\Hidden::make('cliente_id'),
                                     ])

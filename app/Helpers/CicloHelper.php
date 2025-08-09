@@ -112,6 +112,70 @@ class CicloHelper
     }
     
     /**
+     * Obtiene el seguro correspondiente a un monto específico
+     * Basado en la tabla oficial de montos y seguros
+     */
+    public static function getSeguroPorMonto($monto)
+    {
+        $montoInt = (int) $monto;
+        
+        // Ciclo I
+        if ($montoInt === 400) {
+            return 7;
+        }
+        
+        // Ciclo II  
+        if ($montoInt === 500 || $montoInt === 600) {
+            return 8;
+        }
+        
+        // Ciclo III
+        if ($montoInt === 700 || $montoInt === 800) {
+            return 9;
+        }
+        
+        // Ciclo IV
+        if ($montoInt === 900 || $montoInt === 1000) {
+            return 10;
+        }
+        
+        // Fallback seguro
+        return 7;
+    }
+    
+    /**
+     * Obtiene las opciones para el select de montos con información del seguro
+     * Formato: ['monto' => 'S/ monto (Seguro: S/ seguro)']
+     */
+    public static function getMontosPermitidosParaSelect($ciclo)
+    {
+        if (empty($ciclo)) {
+            return [];
+        }
+        
+        $montos = self::getMontosPermitidos($ciclo);
+        $options = [];
+        
+        foreach ($montos as $monto) {
+            $seguro = self::getSeguroPorMonto($monto);
+            $options[$monto] = "S/ " . number_format($monto, 0) . " (Seguro: S/ " . number_format($seguro, 0) . ")";
+        }
+        
+        return $options;
+    }
+    
+    /**
+     * Valida que un monto sea exactamente uno de los permitidos para el ciclo
+     */
+    public static function validarMontoExacto($monto, $ciclo)
+    {
+        $montosPermitidos = self::getMontosPermitidos($ciclo);
+        $montoInt = (int) $monto;
+        
+        return in_array($montoInt, $montosPermitidos, true);
+    }
+    
+    /**
      * Normaliza un ciclo a formato romano
      */
     public static function normalize($ciclo)
