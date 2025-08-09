@@ -35,7 +35,7 @@ class DashboardPanelProvider extends PanelProvider
             ->login()
             ->path('dashboard')
             ->domain(null)
-            ->theme(asset('css/filament/dashboard/theme.css'))
+            ->theme(secure_asset('css/filament/dashboard/theme.css'))
             ->colors([
                 'primary' => '#9b2c4d',
             ])
