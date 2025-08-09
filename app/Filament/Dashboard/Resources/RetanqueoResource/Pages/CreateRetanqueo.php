@@ -26,6 +26,9 @@ class CreateRetanqueo extends CreateRecord
         // Asegurar que el estado sea correcto
         $data['estado_retanqueo'] = 'solicitud_pendiente';
         
+        // Forzar cantidad de cuotas a 4 (consistente con préstamos regulares)
+        $data['cantidad_cuotas_nuevo'] = 4;
+        
         return $data;
     }
 
@@ -40,7 +43,7 @@ class CreateRetanqueo extends CreateRecord
             
             // Datos adicionales del retanqueo
             $datosRetanqueo = [
-                'cantidad_cuotas' => $data['cantidad_cuotas_nuevo'] ?? 20,
+                'cantidad_cuotas' => $data['cantidad_cuotas_nuevo'] ?? 4, // Fijo en 4 cuotas como préstamos regulares
                 'monto_cuota' => null // Se calculará automáticamente
             ];
 

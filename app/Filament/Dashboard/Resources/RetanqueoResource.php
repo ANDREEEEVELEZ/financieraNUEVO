@@ -99,15 +99,8 @@ class RetanqueoResource extends Resource
                                                 ->first();
 
                                             if ($prestamoActivo) {
-                                                $estadoPrestamo = $retanqueoService->calcularEstadoPrestamo($prestamoActivo->id);
-                                                $opciones[$prestamoActivo->id] = sprintf(
-                                                    '%s - S/ %.2f prestado - S/ %.2f pendiente (%d/%d cuotas)',
-                                                    $grupo->nombre_grupo,
-                                                    $estadoPrestamo['monto_prestado_original'],
-                                                    $estadoPrestamo['saldo_pendiente_total'],
-                                                    $estadoPrestamo['cuotas_pagadas'],
-                                                    $estadoPrestamo['cuotas_total']
-                                                );
+                                                // Solo mostrar el nombre del grupo, la información detallada se ve más abajo
+                                                $opciones[$prestamoActivo->id] = $grupo->nombre_grupo;
                                             }
                                         }
 
@@ -137,7 +130,7 @@ class RetanqueoResource extends Resource
                                                 }
 
                                                 $set('participantes', $participantes);
-                                                $set('cantidad_cuotas_nuevo', 20);
+                                                $set('cantidad_cuotas_nuevo', 4);
                                                 $set('estado_prestamo_info', [
                                                     'monto_prestado' => $estadoPrestamo['monto_prestado_original'],
                                                     'saldo_pendiente' => $estadoPrestamo['saldo_pendiente_total'],
@@ -158,10 +151,9 @@ class RetanqueoResource extends Resource
                                     ->prefixIcon('heroicon-o-calendar-days')
                                     ->numeric()
                                     ->required()
-                                    ->default(2)
-                                    ->minValue(4)
-                                    ->maxValue(52)
-                                    ->helperText('Entre 4 y 52 cuotas')
+                                    ->default(4)
+                                    ->disabled()
+                                    ->helperText('Fijo en 4 cuotas semanales (consistente con préstamos regulares)')
                             ])
                     ]),
 
