@@ -463,14 +463,36 @@ class RetanqueoService
     }
 
     /**
-     * Calcula el seguro según el monto
+     * Calcula el seguro según el monto exacto y ciclo
+     * Basado en tabla oficial de montos y ciclos
      */
     private function calcularSeguro($monto)
     {
-        if ($monto <= 400) return 7;
-        if ($monto <= 600) return 8;
-        if ($monto <= 800) return 9;
-        return 10;
+        // Convertir a entero para comparación exacta
+        $montoInt = (int) $monto;
+        
+        // Ciclo I
+        if ($montoInt === 400) {
+            return 7;
+        }
+        
+        // Ciclo II  
+        if ($montoInt === 500 || $montoInt === 600) {
+            return 8;
+        }
+        
+        // Ciclo III
+        if ($montoInt === 700 || $montoInt === 800) {
+            return 9;
+        }
+        
+        // Ciclo IV
+        if ($montoInt === 900 || $montoInt === 1000) {
+            return 10;
+        }
+        
+        // Fallback seguro - no debería llegar aquí
+        throw new \InvalidArgumentException("Monto no válido para cálculo de seguro: {$monto}");
     }
 
     /**

@@ -153,15 +153,20 @@ class EditPrestamo extends EditRecord
                 $montoSolicitado = floatval($cli['monto']);
                 if ($montoSolicitado <= 0) continue;
 
-                // Calcular seguro según el monto solicitado
-                if ($montoSolicitado <= 400) {
-                    $seguro = 7;
-                } elseif ($montoSolicitado <= 600) {
-                    $seguro = 8;
-                } elseif ($montoSolicitado <= 800) {
-                    $seguro = 9;
+                // Calcular seguro según tabla oficial exacta
+                $montoSolicitadoInt = (int) $montoSolicitado;
+                
+                if ($montoSolicitadoInt === 400) {
+                    $seguro = 7;  // Ciclo I
+                } elseif ($montoSolicitadoInt === 500 || $montoSolicitadoInt === 600) {
+                    $seguro = 8;  // Ciclo II
+                } elseif ($montoSolicitadoInt === 700 || $montoSolicitadoInt === 800) {
+                    $seguro = 9;  // Ciclo III
+                } elseif ($montoSolicitadoInt === 900 || $montoSolicitadoInt === 1000) {
+                    $seguro = 10; // Ciclo IV
                 } else {
-                    $seguro = 10;
+                    // Fallback para montos no estándar
+                    $seguro = 7;
                 }
 
                 $interes = $montoSolicitado * ($tasaInteres / 100);

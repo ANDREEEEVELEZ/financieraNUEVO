@@ -112,15 +112,20 @@ class PrestamoIndividualObserver
         $tasaInteres = $prestamo->tasa_interes ?? 17;
         $numCuotas = $prestamo->cantidad_cuotas ?? 1;
         
-        // Calcular seguro según el monto
-        if ($monto <= 400) {
-            $seguro = 7;
-        } elseif ($monto <= 600) {
-            $seguro = 8;
-        } elseif ($monto <= 800) {
-            $seguro = 9;
+        // Calcular seguro según el monto exacto y tabla oficial
+        $montoInt = (int) $monto;
+        
+        if ($montoInt === 400) {
+            $seguro = 7;  // Ciclo I
+        } elseif ($montoInt === 500 || $montoInt === 600) {
+            $seguro = 8;  // Ciclo II
+        } elseif ($montoInt === 700 || $montoInt === 800) {
+            $seguro = 9;  // Ciclo III
+        } elseif ($montoInt === 900 || $montoInt === 1000) {
+            $seguro = 10; // Ciclo IV
         } else {
-            $seguro = 10;
+            // Fallback para montos no estándar
+            $seguro = 7;
         }
         
         // Calcular interés (como monto, no porcentaje)

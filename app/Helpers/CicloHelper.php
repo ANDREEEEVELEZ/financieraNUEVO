@@ -67,6 +67,51 @@ class CicloHelper
     }
     
     /**
+     * Obtiene todos los montos permitidos para un ciclo específico
+     * Basado en la tabla oficial de montos y ciclos
+     */
+    public static function getMontosPermitidos($ciclo)
+    {
+        $montosPermitidos = [
+            'I' => [400],
+            'II' => [500, 600],
+            'III' => [700, 800],
+            'IV' => [900, 1000]
+        ];
+        
+        // Si el ciclo es un número, convertirlo a romano
+        if (is_numeric($ciclo)) {
+            $ciclo = self::toRoman($ciclo);
+        }
+        
+        return $montosPermitidos[$ciclo] ?? [];
+    }
+    
+    /**
+     * Verifica si un monto es válido para un ciclo específico
+     */
+    public static function esMontoValidoParaCiclo($monto, $ciclo)
+    {
+        $montosPermitidos = self::getMontosPermitidos($ciclo);
+        return in_array((int) $monto, $montosPermitidos);
+    }
+    
+    /**
+     * Obtiene el ciclo al que pertenece un monto específico
+     */
+    public static function getCicloPorMonto($monto)
+    {
+        $montoInt = (int) $monto;
+        
+        if ($montoInt === 400) return 'I';
+        if ($montoInt === 500 || $montoInt === 600) return 'II';
+        if ($montoInt === 700 || $montoInt === 800) return 'III';
+        if ($montoInt === 900 || $montoInt === 1000) return 'IV';
+        
+        return null; // Monto no válido
+    }
+    
+    /**
      * Normaliza un ciclo a formato romano
      */
     public static function normalize($ciclo)

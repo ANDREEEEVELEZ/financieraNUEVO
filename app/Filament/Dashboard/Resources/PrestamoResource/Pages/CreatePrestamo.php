@@ -40,14 +40,20 @@ class CreatePrestamo extends CreateRecord
         foreach ($clientesGrupo as $cli) {
             $monto = floatval($cli['monto'] ?? 0);
 
-            if ($monto <= 400) {
-                $totalSeguro += 7;
-            } elseif ($monto <= 600) {
-                $totalSeguro += 8;
-            } elseif ($monto <= 800) {
-                $totalSeguro += 9;
+            // Calcular seguro según tabla oficial exacta
+            $montoInt = (int) $monto;
+            
+            if ($montoInt === 400) {
+                $totalSeguro += 7;  // Ciclo I
+            } elseif ($montoInt === 500 || $montoInt === 600) {
+                $totalSeguro += 8;  // Ciclo II
+            } elseif ($montoInt === 700 || $montoInt === 800) {
+                $totalSeguro += 9;  // Ciclo III
+            } elseif ($montoInt === 900 || $montoInt === 1000) {
+                $totalSeguro += 10; // Ciclo IV
             } else {
-                $totalSeguro += 10;
+                // Fallback para montos no estándar
+                $totalSeguro += 7;
             }
         }
 
@@ -77,15 +83,20 @@ class CreatePrestamo extends CreateRecord
 
         if ($montoSolicitado <= 0) continue;
 
-        // Cálculo del seguro según el monto solicitado
-        if ($montoSolicitado <= 400) {
-            $seguro = 7;
-        } elseif ($montoSolicitado <= 600) {
-            $seguro = 8;
-        } elseif ($montoSolicitado <= 800) {
-            $seguro = 9;
+        // Cálculo del seguro según tabla oficial exacta
+        $montoSolicitadoInt = (int) $montoSolicitado;
+        
+        if ($montoSolicitadoInt === 400) {
+            $seguro = 7;  // Ciclo I
+        } elseif ($montoSolicitadoInt === 500 || $montoSolicitadoInt === 600) {
+            $seguro = 8;  // Ciclo II
+        } elseif ($montoSolicitadoInt === 700 || $montoSolicitadoInt === 800) {
+            $seguro = 9;  // Ciclo III
+        } elseif ($montoSolicitadoInt === 900 || $montoSolicitadoInt === 1000) {
+            $seguro = 10; // Ciclo IV
         } else {
-            $seguro = 10;
+            // Fallback para montos no estándar
+            $seguro = 7;
         }
 
         $interes = $montoSolicitado * ($tasaInteres / 100);
