@@ -265,9 +265,19 @@ class RetanqueoResource extends Resource
                                                         if (!$cliente || !isset($cliente['ciclo'])) {
                                                             return;
                                                         }
+                                                        
                                                         $ciclo = \App\Helpers\CicloHelper::normalize($cliente['ciclo']);
+                                                        
+                                                        // Validar que el monto sea válido
                                                         if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $ciclo)) {
                                                             $fail('El monto seleccionado no es válido para el ciclo ' . $ciclo);
+                                                            return;
+                                                        }
+                                                        
+                                                        // Validación adicional: verificar acceso por ciclo
+                                                        if (!\App\Helpers\CicloHelper::puedeAccederAMonto($value, $ciclo)) {
+                                                            $cicloMinimo = \App\Helpers\CicloHelper::getCicloPorMonto($value);
+                                                            $fail("El monto S/ {$value} está disponible desde el Ciclo {$cicloMinimo}. El cliente actual es Ciclo {$ciclo}.");
                                                         }
                                                     };
                                                 },

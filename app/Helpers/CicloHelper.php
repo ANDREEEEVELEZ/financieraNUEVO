@@ -68,15 +68,20 @@ class CicloHelper
     
     /**
      * Obtiene todos los montos permitidos para un ciclo específico
-     * Basado en la tabla oficial de montos y ciclos
+     * LÓGICA ACUMULATIVA: Un ciclo superior puede acceder a montos de ciclos inferiores
+     * Ciclo I: 400
+     * Ciclo II: 400, 500, 600
+     * Ciclo III: 400, 500, 600, 700, 800
+     * Ciclo IV: 400, 500, 600, 700, 800, 900, 1000
      */
     public static function getMontosPermitidos($ciclo)
     {
-        $montosPermitidos = [
+        // Definir montos acumulativos por ciclo
+        $montosAcumulativos = [
             'I' => [400],
-            'II' => [500, 600],
-            'III' => [700, 800],
-            'IV' => [900, 1000]
+            'II' => [400, 500, 600],
+            'III' => [400, 500, 600, 700, 800],
+            'IV' => [400, 500, 600, 700, 800, 900, 1000]
         ];
         
         // Si el ciclo es un número, convertirlo a romano
@@ -84,7 +89,9 @@ class CicloHelper
             $ciclo = self::toRoman($ciclo);
         }
         
-        return $montosPermitidos[$ciclo] ?? [];
+        // Normalizar ciclo y retornar montos
+        $cicloNormalizado = self::normalize($ciclo);
+        return $montosAcumulativos[$cicloNormalizado] ?? [];
     }
     
     /**
@@ -97,16 +104,18 @@ class CicloHelper
     }
     
     /**
-     * Obtiene el ciclo al que pertenece un monto específico
+     * Obtiene el ciclo MÍNIMO al que pertenece un monto específico
+     * Esto indica desde qué ciclo está disponible ese monto
      */
     public static function getCicloPorMonto($monto)
     {
         $montoInt = (int) $monto;
         
-        if ($montoInt === 400) return 'I';
-        if ($montoInt === 500 || $montoInt === 600) return 'II';
-        if ($montoInt === 700 || $montoInt === 800) return 'III';
-        if ($montoInt === 900 || $montoInt === 1000) return 'IV';
+        // Retorna el ciclo MÍNIMO donde aparece cada monto
+        if ($montoInt === 400) return 'I';       // Disponible desde Ciclo I
+        if ($montoInt === 500 || $montoInt === 600) return 'II';   // Disponible desde Ciclo II
+        if ($montoInt === 700 || $montoInt === 800) return 'III';  // Disponible desde Ciclo III
+        if ($montoInt === 900 || $montoInt === 1000) return 'IV';  // Disponible desde Ciclo IV
         
         return null; // Monto no válido
     }
@@ -145,6 +154,7 @@ class CicloHelper
     
     /**
      * Obtiene las opciones para el select de montos con información del seguro
+     * LÓGICA ACUMULATIVA: Muestra todos los montos disponibles hasta el ciclo actual
      * Formato: ['monto' => 'S/ monto (Seguro: S/ seguro)']
      */
     public static function getMontosPermitidosParaSelect($ciclo)
@@ -153,12 +163,17 @@ class CicloHelper
             return [];
         }
         
+        // Obtener montos acumulativos para el ciclo
         $montos = self::getMontosPermitidos($ciclo);
         $options = [];
         
+        // Ordenar montos de menor a mayor para mejor UX
+        sort($montos);
+        
         foreach ($montos as $monto) {
             $seguro = self::getSeguroPorMonto($monto);
-            $options[$monto] = "S/ " . number_format($monto, 0) . " (Seguro: S/ " . number_format($seguro, 0) . ")";
+            $cicloDelMonto = self::getCicloPorMonto($monto);
+            $options[$monto] = "S/ " . number_format($monto, 0) . " (Seguro: S/ " . number_format($seguro, 0) . " - Ciclo {$cicloDelMonto})";
         }
         
         return $options;
@@ -166,13 +181,42 @@ class CicloHelper
     
     /**
      * Valida que un monto sea exactamente uno de los permitidos para el ciclo
+     * LÓGICA ACUMULATIVA: Valida contra todos los montos disponibles hasta el ciclo actual
      */
     public static function validarMontoExacto($monto, $ciclo)
     {
+        if (empty($monto) || empty($ciclo)) {
+            return false;
+        }
+        
         $montosPermitidos = self::getMontosPermitidos($ciclo);
         $montoInt = (int) $monto;
         
+        // Validación estricta: el monto debe estar exactamente en la lista
         return in_array($montoInt, $montosPermitidos, true);
+    }
+    
+    /**
+     * Verifica si un cliente puede acceder a un monto específico según su ciclo
+     * Método adicional para validación robusta
+     */
+    public static function puedeAccederAMonto($monto, $ciclo)
+    {
+        $montoInt = (int) $monto;
+        $cicloNormalizado = self::normalize($ciclo);
+        
+        // Definir qué ciclos pueden acceder a cada monto
+        $accesoPorMonto = [
+            400 => ['I', 'II', 'III', 'IV'],
+            500 => ['II', 'III', 'IV'],
+            600 => ['II', 'III', 'IV'],
+            700 => ['III', 'IV'],
+            800 => ['III', 'IV'],
+            900 => ['IV'],
+            1000 => ['IV']
+        ];
+        
+        return isset($accesoPorMonto[$montoInt]) && in_array($cicloNormalizado, $accesoPorMonto[$montoInt], true);
     }
     
     /**
