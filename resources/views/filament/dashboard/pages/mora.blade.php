@@ -1,7 +1,27 @@
+<style>
+    #per_page {
+        min-width: 70px !important;
+        padding-left: 0.7rem !important;
+        padding-right: 1.7rem !important;
+        height: 32px !important;
+        font-size: 0.92rem !important;
+        padding-top: 2px !important;
+        padding-bottom: 2px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: #111 !important;
+    }
+    #per_page option:checked, #per_page option[selected] {
+        color: #111 !important;
+        font-weight: bold;
+    }
+</style>
 <x-filament::page>
-    <div class="w-full overflow-x-auto bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 rounded-xl px-4 sm:px-8 py-6 shadow-lg border border-blue-100 dark:border-gray-700">
+    <div class="w-full overflow-x-auto bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 rounded-xl px-4 sm:px-8 pt-4 pb-6 shadow-lg border border-blue-100 dark:border-gray-700">
         <!-- Botones de acción principales alineados a la derecha -->
-        <div class="flex flex-wrap gap-3 items-center justify-end mb-8">
+    <div class="flex flex-wrap gap-3 items-center justify-end mb-4">
             <!-- Botón para abrir modal de filtros -->
             <button type="button" onclick="document.getElementById('filtrosModal').showModal()"
                 class="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-200 to-blue-400 hover:from-blue-300 hover:to-blue-500 text-black text-base font-bold rounded-xl shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 border border-blue-400 dark:border-blue-600">
@@ -405,6 +425,35 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+        <div class="mt-4">
+            @if($cuotas_mora->total() > 0)
+                @php
+                    $from = ($cuotas_mora->currentPage() - 1) * $cuotas_mora->perPage() + 1;
+                    $to = $from + $cuotas_mora->count() - 1;
+                @endphp
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 w-full">
+                    <div class="flex items-center justify-start w-full md:w-auto mb-2 md:mb-0">
+                        <span class="text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">Se muestran de {{ $from }} a {{ $to }} de {{ $cuotas_mora->total() }} resultados</span>
+                    </div>
+                    <div class="flex items-center justify-center w-full gap-4">
+                        <form method="GET" class="flex items-center gap-2">
+                            <label for="per_page" class="text-sm text-gray-700 dark:text-gray-200">por página</label>
+                            <select name="per_page" id="per_page" class="rounded border-gray-300 dark:bg-gray-900 dark:text-white px-4 py-2 text-base min-w-[80px]" onchange="this.form.submit()">
+                                @foreach([10, 15, 25, 50, 100] as $size)
+                                    <option value="{{ $size }}" @if(request('per_page', 10) == $size) selected @endif>{{ $size }}</option>
+                                @endforeach
+                            </select>
+                            @foreach(request()->except('per_page', 'page') as $key => $value)
+                                <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                            @endforeach
+                        </form>
+                    </div>
+                    <div class="flex items-center justify-end w-full gap-4">
+                        {{ $cuotas_mora->appends(request()->except('page'))->onEachSide(1)->links('custom.pagination') }}
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 </x-filament::page>

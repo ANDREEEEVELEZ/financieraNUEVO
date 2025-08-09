@@ -469,4 +469,5 @@
         });
     </script>
 </div>
+
 </x-filament-panels::page>

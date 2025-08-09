@@ -142,7 +142,18 @@ class AsesorPage  extends Page
             });
 
 
-        $gruposEnMoraQuery = $gruposQueryBase->with([
+
+        // Filtrar grupos en mora por asesor si corresponde
+        $gruposEnMoraQuery = Grupo::query();
+        if ($user->hasRole('Asesor')) {
+            $asesor = AsesorModel::where('user_id', $user->id)->first();
+            if ($asesor) {
+                $gruposEnMoraQuery->whereHas('clientes', function ($q) use ($asesor) {
+                    $q->where('asesor_id', $asesor->id);
+                });
+            }
+        }
+        $gruposEnMoraQuery = $gruposEnMoraQuery->with([
             'clientes',
             'prestamos' => function($query) {
                 $query->orderByDesc('id');
@@ -160,40 +171,29 @@ class AsesorPage  extends Page
 
         $gruposEnMora = $gruposEnMoraQuery->get()->filter(function($grupo) use ($desde, $hasta) {
             $prestamoPrincipal = $grupo->prestamos->first();
-
             if ($prestamoPrincipal) {
-
                 $tieneCuotaEnMora = $prestamoPrincipal->cuotasGrupales->contains(function($cuota) use ($desde, $hasta) {
-
                     if ($cuota->estado_cuota_grupal !== 'mora') {
                         return false;
                     }
-
-
                     if ($desde && $cuota->fecha_vencimiento < $desde) {
                         return false;
                     }
                     if ($hasta && $cuota->fecha_vencimiento > $hasta) {
                         return false;
                     }
-
                     return true;
                 });
-
                 return $tieneCuotaEnMora;
             }
-
             return false;
         })->map(function($grupo) use ($desde, $hasta) {
             $numeroIntegrantes = $grupo->clientes->count();
             $prestamoPrincipal = $grupo->prestamos->first();
-
-
             $montoMoraGrupo = 0;
             if ($prestamoPrincipal) {
                 foreach ($prestamoPrincipal->cuotasGrupales as $cuota) {
                     if ($cuota->estado_cuota_grupal === 'mora' && $cuota->mora && $cuota->mora->estado_mora === 'pendiente') {
-
                         $incluirCuota = true;
                         if ($desde && $cuota->fecha_vencimiento < $desde) {
                             $incluirCuota = false;
@@ -201,14 +201,12 @@ class AsesorPage  extends Page
                         if ($hasta && $cuota->fecha_vencimiento > $hasta) {
                             $incluirCuota = false;
                         }
-
                         if ($incluirCuota) {
                             $montoMoraGrupo += $cuota->mora->getMontoMoraCalculadoAttribute();
                         }
                     }
                 }
             }
-
             return [
                 'nombre' => $grupo->nombre_grupo,
                 'numero_integrantes' => $numeroIntegrantes,
@@ -259,13 +257,14 @@ class AsesorPage  extends Page
             })
             ->take(10);
 
+
+
         return [
             'totalGrupos' => $totalGrupos,
             'totalClientes' => $totalClientes,
             'totalPrestamos' => $totalPrestamos,
             'totalPagosRegistrados' => $totalPagosRegistrados,
             'totalMorasHistoricas' => $totalMorasHistoricas,
-
             'cuotasVigentes' => $cuotasVigentes,
             'cuotasEnMora' => $cuotasEnMora,
             'cuotasCanceladas' => $cuotasCanceladas,
@@ -275,9 +274,10 @@ class AsesorPage  extends Page
             'pagosRechazados' => $pagosRechazados,
             'cuotasEstadosBar' => $cuotasEstadosBar,
             'pagosPorFecha' => $pagosPorFecha,
-            'pagosPie' => $pagosPie, 
+            'pagosPie' => $pagosPie,
             'grupos' => $gruposEnMora,
             'moraPorGrupo' => $moraPorGrupo,
+
         ];
     }
 }

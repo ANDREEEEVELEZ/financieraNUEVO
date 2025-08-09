@@ -2,6 +2,8 @@
 
 namespace App\Filament\Dashboard\Pages;
 
+use Illuminate\Support\Facades\Log;
+
 use Filament\Pages\Page;
 use App\Models\Mora;
 use App\Models\CuotasGrupales;
@@ -18,18 +20,18 @@ class Moras extends Page
         // Actualizar automáticamente el estado de cuotas vencidas
         // SOLO marcamos como mora las cuotas que realmente están vencidas (1 día después de fecha_vencimiento)
         $fechaVencimientoLimite = now()->subDay(); // Un día antes de hoy para dar 1 día de gracia
-        
+
         // Agregar logs para debugging
         \Illuminate\Support\Facades\Log::info('Moras: Verificando cuotas vencidas', [
             'fecha_limite' => $fechaVencimientoLimite->toDateString(),
             'fecha_actual' => now()->toDateString()
         ]);
-        
+
         $cuotasActualizadas = CuotasGrupales::where('estado_cuota_grupal', 'vigente')
             ->where('estado_pago', '!=', 'pagado')
             ->whereDate('fecha_vencimiento', '<=', $fechaVencimientoLimite)
             ->update(['estado_cuota_grupal' => 'mora']);
-            
+
         \Illuminate\Support\Facades\Log::info('Moras: Cuotas marcadas como mora', [
             'cantidad' => $cuotasActualizadas
         ]);
@@ -82,10 +84,14 @@ class Moras extends Page
         $query = $this->aplicarFiltros($query);
 
         // Implementar paginación idéntica a Filament con selector de elementos por página
-        $perPage = (int) request('per_page', 10); 
+        $perPage = (int) request('per_page', 10);
         $perPage = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 10; // Validar valores permitidos
-        
-        $cuotasMoraPaginadas = $query->orderBy('fecha_vencimiento', 'asc')
+
+        $cuotasMoraPaginadas = $query
+            ->join('moras', 'cuotas_grupales.id', '=', 'moras.cuota_grupal_id')
+            ->orderByRaw("CASE WHEN moras.estado_mora = 'pagada' THEN 1 ELSE 0 END ASC")
+            ->orderBy('fecha_vencimiento', 'asc')
+            ->select('cuotas_grupales.*')
             ->paginate($perPage)
             ->withQueryString(); // Mantener los filtros en la paginación
 
@@ -120,16 +126,21 @@ class Moras extends Page
         }
 
         if (request('estado_mora') && request('estado_mora') !== '') {
+            $estado = request('estado_mora');
+            // Mapear 'parcial' a 'parcialmente_pagada' para consistencia
+            if ($estado === 'parcial') {
+                $estado = 'parcialmente_pagada';
+            }
             $estadosValidos = ['pendiente', 'pagada', 'parcialmente_pagada'];
-            if (in_array(request('estado_mora'), $estadosValidos)) {
-                $query->whereHas('mora', function($q) {
-                    $estado = request('estado_mora');
-                   
-                    if ($estado === 'parcial') {
-                        $estado = 'parcialmente_pagada';
-                    }
+            Log::info('Filtro estado_mora aplicado', ['estado' => $estado]);
+            if (in_array($estado, $estadosValidos)) {
+                // Solo mostrar cuotas que tengan una mora con el estado exacto
+                $query->whereHas('mora', function($q) use ($estado) {
                     $q->where('estado_mora', $estado);
                 });
+            } else {
+                // Si el estado no es válido, forzar que no retorne nada
+                $query->whereRaw('1 = 0');
             }
         }
 
