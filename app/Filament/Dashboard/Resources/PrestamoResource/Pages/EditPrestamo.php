@@ -129,6 +129,10 @@ class EditPrestamo extends EditRecord
             }
         }
 
+        // Forzar valores fijos para todos los préstamos
+        $data['cantidad_cuotas'] = 4;
+        $data['frecuencia'] = 'semanal';
+
         return parent::mutateFormDataBeforeSave($data);
     }
 
@@ -141,7 +145,7 @@ class EditPrestamo extends EditRecord
         if (in_array($this->oldEstado, ['Pendiente', 'Rechazado']) && $prestamo->estado === 'Aprobado') {
             $clientesGrupo = json_decode($prestamo->getRawOriginal('clientes_grupo'), true) ?? [];
             $tasaInteres = $prestamo->tasa_interes ?? 17;
-            $numCuotas = $prestamo->cantidad_cuotas;
+            $numCuotas = 4; // Fijo en 4 cuotas para todos los préstamos
 
             foreach ($clientesGrupo as $cli) {
                 $clienteId = (int)($cli['id'] ?? 0);

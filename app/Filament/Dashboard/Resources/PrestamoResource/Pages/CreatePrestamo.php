@@ -61,6 +61,10 @@ class CreatePrestamo extends CreateRecord
             ? floatval($data['monto_devolver']) + $totalSeguro
             : $totalSeguro;
 
+        // Forzar valores fijos para todos los préstamos
+        $data['cantidad_cuotas'] = 4;
+        $data['frecuencia'] = 'semanal';
+
         return $data;
     }
 
@@ -70,7 +74,10 @@ class CreatePrestamo extends CreateRecord
     $grupo = $prestamo->grupo;
     $clientesGrupo = $this->data['clientes_grupo'] ?? [];
     $tasaInteres = $prestamo->tasa_interes ?? 17;
-    $numCuotas = $prestamo->cantidad_cuotas;
+    $numCuotas = 4; // Fijo en 4 cuotas para todos los préstamos
+    
+    // Asegurar que el préstamo tenga cantidad_cuotas = 4
+    $prestamo->update(['cantidad_cuotas' => 4]);
 
     foreach ($clientesGrupo as $cli) {
         $clienteId = (int)($cli['id'] ?? 0);
