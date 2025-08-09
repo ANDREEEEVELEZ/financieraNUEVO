@@ -212,15 +212,38 @@ class RetanqueoResource extends Resource
                                         Select::make('cliente_id')
                                             ->label('Seleccionar Cliente')
                                             ->options(function (callable $get) {
-                                                // Obtener todos los clientes disponibles
-                                                $clientesDisponibles = \App\Models\Cliente::with('persona')
+                                                $user = request()->user();
+                                                
+                                                // Obtener el asesor actual
+                                                $asesorId = null;
+                                                if ($user->hasRole('Asesor')) {
+                                                    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                                                    $asesorId = $asesor ? $asesor->id : null;
+                                                }
+                                                
+                                                if (!$asesorId && !$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                                                    return []; // Solo asesores o admins pueden ver clientes
+                                                }
+
+                                                // Obtener clientes disponibles (no en grupos activos)
+                                                $query = \App\Models\Cliente::with('persona')
                                                     ->whereHas('persona')
-                                                    ->get()
+                                                    ->whereDoesntHave('grupos', function ($q) {
+                                                        $q->whereNull('grupo_cliente.fecha_salida'); // No está en grupos activos
+                                                    });
+
+                                                // Filtrar por asesor si es necesario
+                                                if ($asesorId) {
+                                                    $query->where('asesor_id', $asesorId);
+                                                }
+
+                                                $clientesDisponibles = $query->get()
                                                     ->mapWithKeys(function ($cliente) {
                                                         return [
-                                                            $cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')'
+                                                            $cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos
                                                         ];
                                                     });
+                                                    
                                                 return $clientesDisponibles;
                                             })
                                             ->searchable()
@@ -237,6 +260,18 @@ class RetanqueoResource extends Resource
                                                             $cliente = \App\Models\Cliente::with('persona')->find($value);
                                                             $nombre = $cliente ? $cliente->persona->nombre . ' ' . $cliente->persona->apellidos : 'Cliente';
                                                             $fail("El cliente {$nombre} ya está seleccionado en otro participante.");
+                                                        }
+
+                                                        // Validar que el cliente no esté en un grupo activo
+                                                        $enGrupoActivo = \App\Models\Cliente::find($value)
+                                                            ->grupos()
+                                                            ->whereNull('grupo_cliente.fecha_salida')
+                                                            ->exists();
+                                                            
+                                                        if ($enGrupoActivo) {
+                                                            $cliente = \App\Models\Cliente::with('persona')->find($value);
+                                                            $nombre = $cliente ? $cliente->persona->nombre . ' ' . $cliente->persona->apellidos : 'Cliente';
+                                                            $fail("El cliente {$nombre} ya pertenece a otro grupo activo.");
                                                         }
                                                     };
                                                 },
