@@ -240,12 +240,12 @@ class RetanqueoResource extends Resource
                                         Select::make('monto_solicitado')
                                             ->label('Monto Solicitado')
                                             ->options(function (callable $get) {
-                                                $cliente = $get('cliente');
-                                                if (!$cliente || !isset($cliente['ciclo'])) {
+                                                $ciclo = $get('ciclo');
+                                                if (!$ciclo) {
                                                     return [];
                                                 }
-                                                $ciclo = \App\Helpers\CicloHelper::normalize($cliente['ciclo']);
-                                                return \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($ciclo);
+                                                $cicloNormalizado = \App\Helpers\CicloHelper::normalize($ciclo);
+                                                return \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($cicloNormalizado);
                                             })
                                             ->reactive()
                                             ->disabled(fn (callable $get) => $get('participacion_tipo') === 'no_retanquea')
@@ -253,23 +253,23 @@ class RetanqueoResource extends Resource
                                             ->rules([
                                                 function (callable $get) {
                                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
-                                                        $cliente = $get('cliente');
-                                                        if (!$cliente || !isset($cliente['ciclo'])) {
+                                                        $ciclo = $get('ciclo');
+                                                        if (!$ciclo) {
                                                             return;
                                                         }
                                                         
-                                                        $ciclo = \App\Helpers\CicloHelper::normalize($cliente['ciclo']);
+                                                        $cicloNormalizado = \App\Helpers\CicloHelper::normalize($ciclo);
                                                         
                                                         // Validar que el monto sea válido
-                                                        if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $ciclo)) {
-                                                            $fail('El monto seleccionado no es válido para el ciclo ' . $ciclo);
+                                                        if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $cicloNormalizado)) {
+                                                            $fail('El monto seleccionado no es válido para el ciclo ' . $cicloNormalizado);
                                                             return;
                                                         }
                                                         
                                                         // Validación adicional: verificar acceso por ciclo
-                                                        if (!\App\Helpers\CicloHelper::puedeAccederAMonto($value, $ciclo)) {
+                                                        if (!\App\Helpers\CicloHelper::puedeAccederAMonto($value, $cicloNormalizado)) {
                                                             $cicloMinimo = \App\Helpers\CicloHelper::getCicloPorMonto($value);
-                                                            $fail("El monto S/ {$value} está disponible desde el Ciclo {$cicloMinimo}. El cliente actual es Ciclo {$ciclo}.");
+                                                            $fail("El monto S/ {$value} está disponible desde el Ciclo {$cicloMinimo}. El cliente actual es Ciclo {$cicloNormalizado}.");
                                                         }
                                                     };
                                                 },
