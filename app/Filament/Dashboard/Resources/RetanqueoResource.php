@@ -208,9 +208,58 @@ class RetanqueoResource extends Resource
                             ->schema([
                                 Grid::make(6)
                                     ->schema([
+                                        // Selector de cliente (solo visible para nuevos elementos)
+                                        Select::make('cliente_id')
+                                            ->label('Seleccionar Cliente')
+                                            ->options(function (callable $get) {
+                                                // Obtener todos los clientes disponibles
+                                                $clientesDisponibles = \App\Models\Cliente::with('persona')
+                                                    ->whereHas('persona')
+                                                    ->get()
+                                                    ->mapWithKeys(function ($cliente) {
+                                                        return [
+                                                            $cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')'
+                                                        ];
+                                                    });
+                                                return $clientesDisponibles;
+                                            })
+                                            ->searchable()
+                                            ->required()
+                                            ->reactive()
+                                            ->rules([
+                                                function (callable $get) {
+                                                    return function (string $attribute, $value, \Closure $fail) use ($get) {
+                                                        // Validar que no se duplique el cliente
+                                                        $todosLosParticipantes = $get('../../participantes') ?? [];
+                                                        $clientesSeleccionados = array_filter(array_column($todosLosParticipantes, 'cliente_id'));
+                                                        
+                                                        if (count(array_keys($clientesSeleccionados, $value)) > 1) {
+                                                            $cliente = \App\Models\Cliente::with('persona')->find($value);
+                                                            $nombre = $cliente ? $cliente->persona->nombre . ' ' . $cliente->persona->apellidos : 'Cliente';
+                                                            $fail("El cliente {$nombre} ya está seleccionado en otro participante.");
+                                                        }
+                                                    };
+                                                },
+                                            ])
+                                            ->afterStateUpdated(function ($state, callable $set) {
+                                                if ($state) {
+                                                    $cliente = \App\Models\Cliente::with('persona')->find($state);
+                                                    if ($cliente && $cliente->persona) {
+                                                        $set('nombre_completo', $cliente->persona->nombre . ' ' . $cliente->persona->apellidos);
+                                                        $cicloNormalizado = \App\Helpers\CicloHelper::normalize($cliente->ciclo ?? 'I');
+                                                        $set('ciclo', $cicloNormalizado);
+                                                        $set('monto_maximo', \App\Helpers\CicloHelper::getMontoMaximo($cicloNormalizado));
+                                                        $set('participacion_tipo', 'nueva');
+                                                        $set('monto_solicitado', 400);
+                                                    }
+                                                }
+                                            })
+                                            ->visible(fn (callable $get) => empty($get('nombre_completo'))), // Solo visible si no hay nombre (nuevo elemento)
+
                                         Placeholder::make('nombre_completo')
                                             ->label('Cliente')
-                                            ->content(fn (callable $get) => $get('nombre_completo') ?? 'Sin nombre'),
+                                            ->content(fn (callable $get) => $get('nombre_completo') ?? 'Seleccione un cliente')
+                                            ->visible(fn (callable $get) => !empty($get('nombre_completo'))), // Solo visible si hay nombre (elemento existente)
 
                                         Placeholder::make('ciclo')
                                             ->label('Ciclo')
@@ -275,11 +324,19 @@ class RetanqueoResource extends Resource
                                                 },
                                             ]),
 
-                                        Forms\Components\Hidden::make('cliente_id'),
+                                        Forms\Components\Hidden::make('cliente_id')
+                                            ->afterStateHydrated(function (callable $set, callable $get, $state) {
+                                                // Si no hay cliente_id pero hay nombre_completo, es un elemento existente
+                                                if (!$state && $get('nombre_completo')) {
+                                                    // Buscar el cliente_id basado en el nombre (para elementos existentes)
+                                                    // Este campo se llenará automáticamente en el afterStateUpdated del selector
+                                                }
+                                            }),
                                     ])
                             ])
-                            ->addable(false)
-                            ->deletable(false)
+                            ->addable(true)
+                            ->addActionLabel('Agregar Nuevo Cliente')
+                            ->deletable(true)
                             ->reorderable(false)
                             ->collapsed(false)
                             ->cloneable(false)

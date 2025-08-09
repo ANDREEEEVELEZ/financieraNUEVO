@@ -362,10 +362,13 @@ class RetanqueoService
             // 3. Generar cuotas grupales del nuevo préstamo
             $this->generarCuotasGrupalesNuevas($nuevoPrestamo);
 
-            // 4. Actualizar préstamo antiguo
+            // 4. Gestionar cambios de membresía del grupo
+            $this->gestionarCambiosMembresiaGrupo($retanqueo, $grupo);
+
+            // 5. Actualizar préstamo antiguo
             $this->actualizarPrestamoAntiguo($retanqueo);
 
-            // 5. Actualizar estado del retanqueo
+            // 6. Actualizar estado del retanqueo
             $retanqueo->update([
                 'prestamo_nuevo_id' => $nuevoPrestamo->id,
                 'estado_retanqueo' => 'ejecutado'
@@ -625,6 +628,73 @@ class RetanqueoService
 
         $retanqueo->update([
             'saldo_restante_prestamo_antiguo' => $saldoRestanteTotal
+        ]);
+    }
+
+    /**
+     * Gestiona los cambios de membresía del grupo durante el retanqueo
+     * - Marca como ex-integrantes a quienes no retanquean
+     * - Agrega como nuevos integrantes a los clientes nuevos
+     */
+    private function gestionarCambiosMembresiaGrupo($retanqueo, $grupo)
+    {
+        $fecha = now()->toDateString();
+        $retanqueosIndividuales = $retanqueo->retanqueosIndividuales;
+
+        Log::info('Gestionando cambios de membresía del grupo', [
+            'retanqueo_id' => $retanqueo->id,
+            'grupo_id' => $grupo->id,
+            'participantes_count' => $retanqueosIndividuales->count()
+        ]);
+
+        foreach ($retanqueosIndividuales as $retanqueoIndividual) {
+            $clienteId = $retanqueoIndividual->cliente_id;
+            $participacionTipo = $retanqueoIndividual->participacion_tipo;
+            
+            // Verificar si el cliente ya está en el grupo
+            $esMiembroActual = $grupo->clientes()->where('clientes.id', $clienteId)->exists();
+
+            if ($participacionTipo === 'no_retanquea' && $esMiembroActual) {
+                // CASO 1: Cliente actual que no retanquea -> Marcar como ex-integrante
+                $grupo->clientes()->updateExistingPivot($clienteId, [
+                    'fecha_salida' => $fecha
+                ]);
+
+                Log::info('Cliente marcado como ex-integrante', [
+                    'cliente_id' => $clienteId,
+                    'grupo_id' => $grupo->id,
+                    'fecha_salida' => $fecha
+                ]);
+
+            } elseif ($participacionTipo === 'nueva' && !$esMiembroActual) {
+                // CASO 2: Cliente nuevo que retanquea -> Agregar como nuevo integrante
+                $grupo->clientes()->attach($clienteId, [
+                    'fecha_ingreso' => $fecha,
+                    'fecha_salida' => null,
+                    'estado_grupo_cliente' => 'activo'
+                ]);
+
+                // Actualizar ciclo del cliente a I si es su primer préstamo
+                $cliente = \App\Models\Cliente::find($clienteId);
+                if ($cliente && !$cliente->ciclo) {
+                    $cliente->update(['ciclo' => 'I']);
+                }
+
+                Log::info('Cliente agregado como nuevo integrante', [
+                    'cliente_id' => $clienteId,
+                    'grupo_id' => $grupo->id,
+                    'fecha_ingreso' => $fecha
+                ]);
+            }
+        }
+
+        // Actualizar contador de integrantes del grupo
+        $integrantesActivos = $grupo->clientes()->count();
+        $grupo->update(['numero_integrantes' => $integrantesActivos]);
+
+        Log::info('Cambios de membresía completados', [
+            'grupo_id' => $grupo->id,
+            'nuevos_integrantes_activos' => $integrantesActivos
         ]);
     }
 }
