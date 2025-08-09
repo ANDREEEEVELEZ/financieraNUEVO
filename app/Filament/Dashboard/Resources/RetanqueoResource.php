@@ -335,10 +335,18 @@ class RetanqueoResource extends Resource
                                             })
                                             ->reactive()
                                             ->disabled(fn (callable $get) => $get('participacion_tipo') === 'no_retanquea')
+                                            ->required(fn (callable $get) => $get('participacion_tipo') !== 'no_retanquea') // Solo requerido si participa
                                             ->placeholder('Selecciona un monto')
                                             ->rules([
                                                 function (callable $get) {
                                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
+                                                        $participacionTipo = $get('participacion_tipo');
+                                                        
+                                                        // Si no retanquea, no validar el monto (puede ser 0 o vacío)
+                                                        if ($participacionTipo === 'no_retanquea') {
+                                                            return;
+                                                        }
+                                                        
                                                         $ciclo = $get('ciclo');
                                                         if (!$ciclo) {
                                                             return;
@@ -346,7 +354,7 @@ class RetanqueoResource extends Resource
                                                         
                                                         $cicloNormalizado = \App\Helpers\CicloHelper::normalize($ciclo);
                                                         
-                                                        // Validar que el monto sea válido
+                                                        // Validar que el monto sea válido solo si participa
                                                         if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $cicloNormalizado)) {
                                                             $fail('El monto seleccionado no es válido para el ciclo ' . $cicloNormalizado);
                                                             return;
