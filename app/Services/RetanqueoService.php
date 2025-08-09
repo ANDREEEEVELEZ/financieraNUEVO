@@ -120,7 +120,7 @@ class RetanqueoService
                 'monto_usado_para_cubrir_antiguo' => 0, // Se calculará
                 'monto_desembolsar' => 0, // Se calculará
                 'monto_cuota' => $datosRetanqueo['monto_cuota'] ?? null,
-                'cantidad_cuotas_nuevo' => $datosRetanqueo['cantidad_cuotas'] ?? 20,
+                'cantidad_cuotas_nuevo' => $datosRetanqueo['cantidad_cuotas'] ?? 4, // Fijo en 4 cuotas como préstamos regulares
                 'saldo_restante_prestamo_antiguo' => 0, // Se calculará
                 'prestamo_antiguo_estado' => 0, // Se calculará
                 'fecha_aceptacion' => null,
@@ -404,7 +404,7 @@ class RetanqueoService
             'tasa_interes' => $prestamoAntiguo->tasa_interes ?? 17,
             'monto_prestado_total' => $retanqueo->monto_retanqueo,
             'monto_devolver' => 0, // Se calculará después
-            'cantidad_cuotas' => $retanqueo->cantidad_cuotas_nuevo ?? 20,
+            'cantidad_cuotas' => $retanqueo->cantidad_cuotas_nuevo ?? 4, // Fijo en 4 cuotas como préstamos regulares
             'fecha_prestamo' => now(),
             'frecuencia' => $prestamoAntiguo->frecuencia ?? 'semanal',
             'estado' => 'Aprobado',
