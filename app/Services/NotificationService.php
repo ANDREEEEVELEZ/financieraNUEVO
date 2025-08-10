@@ -111,6 +111,32 @@ class NotificationService
         $prestamosPorEstado = $todosLosPrestamos->groupBy('estado')->map->count()->toArray();
         Log::info('Préstamos por estado:', $prestamosPorEstado);
 
+        // TEMPORAL: Agregar notificaciones de prueba si no hay datos reales
+        if (empty($prestamosPorEstado)) {
+            Log::info('No hay préstamos en el sistema, agregando notificaciones de prueba');
+            $notifications[] = [
+                'id' => 'test_notification_1',
+                'type' => 'test',
+                'title' => '🧪 Notificación de Prueba',
+                'description' => 'El sistema de notificaciones está funcionando correctamente',
+                'url' => '/dashboard',
+                'icon' => '✅',
+                'color' => 'success',
+                'created_at' => Carbon::now(),
+            ];
+            
+            $notifications[] = [
+                'id' => 'test_notification_2',
+                'type' => 'test',
+                'title' => '🎯 Sistema Activo',
+                'description' => 'Cuando tengas préstamos, pagos o moras pendientes aparecerán aquí',
+                'url' => '/dashboard',
+                'icon' => '🔔',
+                'color' => 'info',
+                'created_at' => Carbon::now()->subMinutes(5),
+            ];
+        }
+
         // Préstamos pendientes de aprobación - buscar varios posibles estados
         $estadosPendientes = ['Pendiente', 'pendiente', 'PENDIENTE', 'En revisión', 'en revision'];
         $prestamosPendientes = Prestamo::whereIn('estado', $estadosPendientes)->get();

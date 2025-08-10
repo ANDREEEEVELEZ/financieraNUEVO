@@ -79,7 +79,7 @@ class DashboardPanelProvider extends PanelProvider
             ->emailVerification()
             ->renderHook(
                 PanelsRenderHook::TOPBAR_END,
-                fn (): string => view('filament.hooks.notification-header')->render()
+                fn (): string => view('filament.hooks.notification-header-fixed')->render()
             );
     }
 }

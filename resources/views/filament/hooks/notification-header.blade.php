@@ -1,4 +1,18 @@
-<div class="flex items-center space-x-4">
+<style>
+    [x-cloak] { 
+        display: none !important; 
+    }
+    .notification-container {
+        position: relative;
+        z-index: 1000;
+    }
+    .notification-dropdown {
+        position: fixed !important;
+        z-index: 99999 !important;
+    }
+</style>
+
+<div class="flex items-center space-x-4 notification-container">
     <div 
         class="relative" 
         x-data="{
@@ -126,8 +140,9 @@
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
             @click.away="open = false"
-            class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
-            style="z-index: 9999; max-height: 80vh;"
+            class="notification-dropdown absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+            style="z-index: 99999; max-height: 80vh; position: fixed; top: 60px; right: 20px;"
+            x-cloak
         >
             <!-- Header del dropdown -->
             <div class="px-4 py-3 border-b border-gray-200">
