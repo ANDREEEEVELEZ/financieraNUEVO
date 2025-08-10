@@ -643,7 +643,8 @@ class PrestamoResource extends Resource
                         ->url(fn($record) => route('contratos.grupo.imprimir', $record->grupo_id))
                         ->visible(fn($record) => $record->grupo_id !== null && strtolower($record->estado) === 'aprobado'),
                 ]),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getPages(): array
@@ -669,6 +670,7 @@ class PrestamoResource extends Resource
             $query->whereRaw('1 = 0');
         }
 
-        return $query;
+        // Ordenamiento simple: siempre los más recientes arriba
+        return $query->orderBy('created_at', 'desc');
     }
 }
