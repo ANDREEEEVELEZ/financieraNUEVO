@@ -228,12 +228,45 @@ class PrestamoResource extends Resource
                         ->label('Apellidos')
                         ->content(fn($record) => $record->cliente->persona->apellidos ?? '-'),
 
-                    TextInput::make('monto_prestado_individual')
-                        ->label('Monto prestado')
-                        ->prefix('S/.')
-                        ->numeric()
-                        ->minValue(100)
-                        ->live(debounce: 500)
+                    Select::make('monto_prestado_individual')
+                        ->label(function ($record) {
+                            if ($record && $record->cliente && $record->cliente->ciclo) {
+                                $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
+                                return 'Monto prestado (Ciclo ' . $ciclo . ')';
+                            }
+                            return 'Monto prestado';
+                        })
+                        ->options(function ($record) {
+                            if ($record && $record->cliente && $record->cliente->ciclo) {
+                                $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
+                                return \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($ciclo);
+                            }
+                            return [];
+                        })
+                        ->required()
+                        ->reactive()
+                        ->placeholder('Selecciona un monto')
+                        ->rules([
+                            function ($record) {
+                                return function (string $attribute, $value, \Closure $fail) use ($record) {
+                                    if ($record && $record->cliente && $record->cliente->ciclo) {
+                                        $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
+                                        
+                                        // Validar que el monto sea válido
+                                        if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $ciclo)) {
+                                            $fail('El monto seleccionado no es válido para el ciclo ' . $ciclo);
+                                            return;
+                                        }
+                                        
+                                        // Validación adicional: verificar acceso por ciclo
+                                        if (!\App\Helpers\CicloHelper::puedeAccederAMonto($value, $ciclo)) {
+                                            $cicloMinimo = \App\Helpers\CicloHelper::getCicloPorMonto($value);
+                                            $fail("El monto S/ {$value} está disponible desde el Ciclo {$cicloMinimo}. El cliente actual es Ciclo {$ciclo}.");
+                                        }
+                                    }
+                                };
+                            },
+                        ])
                         ->disabled(fn() => !$puedeEditarCampos)
                         ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
                             if (!$state || !$record) return;
