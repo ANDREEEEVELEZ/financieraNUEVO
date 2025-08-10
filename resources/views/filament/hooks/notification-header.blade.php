@@ -6,9 +6,11 @@
         loading: false,
         
         async init() {
+            console.log('Inicializando componente de notificaciones...');
             await this.loadNotifications();
             // Refrescar cada 30 segundos
             setInterval(() => {
+                console.log('Auto-refresh de notificaciones...');
                 this.loadNotifications();
             }, 30000);
         },
@@ -16,23 +18,59 @@
         async loadNotifications() {
             this.loading = true;
             try {
+                // Obtener token CSRF
+                const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') 
+                    || document.querySelector('input[name="_token"]')?.value;
+                
+                if (!csrfToken) {
+                    console.warn('Token CSRF no encontrado, intentando sin él...');
+                }
+
+                const headers = {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                };
+
+                if (csrfToken) {
+                    headers['X-CSRF-TOKEN'] = csrfToken;
+                }
+                
+                console.log('Cargando notificaciones desde: /api/notifications');
+                
                 const response = await fetch('/api/notifications', {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').getAttribute('content')
-                    }
+                    method: 'GET',
+                    headers: headers,
+                    credentials: 'same-origin'
                 });
+                
+                console.log('Respuesta recibida:', response.status, response.statusText);
                 
                 if (response.ok) {
                     const data = await response.json();
                     this.notifications = data.notifications || [];
                     this.unreadCount = data.unreadCount || 0;
                     console.log('Notificaciones cargadas:', this.notifications.length);
+                    
+                    if (data.debug) {
+                        console.log('Debug info:', data.debug);
+                    }
                 } else {
-                    console.error('Error al cargar notificaciones:', response.status);
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('Error al cargar notificaciones:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        error: errorData
+                    });
+                    
+                    // Mostrar mensaje de error al usuario si es necesario
+                    if (response.status === 401) {
+                        console.warn('Usuario no autenticado, redirigiendo...');
+                        // window.location.href = '/login';
+                    }
                 }
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error de red o JavaScript:', error);
             } finally {
                 this.loading = false;
             }
@@ -46,6 +84,34 @@
         redirectTo(url) {
             this.open = false;
             window.location.href = url;
+        },
+        
+        // Método temporal para debug
+        async testNotifications() {
+            console.log('=== TEST MANUAL DE NOTIFICACIONES ===');
+            
+            // Test 1: API debug endpoint
+            try {
+                const debugResponse = await fetch('/api/notifications-debug', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                console.log('Debug endpoint response:', debugResponse.status);
+                if (debugResponse.ok) {
+                    const debugData = await debugResponse.json();
+                    console.log('Debug data:', debugData);
+                }
+            } catch (e) {
+                console.error('Error en debug endpoint:', e);
+            }
+            
+            // Test 2: Recargar notificaciones normales
+            await this.loadNotifications();
         }
     }" x-init="init()">
         
@@ -79,14 +145,25 @@
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
             @click.away="open = false"
-            class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
-            style="display: none;"
+            class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+            style="z-index: 9999; max-height: 80vh; display: none;"
         >
             <!-- Header del dropdown -->
             <div class="px-4 py-3 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-gray-900">Notificaciones</h3>
-                    <span x-show="loading" class="text-xs text-gray-500">Cargando...</span>
+                    <div class="flex items-center space-x-2">
+                        <span x-show="loading" class="text-xs text-gray-500">Cargando...</span>
+                        <!-- Botón de debug temporal -->
+                        <button 
+                            @click="testNotifications()"
+                            class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                            type="button"
+                            title="Test de notificaciones (temporal)"
+                        >
+                            🔧 Debug
+                        </button>
+                    </div>
                 </div>
             </div>
 

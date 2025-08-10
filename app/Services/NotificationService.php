@@ -21,18 +21,44 @@ class NotificationService
         $user = Auth::user();
         $notifications = [];
 
-        if ($user && $user->hasRole('Asesor')) {
-            $notifications = array_merge($notifications, $this->getAsesorNotifications($user));
-        }
+        try {
+            if (!$user) {
+                Log::warning('NotificationService: Usuario no autenticado');
+                return $notifications;
+            }
 
-        if ($user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            $notifications = array_merge($notifications, $this->getSupervisorNotifications($user));
-        }
+            Log::info('NotificationService: Cargando notificaciones para usuario', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'user_roles' => $user->roles ? $user->roles->pluck('name')->toArray() : []
+            ]);
 
-        // Ordenar por fecha más reciente
-        usort($notifications, function ($a, $b) {
-            return $b['created_at']->timestamp - $a['created_at']->timestamp;
-        });
+            if ($user && $user->hasRole('Asesor')) {
+                $asesorNotifications = $this->getAsesorNotifications($user);
+                $notifications = array_merge($notifications, $asesorNotifications);
+                Log::info('NotificationService: Notificaciones de asesor cargadas', ['count' => count($asesorNotifications)]);
+            }
+
+            if ($user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                $supervisorNotifications = $this->getSupervisorNotifications($user);
+                $notifications = array_merge($notifications, $supervisorNotifications);
+                Log::info('NotificationService: Notificaciones de supervisor cargadas', ['count' => count($supervisorNotifications)]);
+            }
+
+            // Ordenar por fecha más reciente
+            usort($notifications, function ($a, $b) {
+                return $b['created_at']->timestamp - $a['created_at']->timestamp;
+            });
+
+            Log::info('NotificationService: Total de notificaciones', ['total' => count($notifications)]);
+            
+        } catch (\Exception $e) {
+            Log::error('NotificationService: Error al obtener notificaciones', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+        }
 
         return $notifications;
     }
@@ -82,11 +108,16 @@ class NotificationService
 
         // Debug: Log cuántos préstamos hay en cada estado
         $todosLosPrestamos = Prestamo::select('estado')->get();
-        Log::info('Préstamos por estado:', $todosLosPrestamos->groupBy('estado')->map->count()->toArray());
+        $prestamosPorEstado = $todosLosPrestamos->groupBy('estado')->map->count()->toArray();
+        Log::info('Préstamos por estado:', $prestamosPorEstado);
 
-        // Préstamos pendientes de aprobación - buscar tanto 'Pendiente' como 'pendiente'
-        $prestamosPendientes = Prestamo::whereIn('estado', ['Pendiente', 'pendiente'])->get();
-        Log::info('Préstamos pendientes encontrados:', ['count' => $prestamosPendientes->count()]);
+        // Préstamos pendientes de aprobación - buscar varios posibles estados
+        $estadosPendientes = ['Pendiente', 'pendiente', 'PENDIENTE', 'En revisión', 'en revision'];
+        $prestamosPendientes = Prestamo::whereIn('estado', $estadosPendientes)->get();
+        Log::info('Préstamos pendientes encontrados:', [
+            'count' => $prestamosPendientes->count(),
+            'estados_buscados' => $estadosPendientes
+        ]);
         
         foreach ($prestamosPendientes as $prestamo) {
             $notifications[] = [
