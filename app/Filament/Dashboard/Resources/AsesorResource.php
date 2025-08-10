@@ -250,7 +250,8 @@ class AsesorResource extends Resource
                             ->body('El asesor ha sido activado exitosamente con todos sus permisos.')
                             ->send();
                     }),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc');
     }
     public static function getRelations(): array
     {

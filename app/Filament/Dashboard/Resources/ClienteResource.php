@@ -557,7 +557,7 @@ class ClienteResource extends Resource
             }
         }
 
-        return $query;
+        return $query->orderBy('created_at', 'desc');
     }
 
     public static function getGlobalSearchResultTitle(Model $record): string

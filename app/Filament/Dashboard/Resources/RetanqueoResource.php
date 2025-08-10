@@ -686,7 +686,7 @@ class RetanqueoResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = request()->user();
-        return parent::getEloquentQuery()->visiblePorUsuario($user);
+        return parent::getEloquentQuery()->visiblePorUsuario($user)->orderBy('created_at', 'desc');
     }
 
     public static function getRelations(): array

@@ -452,7 +452,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
         }
 
 
-        return $query;
+        return $query->orderBy('created_at', 'desc');
     }
 
 
