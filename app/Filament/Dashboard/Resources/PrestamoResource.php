@@ -271,8 +271,8 @@ class PrestamoResource extends Resource
                                     
                                     // Verificar si el monto actual (como entero) NO está en las opciones
                                     if (!array_key_exists($montoActualEntero, $opciones)) {
-                                        $montoFormateado = number_format((float)$record->monto_prestado_individual, 2);
-                                        $opciones[$montoActualEntero] = 'S/ ' . $montoFormateado;
+                                        // Usar el mismo formato que CicloHelper (sin decimales)
+                                        $opciones[$montoActualEntero] = 'S/ ' . $montoActualEntero;
                                     }
                                 }
                                 
