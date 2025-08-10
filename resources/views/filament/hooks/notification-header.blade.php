@@ -1,7 +1,98 @@
 <div class="flex items-center space-x-4">
     <div 
         class="relative" 
-        x-data="notificationComponent()" 
+        x-data="{
+            open: false,
+            notifications: [],
+            unreadCount: 0,
+            loading: false,
+            
+            async init() {
+                console.log('🔔 Inicializando componente de notificaciones...');
+                await this.loadNotifications();
+                setInterval(() => {
+                    console.log('🔄 Auto-refresh de notificaciones...');
+                    this.loadNotifications();
+                }, 30000);
+            },
+            
+            async loadNotifications() {
+                this.loading = true;
+                try {
+                    console.log('📡 Cargando notificaciones desde: /api/notifications');
+                    
+                    const response = await fetch('/api/notifications', {
+                        method: 'GET',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    console.log('📡 Respuesta recibida:', response.status, response.statusText);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.notifications = data.notifications || [];
+                        this.unreadCount = data.unreadCount || 0;
+                        console.log('✅ Notificaciones cargadas:', this.notifications.length);
+                        
+                        if (data.debug) {
+                            console.log('🔍 Debug info:', data.debug);
+                        }
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        console.error('❌ Error al cargar notificaciones:', {
+                            status: response.status,
+                            statusText: response.statusText,
+                            error: errorData
+                        });
+                    }
+                } catch (error) {
+                    console.error('💥 Error de red o JavaScript:', error);
+                } finally {
+                    this.loading = false;
+                }
+            },
+            
+            toggleDropdown() {
+                this.open = !this.open;
+                console.log('🎯 Dropdown toggled:', this.open);
+            },
+            
+            redirectTo(url) {
+                this.open = false;
+                console.log('🔗 Redirigiendo a:', url);
+                window.location.href = url;
+            },
+            
+            async testNotifications() {
+                console.log('🧪 === TEST MANUAL DE NOTIFICACIONES ===');
+                
+                try {
+                    const debugResponse = await fetch('/api/notifications-debug', {
+                        method: 'GET',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    console.log('🔧 Debug endpoint response:', debugResponse.status);
+                    if (debugResponse.ok) {
+                        const debugData = await debugResponse.json();
+                        console.log('🔧 Debug data:', debugData);
+                    }
+                } catch (e) {
+                    console.error('💥 Error en debug endpoint:', e);
+                }
+                
+                await this.loadNotifications();
+            }
+        }" 
         x-init="init()"
     >
         
@@ -92,107 +183,6 @@
         </div>
     </div>
 </div>
-
-<script>
-function notificationComponent() {
-    return {
-        open: false,
-        notifications: [],
-        unreadCount: 0,
-        loading: false,
-        
-        async init() {
-            console.log('🔔 Inicializando componente de notificaciones...');
-            await this.loadNotifications();
-            // Refrescar cada 30 segundos
-            setInterval(() => {
-                console.log('🔄 Auto-refresh de notificaciones...');
-                this.loadNotifications();
-            }, 30000);
-        },
-        
-        async loadNotifications() {
-            this.loading = true;
-            try {
-                console.log('📡 Cargando notificaciones desde: /api/notifications');
-                
-                const response = await fetch('/api/notifications', {
-                    method: 'GET',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    credentials: 'same-origin'
-                });
-                
-                console.log('📡 Respuesta recibida:', response.status, response.statusText);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    this.notifications = data.notifications || [];
-                    this.unreadCount = data.unreadCount || 0;
-                    console.log('✅ Notificaciones cargadas:', this.notifications.length);
-                    
-                    if (data.debug) {
-                        console.log('🔍 Debug info:', data.debug);
-                    }
-                } else {
-                    const errorData = await response.json().catch(() => ({}));
-                    console.error('❌ Error al cargar notificaciones:', {
-                        status: response.status,
-                        statusText: response.statusText,
-                        error: errorData
-                    });
-                }
-            } catch (error) {
-                console.error('💥 Error de red o JavaScript:', error);
-            } finally {
-                this.loading = false;
-            }
-        },
-        
-        toggleDropdown() {
-            this.open = !this.open;
-            console.log('🎯 Dropdown toggled:', this.open);
-        },
-        
-        redirectTo(url) {
-            this.open = false;
-            console.log('🔗 Redirigiendo a:', url);
-            window.location.href = url;
-        },
-        
-        // Método temporal para debug
-        async testNotifications() {
-            console.log('🧪 === TEST MANUAL DE NOTIFICACIONES ===');
-            
-            // Test 1: API debug endpoint
-            try {
-                const debugResponse = await fetch('/api/notifications-debug', {
-                    method: 'GET',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'same-origin'
-                });
-                
-                console.log('🔧 Debug endpoint response:', debugResponse.status);
-                if (debugResponse.ok) {
-                    const debugData = await debugResponse.json();
-                    console.log('🔧 Debug data:', debugData);
-                }
-            } catch (e) {
-                console.error('💥 Error en debug endpoint:', e);
-            }
-            
-            // Test 2: Recargar notificaciones normales
-            await this.loadNotifications();
-        }
-    }
-}
-</script>
         
         async init() {
             console.log('Inicializando componente de notificaciones...');
