@@ -93,6 +93,6 @@ class UserResource extends Resource
             $query->where('id', $user->id);
         }
 
-        return $query;
+        return $query->orderBy('created_at', 'desc');
     }
 }
