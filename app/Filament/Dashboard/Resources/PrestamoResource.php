@@ -264,11 +264,16 @@ class PrestamoResource extends Resource
                                 // Asegurar que el monto actual esté siempre disponible como opción
                                 if ($record->monto_prestado_individual && 
                                     is_numeric($record->monto_prestado_individual) &&
-                                    $record->monto_prestado_individual > 0 &&
-                                    !array_key_exists($record->monto_prestado_individual, $opciones)) {
+                                    $record->monto_prestado_individual > 0) {
                                     
-                                    $montoFormateado = number_format((float)$record->monto_prestado_individual, 2);
-                                    $opciones[$record->monto_prestado_individual] = 'S/ ' . $montoFormateado;
+                                    // Convertir a entero para comparación consistente
+                                    $montoActualEntero = (int)$record->monto_prestado_individual;
+                                    
+                                    // Verificar si el monto actual (como entero) NO está en las opciones
+                                    if (!array_key_exists($montoActualEntero, $opciones)) {
+                                        $montoFormateado = number_format((float)$record->monto_prestado_individual, 2);
+                                        $opciones[$montoActualEntero] = 'S/ ' . $montoFormateado;
+                                    }
                                 }
                                 
                                 return $opciones;
@@ -296,7 +301,8 @@ class PrestamoResource extends Resource
                                 return null;
                             }
                             
-                            return $monto;
+                            // Convertir a entero para consistencia con las opciones
+                            return (int)$monto;
                         })
                         ->rules([
                             function ($record) {
