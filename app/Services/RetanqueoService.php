@@ -568,45 +568,68 @@ class RetanqueoService
             ->orderBy('numero_cuota')
             ->get();
 
-        // NUEVA LÓGICA: Cubrir usando las cuotas individuales originales de cada cliente
+        // LÓGICA CORREGIDA: Cada persona que retanquea cubre SOLO su propia cuota individual
+        // Las personas que NO retanquean mantienen su deuda individual pendiente
         foreach ($cuotasPendientes as $cuota) {
             $saldoActualCuota = $cuota->saldo_pendiente;
             $montoTotalACubrir = 0;
             
-            // Calcular cuánto cubre cada cliente que retanquea según su cuota individual original
+            // Calcular cuánto cubre cada cliente que retanquea - SOLO su propia parte individual
             foreach ($clientesQueRetanquean as $retanqueoIndividual) {
                 $prestamoIndividual = $prestamoAntiguo->prestamoIndividual()
                     ->where('cliente_id', $retanqueoIndividual->cliente_id)
                     ->first();
                     
                 if ($prestamoIndividual) {
+                    // Cada persona que retanquea cubre SOLO su cuota individual, no más
                     $montoTotalACubrir += $prestamoIndividual->monto_cuota_prestamo_individual;
                 }
             }
             
-            // Aplicar la cobertura
+            // Aplicar la cobertura - pero mantener saldo pendiente para quienes NO retanquearon
             $nuevoSaldoPendiente = round($saldoActualCuota - $montoTotalACubrir, 2);
             
-            // Actualizar la cuota
+            // Actualizar la cuota con el nuevo saldo
             $cuota->update([
                 'saldo_pendiente' => max(0, $nuevoSaldoPendiente)
             ]);
             
-            // Si la cuota quedó completamente pagada, actualizar estados
-            if ($nuevoSaldoPendiente <= 0) {
+            // CRÍTICO: NO marcar como 'pagado' si hay integrantes que no retanquearon
+            // Solo marcar como pagada si TODOS retanquearon O si el saldo realmente es 0
+            $hayIntegrantesQueNoRetanquearon = $clientesQueRetanquean->count() < $totalIntegrantes;
+            
+            if ($nuevoSaldoPendiente <= 0 && !$hayIntegrantesQueNoRetanquearon) {
+                // Solo si TODOS retanquearon y el saldo es 0, marcar como pagada
                 $cuota->update([
                     'estado_pago' => 'pagado',
                     'estado_cuota_grupal' => 'cancelada'
                 ]);
+                
+                Log::info('RetanqueoService: Cuota marcada como pagada - todos retanquearon', [
+                    'cuota_id' => $cuota->id,
+                    'numero_cuota' => $cuota->numero_cuota
+                ]);
+            } else {
+                // Si hay integrantes que no retanquearon, mantener la cuota activa
+                // para que puedan seguir pagando su parte individual
+                Log::info('RetanqueoService: Cuota parcialmente cubierta - pendiente para quien no retanqueó', [
+                    'cuota_id' => $cuota->id,
+                    'numero_cuota' => $cuota->numero_cuota,
+                    'saldo_restante' => $nuevoSaldoPendiente,
+                    'integrantes_no_retanquearon' => $totalIntegrantes - $clientesQueRetanquean->count(),
+                    'razon' => 'Algunos integrantes no retanquearon y deben pagar su cuota individual'
+                ]);
             }
             
-            Log::info('RetanqueoService: Cobertura por cuotas individuales aplicada', [
+            Log::info('RetanqueoService: Cobertura individual aplicada correctamente', [
                 'cuota_id' => $cuota->id,
                 'numero_cuota' => $cuota->numero_cuota,
                 'saldo_original' => $saldoActualCuota,
                 'monto_cubierto' => $montoTotalACubrir,
                 'nuevo_saldo_pendiente' => $nuevoSaldoPendiente,
-                'clientes_que_retanquean' => $clientesQueRetanquean->count()
+                'clientes_que_retanquean' => $clientesQueRetanquean->count(),
+                'total_integrantes' => $totalIntegrantes,
+                'hay_pendientes' => $hayIntegrantesQueNoRetanquearon
             ]);
         }
 
