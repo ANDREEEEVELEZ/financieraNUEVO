@@ -152,7 +152,7 @@ class EditRetanqueo extends EditRecord
             $saldoRestante = max(0, $estadoPrestamo['saldo_pendiente_total'] - $totalCobertura);
 
             $record->update([
-                'cantidad_cuotas_nuevo' => $data['cantidad_cuotas_nuevo'] ?? 20,
+                'cantidad_cuotas_nuevo' => $data['cantidad_cuotas_nuevo'] ?? 4, // CORREGIDO: Por defecto 4 cuotas
                 'monto_retanqueo' => $totalRetanqueo,
                 'monto_usado_para_cubrir_antiguo' => $totalCobertura,
                 'monto_desembolsar' => $totalRetanqueo - $totalCobertura,
