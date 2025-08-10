@@ -633,15 +633,31 @@ class RetanqueoService
             ]);
         }
 
-        // Determinar estado del préstamo
-        if ($clientesQueRetanquean->count() === $totalIntegrantes) {
-            // Todos retanquearon - finalizar inmediatamente
-            $prestamoAntiguo->update(['estado' => 'Finalizado']);
-            $retanqueo->update(['prestamo_antiguo_estado' => 1]);
-        } else {
-            // Algunos no retanquearon - parcialmente retanqueado
+        // Determinar estado del préstamo - LÓGICA CORREGIDA
+        // Verificar si hay integrantes que NO retanquearon
+        $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
+            ->where('participacion_tipo', 'no_retanquea')
+            ->count();
+        
+        if ($integrantesNoRetanqueados > 0) {
+            // HAY integrantes que NO retanquearon - SIEMPRE marcar como Parcialmente_Retanqueado
             $prestamoAntiguo->update(['estado' => 'Parcialmente_Retanqueado']);
             $retanqueo->update(['prestamo_antiguo_estado' => 0]);
+            
+            Log::info('RetanqueoService: Préstamo marcado como Parcialmente_Retanqueado', [
+                'prestamo_id' => $prestamoAntiguo->id,
+                'integrantes_no_retanqueados' => $integrantesNoRetanqueados,
+                'razon' => 'Hay integrantes que no retanquearon y deben seguir pagando'
+            ]);
+        } else {
+            // TODOS retanquearon - finalizar inmediatamente
+            $prestamoAntiguo->update(['estado' => 'Finalizado']);
+            $retanqueo->update(['prestamo_antiguo_estado' => 1]);
+            
+            Log::info('RetanqueoService: Préstamo marcado como Finalizado', [
+                'prestamo_id' => $prestamoAntiguo->id,
+                'razon' => 'Todos los integrantes retanquearon'
+            ]);
         }
 
         // Actualizar saldo restante en el retanqueo
