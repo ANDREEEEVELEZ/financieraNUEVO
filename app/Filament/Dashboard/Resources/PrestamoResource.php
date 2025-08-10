@@ -274,6 +274,10 @@ class PrestamoResource extends Resource
                         ->reactive()
                         ->searchable()
                         ->placeholder('Selecciona un monto')
+                        ->formatStateUsing(function ($state) {
+                            // FORZAR que siempre use el formato entero
+                            return $state ? (int)$state : null;
+                        })
                         ->default(function ($record) {
                             // Validación robusta del valor por defecto
                             if (!$record || !isset($record->monto_prestado_individual)) {
