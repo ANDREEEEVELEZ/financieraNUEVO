@@ -282,25 +282,11 @@ class Prestamo extends Model
      */
     public function tieneIntegrantesNoRetanqueadosConDeudaPendiente()
     {
-        // Para préstamos "Parcialmente_Retanqueado", verificar si hay cuotas grupales con saldo pendiente
-        if ($this->estado === 'Parcialmente_Retanqueado') {
-            $cuotasConSaldoPendiente = $this->cuotasGrupales()
-                ->where('estado_pago', '!=', 'pagado')
-                ->where('saldo_pendiente', '>', 0)
-                ->count();
-                
-            \Illuminate\Support\Facades\Log::info('Verificando cuotas pendientes para préstamo parcialmente retanqueado', [
-                'prestamo_id' => $this->id,
-                'cuotas_con_saldo_pendiente' => $cuotasConSaldoPendiente
-            ]);
-                
-            return $cuotasConSaldoPendiente > 0;
-        }
-        
-        // Para otros estados, mantener la lógica original
+        // Obtener el retanqueo ejecutado (si existe)
         $retanqueo = $this->retanqueoComoAntiguo()->where('estado_retanqueo', 'ejecutado')->first();
         
         if (!$retanqueo) {
+            // Si no hay retanqueo, no hay integrantes que no retanquearon
             return false;
         }
         
@@ -309,6 +295,17 @@ class Prestamo extends Model
             ->where('participacion_tipo', 'no_retanquea')
             ->with('cliente')
             ->get();
+            
+        if ($integrantesNoRetanqueados->isEmpty()) {
+            // Si no hay integrantes que no retanquearon, no hay deuda pendiente individual
+            return false;
+        }
+        
+        \Illuminate\Support\Facades\Log::info('Verificando integrantes que no retanquearon', [
+            'prestamo_id' => $this->id,
+            'estado' => $this->estado,
+            'total_no_retanqueados' => $integrantesNoRetanqueados->count()
+        ]);
 
         foreach ($integrantesNoRetanqueados as $retanqueoIndividual) {
             $cliente = $retanqueoIndividual->cliente;
@@ -332,12 +329,32 @@ class Prestamo extends Model
                                 'cliente_id' => $cliente->id,
                                 'prestamo_individual_id' => $prestamoIndividual->id,
                                 'estado_prestamo_individual' => $prestamoIndividual->estado,
-                                'monto_devolver' => $montoDevolver
+                                'monto_devolver' => $montoDevolver,
+                                'sigue_en_grupo' => $sigueEnGrupo
                             ]);
                             return true;
                         }
                     }
                 }
+            }
+        }
+        
+        // Verificación adicional para préstamos Parcialmente_Retanqueado:
+        // También verificar si hay cuotas grupales con saldo pendiente que correspondan 
+        // a la parte no cubierta por quienes no retanquearon
+        if ($this->estado === 'Parcialmente_Retanqueado') {
+            $cuotasConSaldoPendiente = $this->cuotasGrupales()
+                ->where('estado_pago', '!=', 'pagado')
+                ->where('saldo_pendiente', '>', 0)
+                ->count();
+                
+            \Illuminate\Support\Facades\Log::info('Verificación adicional de cuotas grupales pendientes', [
+                'prestamo_id' => $this->id,
+                'cuotas_con_saldo_pendiente' => $cuotasConSaldoPendiente
+            ]);
+                
+            if ($cuotasConSaldoPendiente > 0) {
+                return true;
             }
         }
 
