@@ -261,18 +261,17 @@ class PrestamoResource extends Resource
                                     $opciones = [];
                                 }
                                 
-                                // Asegurar que el monto actual esté siempre disponible como opción
+                                // Solo agregar el monto actual si NO está en las opciones válidas del ciclo
+                                // Esto maneja casos donde el monto fue asignado en un ciclo anterior
                                 if ($record->monto_prestado_individual && 
                                     is_numeric($record->monto_prestado_individual) &&
                                     $record->monto_prestado_individual > 0) {
                                     
-                                    // Convertir a entero para comparación consistente
                                     $montoActualEntero = (int)$record->monto_prestado_individual;
                                     
-                                    // Verificar si el monto actual (como entero) NO está en las opciones
+                                    // Solo agregar si el monto actual NO está disponible para el ciclo actual
                                     if (!array_key_exists($montoActualEntero, $opciones)) {
-                                        // Usar el mismo formato que CicloHelper (sin decimales)
-                                        $opciones[$montoActualEntero] = 'S/ ' . $montoActualEntero;
+                                        $opciones[$montoActualEntero] = 'S/ ' . $montoActualEntero . ' (Monto actual)';
                                     }
                                 }
                                 
