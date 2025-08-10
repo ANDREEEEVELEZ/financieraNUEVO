@@ -268,7 +268,7 @@ class PrestamoResource extends Resource
                                     !array_key_exists($record->monto_prestado_individual, $opciones)) {
                                     
                                     $montoFormateado = number_format((float)$record->monto_prestado_individual, 2);
-                                    $opciones[$record->monto_prestado_individual] = 'S/ ' . $montoFormateado . ' (Valor actual)';
+                                    $opciones[$record->monto_prestado_individual] = 'S/ ' . $montoFormateado;
                                 }
                                 
                                 return $opciones;
