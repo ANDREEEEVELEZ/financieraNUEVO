@@ -230,29 +230,92 @@ class PrestamoResource extends Resource
 
                     Select::make('monto_prestado_individual')
                         ->label(function ($record) {
-                            if ($record && $record->cliente && $record->cliente->ciclo) {
+                            // Validación robusta de existencia de datos
+                            if (!$record || !$record->cliente || !$record->cliente->ciclo) {
+                                return 'Monto prestado';
+                            }
+                            
+                            try {
                                 $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
                                 return 'Monto prestado (Ciclo ' . $ciclo . ')';
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('Error en label de monto_prestado_individual', [
+                                    'error' => $e->getMessage(),
+                                    'record_id' => $record->id ?? 'N/A'
+                                ]);
+                                return 'Monto prestado';
                             }
-                            return 'Monto prestado';
                         })
                         ->options(function ($record) {
-                            if ($record && $record->cliente && $record->cliente->ciclo) {
-                                $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
-                                return \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($ciclo);
+                            // Validación robusta de existencia de datos
+                            if (!$record || !$record->cliente || !$record->cliente->ciclo) {
+                                return [];
                             }
-                            return [];
+                            
+                            try {
+                                $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
+                                $opciones = \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($ciclo);
+                                
+                                // Validar que opciones sea un array
+                                if (!is_array($opciones)) {
+                                    $opciones = [];
+                                }
+                                
+                                // Asegurar que el monto actual esté siempre disponible como opción
+                                if ($record->monto_prestado_individual && 
+                                    is_numeric($record->monto_prestado_individual) &&
+                                    $record->monto_prestado_individual > 0 &&
+                                    !array_key_exists($record->monto_prestado_individual, $opciones)) {
+                                    
+                                    $montoFormateado = number_format((float)$record->monto_prestado_individual, 2);
+                                    $opciones[$record->monto_prestado_individual] = 'S/ ' . $montoFormateado . ' (Valor actual)';
+                                }
+                                
+                                return $opciones;
+                            } catch (\Exception $e) {
+                                \Illuminate\Support\Facades\Log::error('Error en options de monto_prestado_individual', [
+                                    'error' => $e->getMessage(),
+                                    'record_id' => $record->id ?? 'N/A'
+                                ]);
+                                return [];
+                            }
                         })
                         ->required()
                         ->reactive()
+                        ->searchable()
                         ->placeholder('Selecciona un monto')
+                        ->default(function ($record) {
+                            // Validación robusta del valor por defecto
+                            if (!$record || !isset($record->monto_prestado_individual)) {
+                                return null;
+                            }
+                            
+                            // Validar que sea un número válido
+                            $monto = $record->monto_prestado_individual;
+                            if (!is_numeric($monto) || $monto <= 0) {
+                                return null;
+                            }
+                            
+                            return $monto;
+                        })
                         ->rules([
                             function ($record) {
                                 return function (string $attribute, $value, \Closure $fail) use ($record) {
-                                    if ($record && $record->cliente && $record->cliente->ciclo) {
+                                    // Validaciones de seguridad
+                                    if (!$record || !$record->cliente || !$record->cliente->ciclo) {
+                                        $fail('No se puede validar el monto: datos del cliente incompletos.');
+                                        return;
+                                    }
+                                    
+                                    if (!is_numeric($value) || $value <= 0) {
+                                        $fail('El monto debe ser un número válido mayor a 0.');
+                                        return;
+                                    }
+                                    
+                                    try {
                                         $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
                                         
-                                        // Validar que el monto sea válido
+                                        // Validar que el monto sea válido para el ciclo
                                         if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $ciclo)) {
                                             $fail('El monto seleccionado no es válido para el ciclo ' . $ciclo);
                                             return;
@@ -263,6 +326,13 @@ class PrestamoResource extends Resource
                                             $cicloMinimo = \App\Helpers\CicloHelper::getCicloPorMonto($value);
                                             $fail("El monto S/ {$value} está disponible desde el Ciclo {$cicloMinimo}. El cliente actual es Ciclo {$ciclo}.");
                                         }
+                                    } catch (\Exception $e) {
+                                        \Illuminate\Support\Facades\Log::error('Error en validación de monto_prestado_individual', [
+                                            'error' => $e->getMessage(),
+                                            'value' => $value,
+                                            'record_id' => $record->id ?? 'N/A'
+                                        ]);
+                                        $fail('Error al validar el monto. Contacte al administrador.');
                                     }
                                 };
                             },
