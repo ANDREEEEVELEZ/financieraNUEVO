@@ -82,6 +82,10 @@ class EditRetanqueo extends EditRecord
         // Limpiar datos innecesarios
         unset($data['estado_prestamo_info']);
         
+        // IMPORTANTE: Remover campos de cuenta para que no interfieran con la edición
+        unset($data['titular_cuenta_desembolso']);
+        unset($data['numero_cuenta_desembolso']);
+        
         return $data;
     }
 

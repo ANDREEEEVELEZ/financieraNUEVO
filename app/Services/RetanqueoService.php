@@ -323,9 +323,9 @@ class RetanqueoService
     /**
      * Ejecuta un retanqueo aprobado
      */
-    public function ejecutarRetanqueo($retanqueoId)
+    public function ejecutarRetanqueo($retanqueoId, $datosCuenta = [])
     {
-        return DB::transaction(function () use ($retanqueoId) {
+        return DB::transaction(function () use ($retanqueoId, $datosCuenta) {
             $retanqueo = Retanqueo::with([
                 'prestamoAntiguo.grupo',
                 'retanqueosIndividuales.cliente.persona'
@@ -353,10 +353,18 @@ class RetanqueoService
             
             $grupo = $prestamoAntiguo->grupo;
 
-            // 1. Crear nuevo préstamo
-            $nuevoPrestamo = $this->crearNuevoPrestamo($retanqueo, $grupo);
+            // SEGURO: Validar y limpiar datos de cuenta
+            $datosCuentaLimpios = [];
+            if (is_array($datosCuenta)) {
+                $datosCuentaLimpios = array_filter($datosCuenta, function($value) {
+                    return !empty($value) && is_string($value) && strlen(trim($value)) > 0;
+                });
+            }
 
-            // 2. Crear préstamos individuales del nuevo préstamo
+            // 1. Crear nuevo préstamo (con datos de cuenta validados)
+            $nuevoPrestamo = $this->crearNuevoPrestamo($retanqueo, $grupo, $datosCuentaLimpios);
+
+            // 2. Crear préstamos individuales del nuevo préstamo (lógica crítica sin modificar)
             $this->crearPrestamosIndividualesNuevos($retanqueo, $nuevoPrestamo);
 
             // 3. Generar cuotas grupales del nuevo préstamo
@@ -387,7 +395,7 @@ class RetanqueoService
     /**
      * Crea el nuevo préstamo para el retanqueo
      */
-    private function crearNuevoPrestamo($retanqueo, $grupo)
+    private function crearNuevoPrestamo($retanqueo, $grupo, $datosCuenta = [])
     {
         $prestamoAntiguo = $retanqueo->prestamoAntiguo;
         
@@ -399,7 +407,8 @@ class RetanqueoService
         // Generar descripción identificativa del retanqueo - SIEMPRE con prefijo RETANQUEO
         $descripcionRetanqueo = "RETANQUEO #{$numeroRetanqueo} {$grupo->nombre_grupo}";
         
-        return Prestamo::create([
+        // Datos base del préstamo (lógica crítica sin modificar)
+        $nuevoPrestamoData = [
             'grupo_id' => $grupo->id,
             'tasa_interes' => $prestamoAntiguo->tasa_interes ?? 17,
             'monto_prestado_total' => $retanqueo->monto_retanqueo,
@@ -412,7 +421,24 @@ class RetanqueoService
             'descripcion' => $descripcionRetanqueo,
             'es_retanqueo' => true,
             'prestamo_origen_id' => $prestamoAntiguo->id
-        ]);
+        ];
+
+        // SEGURO: Agregar datos de cuenta solo si están presentes y válidos
+        if (is_array($datosCuenta)) {
+            if (!empty($datosCuenta['titular_cuenta_desembolso']) && 
+                is_string($datosCuenta['titular_cuenta_desembolso']) && 
+                strlen(trim($datosCuenta['titular_cuenta_desembolso'])) > 0) {
+                $nuevoPrestamoData['titular_cuenta_desembolso'] = trim($datosCuenta['titular_cuenta_desembolso']);
+            }
+            
+            if (!empty($datosCuenta['numero_cuenta_desembolso']) && 
+                is_string($datosCuenta['numero_cuenta_desembolso']) && 
+                strlen(trim($datosCuenta['numero_cuenta_desembolso'])) > 0) {
+                $nuevoPrestamoData['numero_cuenta_desembolso'] = trim($datosCuenta['numero_cuenta_desembolso']);
+            }
+        }
+
+        return Prestamo::create($nuevoPrestamoData);
     }
 
     /**

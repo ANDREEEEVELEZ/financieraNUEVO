@@ -29,6 +29,9 @@ class CreateRetanqueo extends CreateRecord
         // Forzar cantidad de cuotas a 4 (consistente con préstamos regulares)
         $data['cantidad_cuotas_nuevo'] = 4;
         
+        // Los datos de cuenta se mantendrán temporalmente en el formulario
+        // pero no se guardan en la BD hasta que se ejecute el retanqueo
+        
         return $data;
     }
 
@@ -40,6 +43,10 @@ class CreateRetanqueo extends CreateRecord
             // Extraer participantes del array de datos
             $participantes = $data['participantes'] ?? [];
             $prestamoId = $data['prestamo_id'];
+            
+            // IMPORTANTE: Remover campos de cuenta para que no interfieran con la creación
+            unset($data['titular_cuenta_desembolso']);
+            unset($data['numero_cuenta_desembolso']);
             
             // Datos adicionales del retanqueo
             $datosRetanqueo = [

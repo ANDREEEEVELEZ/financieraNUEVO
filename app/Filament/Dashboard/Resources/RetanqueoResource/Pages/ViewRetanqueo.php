@@ -98,13 +98,44 @@ class ViewRetanqueo extends ViewRecord
                     ->label('Ejecutar Retanqueo')
                     ->icon('heroicon-m-play')
                     ->color('primary')
+                    ->form([
+                        \Filament\Forms\Components\Section::make('Información de Desembolso')
+                            ->description('Datos bancarios para el desembolso del nuevo préstamo')
+                            ->schema([
+                                \Filament\Forms\Components\TextInput::make('titular_cuenta_desembolso')
+                                    ->label('Titular de la Cuenta a Desembolsar')
+                                    ->prefixIcon('heroicon-o-user')
+                                    ->placeholder('Ingrese el nombre del titular de la cuenta')
+                                    ->maxLength(255)
+                                    ->helperText('💳 Nombre completo del titular de la cuenta bancaria'),
+
+                                \Filament\Forms\Components\TextInput::make('numero_cuenta_desembolso')
+                                    ->label('Número de la Cuenta a Desembolsar')
+                                    ->prefixIcon('heroicon-o-credit-card')
+                                    ->placeholder('Ingrese el número de cuenta')
+                                    ->maxLength(50)
+                                    ->helperText('🏦 Número de cuenta bancaria para el desembolso')
+                                    ->rules(['regex:/^[0-9\-\s]+$/']),
+                            ])
+                    ])
                     ->requiresConfirmation()
                     ->modalHeading('Ejecutar Retanqueo')
-                    ->modalDescription('¿Está seguro de que desea ejecutar este retanqueo? Esta acción creará el nuevo préstamo y actualizará el anterior.')
-                    ->action(function () {
+                    ->modalDescription('Complete la información de desembolso y confirme la ejecución del retanqueo. Esta acción creará el nuevo préstamo.')
+                    ->modalSubmitActionLabel('Ejecutar Retanqueo')
+                    ->action(function (array $data) {
                         try {
                             $retanqueoService = new RetanqueoService();
-                            $retanqueoService->ejecutarRetanqueo($this->record->id);
+                            
+                            // SEGURO: Preparar datos de cuenta con validación
+                            $datosCuenta = [];
+                            if (!empty($data['titular_cuenta_desembolso'])) {
+                                $datosCuenta['titular_cuenta_desembolso'] = trim($data['titular_cuenta_desembolso']);
+                            }
+                            if (!empty($data['numero_cuenta_desembolso'])) {
+                                $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
+                            }
+                            
+                            $retanqueoService->ejecutarRetanqueo($this->record->id, $datosCuenta);
                             
                             Notification::make()
                                 ->title('Retanqueo Ejecutado')
