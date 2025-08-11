@@ -24,6 +24,8 @@ class Prestamo extends Model
         'descripcion',
         'es_retanqueo',
         'prestamo_origen_id',
+        'titular_cuenta_desembolso',
+        'numero_cuenta_desembolso',
     ];
 
     protected $casts = [

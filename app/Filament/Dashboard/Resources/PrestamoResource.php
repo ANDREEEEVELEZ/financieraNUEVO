@@ -499,6 +499,30 @@ class PrestamoResource extends Resource
                 ->dehydrated(true)
                 ->helperText('📝 "Parcialmente Retanqueado" indica que algunos integrantes no participaron en el retanqueo.'),
 
+            // Campos de cuenta de desembolso
+            Forms\Components\Section::make('Información de Desembolso')
+                ->description('Datos bancarios para el desembolso del préstamo')
+                ->schema([
+                    TextInput::make('titular_cuenta_desembolso')
+                        ->label('Titular de la Cuenta a Desembolsar')
+                        ->prefixIcon('heroicon-o-user')
+                        ->placeholder('Ingrese el nombre del titular de la cuenta')
+                        ->maxLength(255)
+                        ->disabled(fn() => !$puedeEditarCampos)
+                        ->helperText('💳 Nombre completo del titular de la cuenta bancaria'),
+
+                    TextInput::make('numero_cuenta_desembolso')
+                        ->label('Número de la Cuenta a Desembolsar')
+                        ->prefixIcon('heroicon-o-credit-card')
+                        ->placeholder('Ingrese el número de cuenta')
+                        ->maxLength(50)
+                        ->disabled(fn() => !$puedeEditarCampos)
+                        ->helperText('🏦 Número de cuenta bancaria para el desembolso')
+                        ->rules(['regex:/^[0-9\-\s]+$/']),
+                ])
+                ->collapsible()
+                ->collapsed(false),
+
             // Select::make('calificacion')
             //     ->prefixIcon('heroicon-o-star')
             //     ->options([
@@ -626,6 +650,19 @@ class PrestamoResource extends Resource
                     default => 'warning',
                 })
                 ->sortable(),
+                
+            TextColumn::make('titular_cuenta_desembolso')
+                ->label('Titular de Cuenta')
+                ->searchable()
+                ->wrap()
+                ->placeholder('No especificado')
+                ->toggleable(),
+                
+            TextColumn::make('numero_cuenta_desembolso')
+                ->label('N° de Cuenta')
+                ->searchable()
+                ->placeholder('No especificado')
+                ->toggleable(),
             TextColumn::make('detalle_individual')
                 ->label('Detalle Individual')
                 ->html()
