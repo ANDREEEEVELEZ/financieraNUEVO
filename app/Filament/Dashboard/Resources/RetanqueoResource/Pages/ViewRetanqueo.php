@@ -206,6 +206,7 @@ class ViewRetanqueo extends ViewRecord
                         });
                 }
             }
+        }
 
         return $actions;
     }
