@@ -561,12 +561,12 @@ class PrestamoResource extends Resource
         }
         
         // Solo los jefes pueden modificar el estado (y solo si está en Pendiente)
-        if (!$user->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])) {
+        if (!($user && $user->roles->pluck('name')->intersect(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])->isNotEmpty())) {
             unset($data['estado']);
         }
         
         // Los asesores solo pueden editar si el préstamo está en estado Pendiente
-        if ($user->hasRole('Asesor')) {
+        if ($user && $user->roles->pluck('name')->contains('Asesor')) {
             if ($record) {
                 $prestamo = \App\Models\Prestamo::find($record);
                 if ($prestamo && $prestamo->estado !== 'Pendiente') {
@@ -744,7 +744,13 @@ class PrestamoResource extends Resource
             ])
             ->actions([
                 ActionGroup::make([
-                    Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
+                    Tables\Actions\ViewAction::make()
+                        ->icon('heroicon-m-eye'),
+
+                    Tables\Actions\EditAction::make()
+                        ->icon('heroicon-o-pencil-square')
+                        ->visible(fn($record) => $record->estado === 'Pendiente'),
+
                     Tables\Actions\Action::make('imprimir_contrato')
                         ->label('Imprimir Contrato')
                         ->icon('heroicon-o-printer')
@@ -761,6 +767,7 @@ class PrestamoResource extends Resource
         return [
             'index' => Pages\ListPrestamo::route('/'),
             'create' => Pages\CreatePrestamo::route('/create'),
+            'view' => Pages\ViewPrestamo::route('/{record}'),
             'edit' => Pages\EditPrestamo::route('/{record}/edit'),
         ];
     }
