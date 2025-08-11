@@ -481,7 +481,7 @@ class RetanqueoResource extends Resource
                             ->prefixIcon('heroicon-o-user')
                             ->placeholder('Ingrese el nombre del titular de la cuenta')
                             ->maxLength(255)
-                            ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
+                            ->helperText('💳 Nombre completo del titular')
                             ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/')
                             ->rule('min:3')
                             ->extraInputAttributes([
@@ -495,7 +495,7 @@ class RetanqueoResource extends Resource
                             ->placeholder('Ingrese el número de cuenta (14 dígitos)')
                             ->maxLength(14)
                             ->minLength(14)
-                            ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
+                            ->helperText('🏦 Número de cuenta bancaria')
                             ->rule('regex:/^[0-9]{14}$/')
                             ->numeric()
                             ->extraInputAttributes([
