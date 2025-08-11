@@ -509,7 +509,7 @@ class PrestamoResource extends Resource
                         ->placeholder('Ingrese el nombre del titular de la cuenta')
                         ->maxLength(255)
                         ->disabled(fn() => !$puedeEditarCampos)
-                        ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
+                        ->helperText('💳 Nombre completo del titular ')
                         ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/')
                         ->rule('min:3')
                         ->extraInputAttributes([
@@ -524,7 +524,7 @@ class PrestamoResource extends Resource
                         ->maxLength(14)
                         ->minLength(14)
                         ->disabled(fn() => !$puedeEditarCampos)
-                        ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
+                        ->helperText('🏦 Número de cuenta bancaria ')
                         ->rule('regex:/^[0-9]{14}$/')
                         ->numeric()
                         ->extraInputAttributes([
