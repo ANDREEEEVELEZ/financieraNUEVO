@@ -8,6 +8,7 @@ use Filament\Resources\Pages\EditRecord;
 use App\Models\PrestamoIndividual;
 use App\Models\Grupo;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Auth;
 
 class EditPrestamo extends EditRecord
 {
@@ -33,7 +34,7 @@ class EditPrestamo extends EditRecord
         parent::mount($record);
         
         // Validar permisos antes de mostrar el formulario
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
         
         // Si el préstamo NO está en estado Pendiente, mostrar notificación
         if ($this->record->estado !== 'Pendiente') {
@@ -73,10 +74,59 @@ class EditPrestamo extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            // Si el préstamo no está en estado Pendiente, no mostrar acciones de edición
-            // Actions\DeleteAction::make()->icon('heroicon-o-trash'), BOTON DE ELIMINAR DESHABILITADO POR REQUERIMIENTO
-        ];
+        $user = Auth::user();
+        $actions = [];
+
+        // Solo mostrar botones de aprobar/rechazar para roles mayores y préstamos pendientes
+        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) && 
+            $this->record->estado === 'Pendiente') {
+            
+            // Botón Aprobar
+            $actions[] = Actions\Action::make('aprobar')
+                ->label('Aprobar')
+                ->icon('heroicon-m-check-circle')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Aprobar Préstamo')
+                ->modalDescription('¿Está seguro de que desea aprobar este préstamo?')
+                ->modalSubmitActionLabel('Sí, Aprobar')
+                ->action(function () {
+                    $this->record->aprobar();
+                    
+                    Notification::make()
+                        ->title('Préstamo Aprobado')
+                        ->body('El préstamo ha sido aprobado exitosamente.')
+                        ->success()
+                        ->send();
+                    
+                    // Recargar la página para reflejar los cambios
+                    return redirect(static::getResource()::getUrl('edit', ['record' => $this->record]));
+                });
+
+            // Botón Rechazar
+            $actions[] = Actions\Action::make('rechazar')
+                ->label('Rechazar')
+                ->icon('heroicon-m-x-circle')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Rechazar Préstamo')
+                ->modalDescription('¿Está seguro de que desea rechazar este préstamo?')
+                ->modalSubmitActionLabel('Sí, Rechazar')
+                ->action(function () {
+                    $this->record->rechazar();
+                    
+                    Notification::make()
+                        ->title('Préstamo Rechazado')
+                        ->body('El préstamo ha sido rechazado.')
+                        ->danger()
+                        ->send();
+                    
+                    // Recargar la página para reflejar los cambios
+                    return redirect(static::getResource()::getUrl('edit', ['record' => $this->record]));
+                });
+        }
+
+        return $actions;
     }
 
     protected function getFormActions(): array
@@ -94,7 +144,7 @@ class EditPrestamo extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $this->oldEstado = $this->record->estado;
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
         // Si el préstamo NO está en estado Pendiente, no permitir ningún cambio
         if ($this->record->estado !== 'Pendiente') {
@@ -114,13 +164,19 @@ class EditPrestamo extends EditRecord
             }
         }
         
-        // Validación para jefes - solo pueden cambiar el estado (y solo si está en Pendiente)
+        // Validación para jefes - ya no pueden cambiar el estado desde el formulario
+        // El estado se cambia solo con los botones de aprobar/rechazar
         if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            // Conservar todos los campos originales excepto el estado
-            $allowedData = [
-                'estado' => $data['estado'] ?? $this->record->estado,
-            ];
-            $data = array_merge($this->record->toArray(), $allowedData);
+            // Conservar todos los campos originales, el estado no se puede cambiar desde el formulario
+            $originalData = $this->record->toArray();
+            // Permitir solo ciertos campos editables
+            $allowedFields = ['monto_prestado_total', 'monto_devolver', 'fecha_prestamo', 'titular_cuenta_desembolso', 'numero_cuenta_desembolso'];
+            foreach ($allowedFields as $field) {
+                if (isset($data[$field])) {
+                    $originalData[$field] = $data[$field];
+                }
+            }
+            $data = $originalData;
         }
 
         if (isset($data['nuevo_rol']) && !empty($data['nuevo_rol'])) {

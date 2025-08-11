@@ -484,20 +484,8 @@ class PrestamoResource extends Resource
 
             DatePicker::make('fecha_prestamo')->required()->disabled(fn() => !$puedeEditarCampos),
 
-            Select::make('estado')
-                ->prefixIcon('heroicon-o-check-circle')
-                ->options([
-                    'Pendiente' => 'Pendiente',
-                    'Aprobado' => 'Aprobado',
-                    'Parcialmente_Retanqueado' => 'Parcialmente Retanqueado',
-                    'Finalizado' => 'Finalizado',
-                    'Rechazado' => 'Rechazado',
-                ])
-                ->default('Pendiente')
-                ->required()
-                ->disabled(fn() => !$puedeEditarEstado)
-                ->dehydrated(true)
-                ->helperText('📝 "Parcialmente Retanqueado" indica que algunos integrantes no participaron en el retanqueo.'),
+            // Campo Estado oculto - siempre se crea como Pendiente
+            Forms\Components\Hidden::make('estado')->default('Pendiente'),
 
             // Campos de cuenta de desembolso
             Forms\Components\Section::make('Información de Desembolso')
@@ -757,38 +745,6 @@ class PrestamoResource extends Resource
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
-                    Tables\Actions\Action::make('aprobar')
-                        ->label('Aprobar')
-                        ->icon('heroicon-m-check-circle')
-                        ->color('success')
-                        ->visible(fn ($record) => 
-                            in_array(strtolower($record->estado), ['pendiente']) && 
-                            \Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
-                        )
-                        ->action(function ($record) {
-                            $record->aprobar();
-                            Notification::make()
-                                ->title('Préstamo aprobado')
-                                ->body('El préstamo ha sido aprobado exitosamente.')
-                                ->success()
-                                ->send();
-                        }),
-                    Tables\Actions\Action::make('rechazar')
-                        ->label('Rechazar')
-                        ->icon('heroicon-m-x-circle')
-                        ->color('danger')
-                        ->visible(fn ($record) => 
-                            in_array(strtolower($record->estado), ['pendiente']) && 
-                            \Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
-                        )
-                        ->action(function ($record) {
-                            $record->rechazar();
-                            Notification::make()
-                                ->title('Préstamo rechazado')
-                                ->body('El préstamo ha sido rechazado.')
-                                ->danger()
-                                ->send();
-                        }),
                     Tables\Actions\Action::make('imprimir_contrato')
                         ->label('Imprimir Contrato')
                         ->icon('heroicon-o-printer')
