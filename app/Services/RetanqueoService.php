@@ -353,12 +353,26 @@ class RetanqueoService
             
             $grupo = $prestamoAntiguo->grupo;
 
-            // SEGURO: Validar y limpiar datos de cuenta
+            // SEGURO: Validar y limpiar datos de cuenta con reglas estrictas
             $datosCuentaLimpios = [];
             if (is_array($datosCuenta)) {
-                $datosCuentaLimpios = array_filter($datosCuenta, function($value) {
-                    return !empty($value) && is_string($value) && strlen(trim($value)) > 0;
-                });
+                // Validar titular: solo letras, espacios y acentos, mínimo 3 caracteres
+                if (!empty($datosCuenta['titular_cuenta_desembolso']) && 
+                    is_string($datosCuenta['titular_cuenta_desembolso'])) {
+                    $titular = trim($datosCuenta['titular_cuenta_desembolso']);
+                    if (strlen($titular) >= 3 && preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $titular)) {
+                        $datosCuentaLimpios['titular_cuenta_desembolso'] = $titular;
+                    }
+                }
+                
+                // Validar número de cuenta: exactamente 14 dígitos numéricos
+                if (!empty($datosCuenta['numero_cuenta_desembolso']) && 
+                    is_string($datosCuenta['numero_cuenta_desembolso'])) {
+                    $numeroCuenta = trim($datosCuenta['numero_cuenta_desembolso']);
+                    if (preg_match('/^[0-9]{14}$/', $numeroCuenta)) {
+                        $datosCuentaLimpios['numero_cuenta_desembolso'] = $numeroCuenta;
+                    }
+                }
             }
 
             // 1. Crear nuevo préstamo (con datos de cuenta validados)
@@ -425,16 +439,22 @@ class RetanqueoService
 
         // SEGURO: Agregar datos de cuenta solo si están presentes y válidos
         if (is_array($datosCuenta)) {
+            // Validar titular: solo letras, espacios y acentos
             if (!empty($datosCuenta['titular_cuenta_desembolso']) && 
-                is_string($datosCuenta['titular_cuenta_desembolso']) && 
-                strlen(trim($datosCuenta['titular_cuenta_desembolso'])) > 0) {
-                $nuevoPrestamoData['titular_cuenta_desembolso'] = trim($datosCuenta['titular_cuenta_desembolso']);
+                is_string($datosCuenta['titular_cuenta_desembolso'])) {
+                $titular = trim($datosCuenta['titular_cuenta_desembolso']);
+                if (strlen($titular) >= 3 && preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $titular)) {
+                    $nuevoPrestamoData['titular_cuenta_desembolso'] = $titular;
+                }
             }
             
+            // Validar número de cuenta: exactamente 14 dígitos
             if (!empty($datosCuenta['numero_cuenta_desembolso']) && 
-                is_string($datosCuenta['numero_cuenta_desembolso']) && 
-                strlen(trim($datosCuenta['numero_cuenta_desembolso'])) > 0) {
-                $nuevoPrestamoData['numero_cuenta_desembolso'] = trim($datosCuenta['numero_cuenta_desembolso']);
+                is_string($datosCuenta['numero_cuenta_desembolso'])) {
+                $numeroCuenta = trim($datosCuenta['numero_cuenta_desembolso']);
+                if (preg_match('/^[0-9]{14}$/', $numeroCuenta)) {
+                    $nuevoPrestamoData['numero_cuenta_desembolso'] = $numeroCuenta;
+                }
             }
         }
 

@@ -481,15 +481,30 @@ class RetanqueoResource extends Resource
                             ->prefixIcon('heroicon-o-user')
                             ->placeholder('Ingrese el nombre del titular de la cuenta')
                             ->maxLength(255)
-                            ->helperText('💳 Nombre completo del titular de la cuenta bancaria para el nuevo préstamo'),
+                            ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
+                            ->rules([
+                                'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
+                                'min:3'
+                            ])
+                            ->validationMessages([
+                                'regex' => 'El titular solo puede contener letras y espacios.',
+                                'min' => 'El nombre debe tener al menos 3 caracteres.'
+                            ]),
 
                         TextInput::make('numero_cuenta_desembolso')
                             ->label('Número de la Cuenta a Desembolsar')
                             ->prefixIcon('heroicon-o-credit-card')
-                            ->placeholder('Ingrese el número de cuenta')
-                            ->maxLength(50)
-                            ->helperText('🏦 Número de cuenta bancaria para el desembolso del nuevo préstamo')
-                            ->rules(['regex:/^[0-9\-\s]+$/']),
+                            ->placeholder('Ingrese el número de cuenta (14 dígitos)')
+                            ->length(14)
+                            ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
+                            ->rules([
+                                'regex:/^[0-9]{14}$/',
+                                'size:14'
+                            ])
+                            ->validationMessages([
+                                'regex' => 'El número de cuenta debe contener exactamente 14 números.',
+                                'size' => 'El número de cuenta debe tener exactamente 14 dígitos.'
+                            ]),
                     ])
                     ->collapsible()
                     ->collapsed(false),
@@ -683,15 +698,30 @@ class RetanqueoResource extends Resource
                                         ->prefixIcon('heroicon-o-user')
                                         ->placeholder('Ingrese el nombre del titular de la cuenta')
                                         ->maxLength(255)
-                                        ->helperText('💳 Nombre completo del titular de la cuenta bancaria'),
+                                        ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
+                                        ->rules([
+                                            'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
+                                            'min:3'
+                                        ])
+                                        ->validationMessages([
+                                            'regex' => 'El titular solo puede contener letras y espacios.',
+                                            'min' => 'El nombre debe tener al menos 3 caracteres.'
+                                        ]),
 
                                     TextInput::make('numero_cuenta_desembolso')
                                         ->label('Número de la Cuenta a Desembolsar')
                                         ->prefixIcon('heroicon-o-credit-card')
-                                        ->placeholder('Ingrese el número de cuenta')
-                                        ->maxLength(50)
-                                        ->helperText('🏦 Número de cuenta bancaria para el desembolso')
-                                        ->rules(['regex:/^[0-9\-\s]+$/']),
+                                        ->placeholder('Ingrese el número de cuenta (14 dígitos)')
+                                        ->length(14)
+                                        ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
+                                        ->rules([
+                                            'regex:/^[0-9]{14}$/',
+                                            'size:14'
+                                        ])
+                                        ->validationMessages([
+                                            'regex' => 'El número de cuenta debe contener exactamente 14 números.',
+                                            'size' => 'El número de cuenta debe tener exactamente 14 dígitos.'
+                                        ]),
                                 ])
                         ])
                         ->requiresConfirmation()
