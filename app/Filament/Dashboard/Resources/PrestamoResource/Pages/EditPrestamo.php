@@ -46,7 +46,17 @@ class EditPrestamo extends EditRecord
                 ->send();
         }
         
-        if ($user->hasRole('Asesor')) {
+        // NUEVA VALIDACIÓN: Si es un retanqueo, mostrar notificación específica
+        if ($this->record->es_retanqueo) {
+            Notification::make()
+                ->title('Préstamo de Retanqueo - Solo Lectura')
+                ->body('Este es un préstamo de retanqueo y solo puede ser editado desde el módulo de Retanqueos.')
+                ->warning()
+                ->persistent()
+                ->send();
+        }
+        
+        if ($user && $user->roles->pluck('name')->contains('Asesor')) {
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
             $esCreador = $asesor && $this->record->grupo && $this->record->grupo->asesor_id == $asesor->id;
             
@@ -78,7 +88,7 @@ class EditPrestamo extends EditRecord
         $actions = [];
 
         // Solo mostrar botones de aprobar/rechazar para roles mayores y préstamos pendientes
-        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) && 
+        if ($user && $user->roles->pluck('name')->intersect(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->isNotEmpty() && 
             $this->record->estado === 'Pendiente') {
             
             // Botón Aprobar
@@ -131,8 +141,8 @@ class EditPrestamo extends EditRecord
 
     protected function getFormActions(): array
     {
-        // Si el préstamo no está en estado Pendiente, no mostrar el botón de guardar
-        if ($this->record->estado !== 'Pendiente') {
+        // Si el préstamo no está en estado Pendiente O es un retanqueo, no mostrar el botón de guardar
+        if ($this->record->estado !== 'Pendiente' || $this->record->es_retanqueo) {
             return [
                 $this->getCancelFormAction(),
             ];
@@ -146,14 +156,14 @@ class EditPrestamo extends EditRecord
         $this->oldEstado = $this->record->estado;
         $user = Auth::user();
 
-        // Si el préstamo NO está en estado Pendiente, no permitir ningún cambio
-        if ($this->record->estado !== 'Pendiente') {
+        // Si el préstamo NO está en estado Pendiente O es un retanqueo, no permitir ningún cambio
+        if ($this->record->estado !== 'Pendiente' || $this->record->es_retanqueo) {
             // Retornar todos los datos originales sin modificaciones
             return $this->record->toArray();
         }
 
         // Validación de permisos para asesores
-        if ($user->hasRole('Asesor')) {
+        if ($user && $user->roles->pluck('name')->contains('Asesor')) {
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
             $esCreador = $asesor && $this->record->grupo && $this->record->grupo->asesor_id == $asesor->id;
             
@@ -166,7 +176,7 @@ class EditPrestamo extends EditRecord
         
         // Validación para jefes - ya no pueden cambiar el estado desde el formulario
         // El estado se cambia solo con los botones de aprobar/rechazar
-        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+        if ($user && $user->roles->pluck('name')->intersect(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->isNotEmpty()) {
             // Conservar todos los campos originales, el estado no se puede cambiar desde el formulario
             $originalData = $this->record->toArray();
             // Permitir solo ciertos campos editables
@@ -179,11 +189,8 @@ class EditPrestamo extends EditRecord
             $data = $originalData;
         }
 
-        if (isset($data['nuevo_rol']) && !empty($data['nuevo_rol'])) {
-            if ($user->hasAnyRole(['Jefe de operaciones', 'Jefe de creditos'])) {
-                $user->syncRoles([$data['nuevo_rol']]);
-            }
-        }
+        // Eliminar campo nuevo_rol si existe ya que no es funcional aquí
+        unset($data['nuevo_rol']);
 
         // Forzar valores fijos para todos los préstamos
         $data['cantidad_cuotas'] = 4;

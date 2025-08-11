@@ -53,4 +53,40 @@ class PrestamoIndividual extends Model
     {
         return $this->estado === 'Finalizado';
     }
+
+    /**
+     * Boot method para eventos del modelo
+     */
+    protected static function booted()
+    {
+        // Evento que se ejecuta después de guardar un préstamo individual
+        static::saved(function ($prestamoIndividual) {
+            $prestamoIndividual->sincronizarTotalesPrestamo();
+        });
+
+        // Evento que se ejecuta después de eliminar un préstamo individual
+        static::deleted(function ($prestamoIndividual) {
+            $prestamoIndividual->sincronizarTotalesPrestamo();
+        });
+    }
+
+    /**
+     * Sincroniza los totales del préstamo principal cuando se modifica un préstamo individual
+     */
+    public function sincronizarTotalesPrestamo()
+    {
+        if ($this->prestamo) {
+            // Solo sincronizar si el préstamo está en estado Pendiente y NO es un retanqueo
+            if ($this->prestamo->estado === 'Pendiente' && !$this->prestamo->es_retanqueo) {
+                $this->prestamo->sincronizarMontosTotal();
+                
+                \Illuminate\Support\Facades\Log::info('Sincronización automática de totales ejecutada', [
+                    'prestamo_id' => $this->prestamo->id,
+                    'prestamo_individual_id' => $this->id,
+                    'nuevo_monto_total' => $this->prestamo->fresh()->monto_prestado_total,
+                    'nuevo_monto_devolver' => $this->prestamo->fresh()->monto_devolver,
+                ]);
+            }
+        }
+    }
 }

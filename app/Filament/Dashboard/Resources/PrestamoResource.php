@@ -31,10 +31,13 @@ class PrestamoResource extends Resource
         // Si el préstamo existe y su estado NO es 'Pendiente', bloquear todo
         $prestamoNoPendiente = $prestamo && $prestamo->estado !== 'Pendiente';
         
+        // NUEVA VALIDACIÓN: Si es un retanqueo, bloquear edición desde este módulo
+        $esRetanqueo = $prestamo && $prestamo->es_retanqueo;
+        
         // Determinar si el usuario puede editar campos
         $puedeEditarCampos = false;
         
-        if (!$prestamoNoPendiente) { // Solo si el préstamo está en estado Pendiente o es nuevo
+        if (!$prestamoNoPendiente && !$esRetanqueo) { // Solo si el préstamo está en estado Pendiente y NO es retanqueo
             if ($user->hasRole('Asesor')) {
                 // Asesor solo puede editar si es creador y está en estado Pendiente
                 if ($prestamo) {
@@ -57,11 +60,11 @@ class PrestamoResource extends Resource
             }
         }
         
-        // Solo jefes pueden cambiar el estado Y solo si el préstamo está en estado Pendiente
-        $puedeEditarEstado = $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) && !$prestamoNoPendiente;
+        // Solo jefes pueden cambiar el estado Y solo si el préstamo está en estado Pendiente Y NO es retanqueo
+        $puedeEditarEstado = $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) && !$prestamoNoPendiente && !$esRetanqueo;
 
         return $form->schema([
-            // Mensaje informativo cuando el préstamo no está en estado Pendiente
+            // Mensaje informativo cuando el préstamo no está en estado Pendiente o es un retanqueo
             Forms\Components\Placeholder::make('mensaje_bloqueado')
                 ->label('')
                 ->content(function () use ($prestamo) {
@@ -83,7 +86,32 @@ class PrestamoResource extends Resource
                     }
                     return '';
                 })
-                ->visible(fn() => $prestamo && $prestamo->estado !== 'Pendiente')
+                ->visible(fn() => $prestamo && ($prestamo->estado !== 'Pendiente' || $prestamo->es_retanqueo))
+                ->columnSpanFull(),
+
+            // Mensaje específico para retanqueos
+            Forms\Components\Placeholder::make('mensaje_retanqueo')
+                ->label('')
+                ->content(function () use ($prestamo) {
+                    if ($prestamo && $prestamo->es_retanqueo) {
+                        return new \Illuminate\Support\HtmlString(
+                            '<div style="background-color: #dbeafe; border: 1px solid #3b82f6; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <svg style="width: 20px; height: 20px; color: #3b82f6;" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <strong style="color: #1e40af;">PRÉSTAMO DE RETANQUEO</strong>
+                                </div>
+                                <p style="margin: 8px 0 0 0; color: #1e40af; font-size: 14px;">
+                                    Este es un préstamo de retanqueo y <strong>solo puede ser modificado desde el módulo de Retanqueos</strong>. 
+                                    Para hacer cambios, vaya al módulo "Retanqueos" en el menú principal.
+                                </p>
+                            </div>'
+                        );
+                    }
+                    return '';
+                })
+                ->visible(fn() => $prestamo && $prestamo->es_retanqueo)
                 ->columnSpanFull(),
 
             // Información sobre configuración fija
@@ -107,7 +135,7 @@ class PrestamoResource extends Resource
                         </p>
                     </div>'
                 ))
-                ->visible(fn() => !$prestamo || $prestamo->estado === 'Pendiente')
+                ->visible(fn() => !$prestamo || ($prestamo->estado === 'Pendiente' && !$prestamo->es_retanqueo))
                 ->columnSpanFull(),
 
             Select::make('grupo_id')
@@ -549,7 +577,7 @@ class PrestamoResource extends Resource
         $user = \Illuminate\Support\Facades\Auth::user();
         $record = request()->route('record');
         
-        // Si es un préstamo existente, verificar su estado
+        // Si es un préstamo existente, verificar su estado y si es retanqueo
         if ($record) {
             $prestamo = \App\Models\Prestamo::find($record);
             
@@ -558,19 +586,32 @@ class PrestamoResource extends Resource
                 // Retornar los datos originales sin cambios
                 return $prestamo->toArray();
             }
+            
+            // NUEVA VALIDACIÓN: Si es un retanqueo, no permitir cambios desde este módulo
+            if ($prestamo && $prestamo->es_retanqueo) {
+                \Filament\Notifications\Notification::make()
+                    ->title('No se puede editar un retanqueo desde este módulo')
+                    ->body('Los retanqueos solo pueden ser editados desde el módulo de Retanqueos.')
+                    ->warning()
+                    ->persistent()
+                    ->send();
+                    
+                // Retornar los datos originales sin cambios
+                return $prestamo->toArray();
+            }
         }
         
-        // Solo los jefes pueden modificar el estado (y solo si está en Pendiente)
+        // Solo los jefes pueden modificar el estado (y solo si está en Pendiente y no es retanqueo)
         if (!($user && $user->roles->pluck('name')->intersect(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])->isNotEmpty())) {
             unset($data['estado']);
         }
         
-        // Los asesores solo pueden editar si el préstamo está en estado Pendiente
+        // Los asesores solo pueden editar si el préstamo está en estado Pendiente y no es retanqueo
         if ($user && $user->roles->pluck('name')->contains('Asesor')) {
             if ($record) {
                 $prestamo = \App\Models\Prestamo::find($record);
-                if ($prestamo && $prestamo->estado !== 'Pendiente') {
-                    // Si no está en Pendiente, preservar todos los campos
+                if ($prestamo && ($prestamo->estado !== 'Pendiente' || $prestamo->es_retanqueo)) {
+                    // Si no está en Pendiente o es retanqueo, preservar todos los campos
                     return $prestamo->toArray();
                 }
             }
@@ -749,7 +790,15 @@ class PrestamoResource extends Resource
 
                     Tables\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
-                        ->visible(fn($record) => $record->estado === 'Pendiente'),
+                        ->visible(fn($record) => $record->estado === 'Pendiente' && !$record->es_retanqueo),
+
+                    Tables\Actions\Action::make('editar_retanqueo')
+                        ->label('Editar en Retanqueos')
+                        ->icon('heroicon-o-arrow-top-right-on-square')
+                        ->color('info')
+                        ->url(fn($record) => route('filament.dashboard.resources.retanqueos.edit', $record->retanqueoComoNuevo?->id ?? '#'))
+                        ->visible(fn($record) => $record->es_retanqueo && $record->retanqueoComoNuevo)
+                        ->tooltip('Este préstamo solo puede editarse desde el módulo de Retanqueos'),
 
                     Tables\Actions\Action::make('imprimir_contrato')
                         ->label('Imprimir Contrato')

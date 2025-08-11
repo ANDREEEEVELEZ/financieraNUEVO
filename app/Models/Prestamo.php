@@ -410,6 +410,17 @@ class Prestamo extends Model
     // Método para sincronizar los montos totales basándose en los préstamos individuales
     public function sincronizarMontosTotal()
     {
+        // Solo sincronizar si está en estado Pendiente y NO es un retanqueo
+        if ($this->estado !== 'Pendiente' || $this->es_retanqueo) {
+            \Illuminate\Support\Facades\Log::warning('Intento de sincronización bloqueado', [
+                'prestamo_id' => $this->id,
+                'estado' => $this->estado,
+                'es_retanqueo' => $this->es_retanqueo,
+                'motivo' => 'El préstamo no está en estado Pendiente o es un retanqueo'
+            ]);
+            return $this;
+        }
+        
         if ($this->prestamoIndividual()->count() > 0) {
             $montoTotal = $this->prestamoIndividual()->sum('monto_prestado_individual');
             $montoDevolver = $this->prestamoIndividual()->sum('monto_devolver_individual');
@@ -417,6 +428,14 @@ class Prestamo extends Model
             $this->updateQuietly([
                 'monto_prestado_total' => round($montoTotal, 2),
                 'monto_devolver' => round($montoDevolver, 2),
+            ]);
+            
+            \Illuminate\Support\Facades\Log::info('Sincronización de montos completada', [
+                'prestamo_id' => $this->id,
+                'monto_total_anterior' => $this->getOriginal('monto_prestado_total'),
+                'monto_total_nuevo' => round($montoTotal, 2),
+                'monto_devolver_anterior' => $this->getOriginal('monto_devolver'),
+                'monto_devolver_nuevo' => round($montoDevolver, 2),
             ]);
             
             return $this->fresh();
