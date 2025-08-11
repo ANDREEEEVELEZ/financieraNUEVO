@@ -510,14 +510,12 @@ class PrestamoResource extends Resource
                         ->maxLength(255)
                         ->disabled(fn() => !$puedeEditarCampos)
                         ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
-                        ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/')
+                        ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/')
                         ->rule('min:3')
-                        ->reactive()
-                        ->afterStateUpdated(function ($state, callable $set) {
-                            if ($state && !preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $state)) {
-                                $set('titular_cuenta_desembolso', '');
-                            }
-                        }),
+                        ->extraInputAttributes([
+                            'onkeypress' => 'return /[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/.test(event.key)',
+                            'oninput' => 'this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")'
+                        ]),
 
                     TextInput::make('numero_cuenta_desembolso')
                         ->label('Número de la Cuenta a Desembolsar')
@@ -529,17 +527,10 @@ class PrestamoResource extends Resource
                         ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
                         ->rule('regex:/^[0-9]{14}$/')
                         ->numeric()
-                        ->reactive()
-                        ->afterStateUpdated(function ($state, callable $set) {
-                            if ($state) {
-                                // Solo permitir números
-                                $cleaned = preg_replace('/[^0-9]/', '', $state);
-                                if (strlen($cleaned) > 14) {
-                                    $cleaned = substr($cleaned, 0, 14);
-                                }
-                                $set('numero_cuenta_desembolso', $cleaned);
-                            }
-                        }),
+                        ->extraInputAttributes([
+                            'onkeypress' => 'return /[0-9]/.test(event.key) && this.value.length < 14',
+                            'oninput' => 'this.value = this.value.replace(/[^0-9]/g, "").substring(0, 14)'
+                        ]),
                 ])
                 ->collapsible()
                 ->collapsed(false),
