@@ -510,30 +510,36 @@ class PrestamoResource extends Resource
                         ->maxLength(255)
                         ->disabled(fn() => !$puedeEditarCampos)
                         ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
-                        ->rules([
-                            'regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/',
-                            'min:3'
-                        ])
-                        ->validationMessages([
-                            'regex' => 'El titular solo puede contener letras y espacios.',
-                            'min' => 'El nombre debe tener al menos 3 caracteres.'
-                        ]),
+                        ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/')
+                        ->rule('min:3')
+                        ->reactive()
+                        ->afterStateUpdated(function ($state, callable $set) {
+                            if ($state && !preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $state)) {
+                                $set('titular_cuenta_desembolso', '');
+                            }
+                        }),
 
                     TextInput::make('numero_cuenta_desembolso')
                         ->label('Número de la Cuenta a Desembolsar')
                         ->prefixIcon('heroicon-o-credit-card')
                         ->placeholder('Ingrese el número de cuenta (14 dígitos)')
-                        ->length(14)
+                        ->maxLength(14)
+                        ->minLength(14)
                         ->disabled(fn() => !$puedeEditarCampos)
                         ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
-                        ->rules([
-                            'regex:/^[0-9]{14}$/',
-                            'size:14'
-                        ])
-                        ->validationMessages([
-                            'regex' => 'El número de cuenta debe contener exactamente 14 números.',
-                            'size' => 'El número de cuenta debe tener exactamente 14 dígitos.'
-                        ]),
+                        ->rule('regex:/^[0-9]{14}$/')
+                        ->numeric()
+                        ->reactive()
+                        ->afterStateUpdated(function ($state, callable $set) {
+                            if ($state) {
+                                // Solo permitir números
+                                $cleaned = preg_replace('/[^0-9]/', '', $state);
+                                if (strlen($cleaned) > 14) {
+                                    $cleaned = substr($cleaned, 0, 14);
+                                }
+                                $set('numero_cuenta_desembolso', $cleaned);
+                            }
+                        }),
                 ])
                 ->collapsible()
                 ->collapsed(false),
