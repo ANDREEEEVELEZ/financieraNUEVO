@@ -44,17 +44,23 @@ class CreateRetanqueo extends CreateRecord
             $participantes = $data['participantes'] ?? [];
             $prestamoId = $data['prestamo_id'];
             
-            // IMPORTANTE: Remover campos de cuenta para que no interfieran con la creación
-            unset($data['titular_cuenta_desembolso']);
-            unset($data['numero_cuenta_desembolso']);
+            // Extraer datos de cuenta para crear el préstamo pendiente
+            $datosCuenta = [];
+            if (!empty($data['titular_cuenta_desembolso'])) {
+                $datosCuenta['titular_cuenta_desembolso'] = trim($data['titular_cuenta_desembolso']);
+            }
+            if (!empty($data['numero_cuenta_desembolso'])) {
+                $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
+            }
             
             // Datos adicionales del retanqueo
             $datosRetanqueo = [
                 'cantidad_cuotas' => $data['cantidad_cuotas_nuevo'] ?? 4, // Fijo en 4 cuotas como préstamos regulares
-                'monto_cuota' => null // Se calculará automáticamente
+                'monto_cuota' => null, // Se calculará automáticamente
+                'datos_cuenta' => $datosCuenta // Pasar datos de cuenta para crear préstamo pendiente
             ];
 
-            // Crear la solicitud usando el servicio
+            // Crear la solicitud usando el servicio (ahora también crea el préstamo pendiente)
             $retanqueo = $retanqueoService->crearSolicitudRetanqueo(
                 $prestamoId,
                 $participantes,
@@ -85,7 +91,7 @@ class CreateRetanqueo extends CreateRecord
     {
         Notification::make()
             ->title('Solicitud Creada')
-            ->body('La solicitud de retanqueo ha sido creada exitosamente y está pendiente de aprobación.')
+            ->body('La solicitud de retanqueo ha sido creada exitosamente con el préstamo en estado Pendiente. Solo falta la aprobación y ejecución.')
             ->success()
             ->send();
     }

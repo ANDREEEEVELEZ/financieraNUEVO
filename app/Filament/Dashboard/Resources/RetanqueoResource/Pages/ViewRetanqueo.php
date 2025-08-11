@@ -94,78 +94,118 @@ class ViewRetanqueo extends ViewRecord
 
             // Ejecutar retanqueo
             if ($record->estaAprobado()) {
-                $actions[] = Actions\Action::make('ejecutar')
-                    ->label('Ejecutar Retanqueo')
-                    ->icon('heroicon-m-play')
-                    ->color('primary')
-                    ->form([
-                        \Filament\Forms\Components\Section::make('Información de Desembolso')
-                            ->description('Datos bancarios para el desembolso del nuevo préstamo')
-                            ->schema([
-                                \Filament\Forms\Components\TextInput::make('titular_cuenta_desembolso')
-                                    ->label('Titular de la Cuenta a Desembolsar')
-                                    ->prefixIcon('heroicon-o-user')
-                                    ->placeholder('Ingrese el nombre del titular de la cuenta')
-                                    ->maxLength(255)
-                                    ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
-                                    ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/')
-                                    ->rule('min:3')
-                                    ->extraInputAttributes([
-                                        'onkeypress' => 'return /[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/.test(event.key)',
-                                        'oninput' => 'this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")'
-                                    ]),
+                // Verificar si ya existe un préstamo pendiente
+                $tienePrestamoPendiente = $record->prestamo_nuevo_id && 
+                    \App\Models\Prestamo::where('id', $record->prestamo_nuevo_id)
+                        ->where('estado', 'Pendiente')
+                        ->exists();
 
-                                \Filament\Forms\Components\TextInput::make('numero_cuenta_desembolso')
-                                    ->label('Número de la Cuenta a Desembolsar')
-                                    ->prefixIcon('heroicon-o-credit-card')
-                                    ->placeholder('Ingrese el número de cuenta (14 dígitos)')
-                                    ->maxLength(14)
-                                    ->minLength(14)
-                                    ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
-                                    ->rule('regex:/^[0-9]{14}$/')
-                                    ->numeric()
-                                    ->extraInputAttributes([
-                                        'onkeypress' => 'return /[0-9]/.test(event.key) && this.value.length < 14',
-                                        'oninput' => 'this.value = this.value.replace(/[^0-9]/g, "").substring(0, 14)'
-                                    ]),
-                            ])
-                    ])
-                    ->requiresConfirmation()
-                    ->modalHeading('Ejecutar Retanqueo')
-                    ->modalDescription('Complete la información de desembolso y confirme la ejecución del retanqueo. Esta acción creará el nuevo préstamo.')
-                    ->modalSubmitActionLabel('Ejecutar Retanqueo')
-                    ->action(function (array $data) {
-                        try {
-                            $retanqueoService = new RetanqueoService();
-                            
-                            // SEGURO: Preparar datos de cuenta con validación
-                            $datosCuenta = [];
-                            if (!empty($data['titular_cuenta_desembolso'])) {
-                                $datosCuenta['titular_cuenta_desembolso'] = trim($data['titular_cuenta_desembolso']);
-                            }
-                            if (!empty($data['numero_cuenta_desembolso'])) {
-                                $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
-                            }
-                            
-                            $retanqueoService->ejecutarRetanqueo($this->record->id, $datosCuenta);
-                            
-                            Notification::make()
-                                ->title('Retanqueo Ejecutado')
-                                ->body('El retanqueo ha sido ejecutado exitosamente. Se ha creado el nuevo préstamo.')
-                                ->success()
-                                ->send();
+                if ($tienePrestamoPendiente) {
+                    // Si ya existe préstamo pendiente, solo mostrar confirmación simple
+                    $actions[] = Actions\Action::make('ejecutar')
+                        ->label('Ejecutar Retanqueo')
+                        ->icon('heroicon-m-play')
+                        ->color('primary')
+                        ->requiresConfirmation()
+                        ->modalHeading('Ejecutar Retanqueo')
+                        ->modalDescription('El préstamo ya está creado en estado Pendiente. ¿Confirma que desea activarlo?')
+                        ->modalSubmitActionLabel('Sí, Ejecutar Retanqueo')
+                        ->action(function () {
+                            try {
+                                $retanqueoService = new RetanqueoService();
+                                
+                                // No necesitamos datos de cuenta porque ya están guardados
+                                $retanqueoService->ejecutarRetanqueo($this->record->id, []);
+                                
+                                Notification::make()
+                                    ->title('Retanqueo Ejecutado')
+                                    ->body('El retanqueo ha sido ejecutado exitosamente. El préstamo pendiente ha sido activado.')
+                                    ->success()
+                                    ->send();
 
-                            $this->refreshFormData(['estado_retanqueo', 'prestamo_nuevo_id']);
-                        } catch (\Exception $e) {
-                            Notification::make()
-                                ->title('Error')
-                                ->body('Error al ejecutar el retanqueo: ' . $e->getMessage())
-                                ->danger()
-                                ->send();
-                        }
-                    });
+                                $this->refreshFormData(['estado_retanqueo', 'prestamo_nuevo_id']);
+                            } catch (\Exception $e) {
+                                Notification::make()
+                                    ->title('Error')
+                                    ->body('Error al ejecutar el retanqueo: ' . $e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        });
+                } else {
+                    // Flujo original: pedir datos de cuenta
+                    $actions[] = Actions\Action::make('ejecutar')
+                        ->label('Ejecutar Retanqueo')
+                        ->icon('heroicon-m-play')
+                        ->color('primary')
+                        ->form([
+                            \Filament\Forms\Components\Section::make('Información de Desembolso')
+                                ->description('Datos bancarios para el desembolso del nuevo préstamo')
+                                ->schema([
+                                    \Filament\Forms\Components\TextInput::make('titular_cuenta_desembolso')
+                                        ->label('Titular de la Cuenta a Desembolsar')
+                                        ->prefixIcon('heroicon-o-user')
+                                        ->placeholder('Ingrese el nombre del titular de la cuenta')
+                                        ->maxLength(255)
+                                        ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
+                                        ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/')
+                                        ->rule('min:3')
+                                        ->extraInputAttributes([
+                                            'onkeypress' => 'return /[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/.test(event.key)',
+                                            'oninput' => 'this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")'
+                                        ]),
+
+                                    \Filament\Forms\Components\TextInput::make('numero_cuenta_desembolso')
+                                        ->label('Número de la Cuenta a Desembolsar')
+                                        ->prefixIcon('heroicon-o-credit-card')
+                                        ->placeholder('Ingrese el número de cuenta (14 dígitos)')
+                                        ->maxLength(14)
+                                        ->minLength(14)
+                                        ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
+                                        ->rule('regex:/^[0-9]{14}$/')
+                                        ->numeric()
+                                        ->extraInputAttributes([
+                                            'onkeypress' => 'return /[0-9]/.test(event.key) && this.value.length < 14',
+                                            'oninput' => 'this.value = this.value.replace(/[^0-9]/g, "").substring(0, 14)'
+                                        ]),
+                                ])
+                        ])
+                        ->requiresConfirmation()
+                        ->modalHeading('Ejecutar Retanqueo')
+                        ->modalDescription('Complete la información de desembolso y confirme la ejecución del retanqueo. Esta acción creará el nuevo préstamo.')
+                        ->modalSubmitActionLabel('Ejecutar Retanqueo')
+                        ->action(function (array $data) {
+                            try {
+                                $retanqueoService = new RetanqueoService();
+                            
+                                // SEGURO: Preparar datos de cuenta con validación
+                                $datosCuenta = [];
+                                if (!empty($data['titular_cuenta_desembolso'])) {
+                                    $datosCuenta['titular_cuenta_desembolso'] = trim($data['titular_cuenta_desembolso']);
+                                }
+                                if (!empty($data['numero_cuenta_desembolso'])) {
+                                    $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
+                                }
+                                
+                                $retanqueoService->ejecutarRetanqueo($this->record->id, $datosCuenta);
+                                
+                                Notification::make()
+                                    ->title('Retanqueo Ejecutado')
+                                    ->body('El retanqueo ha sido ejecutado exitosamente. Se ha creado el nuevo préstamo.')
+                                    ->success()
+                                    ->send();
+
+                                $this->refreshFormData(['estado_retanqueo', 'prestamo_nuevo_id']);
+                            } catch (\Exception $e) {
+                                Notification::make()
+                                    ->title('Error')
+                                    ->body('Error al ejecutar el retanqueo: ' . $e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
+                        });
+                }
             }
-        }
 
         return $actions;
     }

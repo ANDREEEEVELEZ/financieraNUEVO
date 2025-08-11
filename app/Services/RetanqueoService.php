@@ -187,10 +187,24 @@ class RetanqueoService
                 'saldo_restante_prestamo_antiguo' => $this->calcularSaldoRestante($prestamo, $totalCobertura)
             ]);
 
+            // NUEVO: Si hay datos de cuenta, crear préstamo pendiente inmediatamente
+            if (!empty($datosRetanqueo['datos_cuenta'])) {
+                $nuevoPrestamo = $this->crearNuevoPrestamoPendiente($retanqueo, $prestamo->grupo, $datosRetanqueo['datos_cuenta']);
+                
+                // Actualizar retanqueo con el ID del nuevo préstamo
+                $retanqueo->update(['prestamo_nuevo_id' => $nuevoPrestamo->id]);
+                
+                Log::info('Préstamo pendiente creado automáticamente con la solicitud', [
+                    'retanqueo_id' => $retanqueo->id,
+                    'prestamo_nuevo_id' => $nuevoPrestamo->id
+                ]);
+            }
+
             Log::info('Solicitud de retanqueo creada', [
                 'retanqueo_id' => $retanqueo->id,
                 'prestamo_id' => $prestamoId,
-                'total_participantes' => count($participantes)
+                'total_participantes' => count($participantes),
+                'prestamo_pendiente_creado' => !empty($datosRetanqueo['datos_cuenta'])
             ]);
 
             return $retanqueo->fresh(['retanqueosIndividuales.cliente.persona']);
@@ -375,24 +389,46 @@ class RetanqueoService
                 }
             }
 
-            // 1. Crear nuevo préstamo (con datos de cuenta validados)
-            $nuevoPrestamo = $this->crearNuevoPrestamo($retanqueo, $grupo, $datosCuentaLimpios);
+            // NUEVO FLUJO: Verificar si ya existe un préstamo pendiente
+            if ($retanqueo->prestamo_nuevo_id) {
+                $nuevoPrestamo = Prestamo::find($retanqueo->prestamo_nuevo_id);
+                
+                if ($nuevoPrestamo && $nuevoPrestamo->estado === 'Pendiente') {
+                    // El préstamo ya existe en estado Pendiente, solo cambiar estado
+                    $nuevoPrestamo->update(['estado' => 'Aprobado']);
+                    
+                    // Actualizar préstamos individuales a Aprobado
+                    $nuevoPrestamo->prestamoIndividual()->update(['estado' => 'Aprobado']);
+                    
+                    Log::info('Préstamo existente activado (Pendiente -> Aprobado)', [
+                        'prestamo_id' => $nuevoPrestamo->id,
+                        'retanqueo_id' => $retanqueoId
+                    ]);
+                } else {
+                    throw new \Exception('El préstamo asociado al retanqueo no existe o no está en estado Pendiente');
+                }
+            } else {
+                // FLUJO ORIGINAL: Crear nuevo préstamo (con datos de cuenta validados)
+                $nuevoPrestamo = $this->crearNuevoPrestamo($retanqueo, $grupo, $datosCuentaLimpios);
 
-            // 2. Crear préstamos individuales del nuevo préstamo (lógica crítica sin modificar)
-            $this->crearPrestamosIndividualesNuevos($retanqueo, $nuevoPrestamo);
+                // Crear préstamos individuales del nuevo préstamo
+                $this->crearPrestamosIndividualesNuevos($retanqueo, $nuevoPrestamo);
+                
+                // Actualizar retanqueo con el ID del nuevo préstamo
+                $retanqueo->update(['prestamo_nuevo_id' => $nuevoPrestamo->id]);
+            }
 
-            // 3. Generar cuotas grupales del nuevo préstamo
+            // Generar cuotas grupales del nuevo préstamo
             $this->generarCuotasGrupalesNuevas($nuevoPrestamo);
 
-            // 4. Gestionar cambios de membresía del grupo
+            // Gestionar cambios de membresía del grupo
             $this->gestionarCambiosMembresiaGrupo($retanqueo, $grupo);
 
-            // 5. Actualizar préstamo antiguo
+            // Actualizar préstamo antiguo
             $this->actualizarPrestamoAntiguo($retanqueo);
 
-            // 6. Actualizar estado del retanqueo
+            // Actualizar estado del retanqueo
             $retanqueo->update([
-                'prestamo_nuevo_id' => $nuevoPrestamo->id,
                 'estado_retanqueo' => 'ejecutado'
             ]);
 
@@ -406,7 +442,7 @@ class RetanqueoService
         });
     }
 
-    /**
+        /**
      * Crea el nuevo préstamo para el retanqueo
      */
     private function crearNuevoPrestamo($retanqueo, $grupo, $datosCuenta = [])
@@ -462,6 +498,66 @@ class RetanqueoService
     }
 
     /**
+     * Crea el nuevo préstamo en estado PENDIENTE para la solicitud de retanqueo
+     */
+    private function crearNuevoPrestamoPendiente($retanqueo, $grupo, $datosCuenta = [])
+    {
+        $prestamoAntiguo = $retanqueo->prestamoAntiguo;
+        
+        // Contar cuántos retanqueos previos ha tenido este grupo
+        $numeroRetanqueo = Retanqueo::whereHas('prestamoAntiguo', function($query) use ($grupo) {
+            $query->where('grupo_id', $grupo->id);
+        })->where('estado_retanqueo', 'ejecutado')->count() + 1;
+        
+        // Generar descripción identificativa del retanqueo - SIEMPRE con prefijo RETANQUEO
+        $descripcionRetanqueo = "RETANQUEO #{$numeroRetanqueo} {$grupo->nombre_grupo}";
+        
+        // Datos base del préstamo (similar a crearNuevoPrestamo pero en estado PENDIENTE)
+        $nuevoPrestamoData = [
+            'grupo_id' => $grupo->id,
+            'tasa_interes' => $prestamoAntiguo->tasa_interes ?? 17,
+            'monto_prestado_total' => $retanqueo->monto_retanqueo,
+            'monto_devolver' => 0, // Se calculará después
+            'cantidad_cuotas' => $retanqueo->cantidad_cuotas_nuevo ?? 4, // Fijo en 4 cuotas como préstamos regulares
+            'fecha_prestamo' => now(),
+            'frecuencia' => $prestamoAntiguo->frecuencia ?? 'semanal',
+            'estado' => 'Pendiente', // DIFERENCIA CLAVE: Estado Pendiente en lugar de Aprobado
+            // 'calificacion' => 'A',
+            'descripcion' => $descripcionRetanqueo,
+            'es_retanqueo' => true,
+            'prestamo_origen_id' => $prestamoAntiguo->id
+        ];
+
+        // SEGURO: Agregar datos de cuenta solo si están presentes y válidos
+        if (is_array($datosCuenta)) {
+            // Validar titular: solo letras, espacios y acentos
+            if (!empty($datosCuenta['titular_cuenta_desembolso']) && 
+                is_string($datosCuenta['titular_cuenta_desembolso'])) {
+                $titular = trim($datosCuenta['titular_cuenta_desembolso']);
+                if (strlen($titular) >= 3 && preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/', $titular)) {
+                    $nuevoPrestamoData['titular_cuenta_desembolso'] = $titular;
+                }
+            }
+            
+            // Validar número de cuenta: exactamente 14 dígitos
+            if (!empty($datosCuenta['numero_cuenta_desembolso']) && 
+                is_string($datosCuenta['numero_cuenta_desembolso'])) {
+                $numeroCuenta = trim($datosCuenta['numero_cuenta_desembolso']);
+                if (preg_match('/^[0-9]{14}$/', $numeroCuenta)) {
+                    $nuevoPrestamoData['numero_cuenta_desembolso'] = $numeroCuenta;
+                }
+            }
+        }
+
+        $nuevoPrestamo = Prestamo::create($nuevoPrestamoData);
+        
+        // Crear los préstamos individuales en estado Pendiente
+        $this->crearPrestamosIndividualesPendientes($retanqueo, $nuevoPrestamo);
+        
+        return $nuevoPrestamo;
+    }
+
+    /**
      * Crea los préstamos individuales para el nuevo préstamo
      */
     private function crearPrestamosIndividualesNuevos($retanqueo, $nuevoPrestamo)
@@ -505,7 +601,57 @@ class RetanqueoService
             ]);
         }
 
-        // Actualizar el monto total a devolver del nuevo préstamo
+        // Actualizar monto a devolver del préstamo
+        $nuevoPrestamo->update([
+            'monto_devolver' => round($montoTotalDevolver, 2)
+        ]);
+    }
+
+    /**
+     * Crea los préstamos individuales en estado PENDIENTE para la solicitud
+     */
+    private function crearPrestamosIndividualesPendientes($retanqueo, $nuevoPrestamo)
+    {
+        $participantes = $retanqueo->retanqueosIndividuales()
+            ->whereIn('participacion_tipo', ['retanquea', 'nueva'])
+            ->get();
+
+        $montoTotalDevolver = 0;
+
+        foreach ($participantes as $participante) {
+            $cliente = $participante->cliente;
+            $montoSolicitado = $participante->monto_solicitado;
+            $tasaInteres = $nuevoPrestamo->tasa_interes ?? 17;
+            $numCuotas = $nuevoPrestamo->cantidad_cuotas;
+
+            // Calcular seguro según monto
+            $seguro = $this->calcularSeguro($montoSolicitado);
+            
+            // Calcular interés y total a devolver
+            $interes = $montoSolicitado * ($tasaInteres / 100);
+            $montoDevolver = $montoSolicitado + $interes + $seguro;
+            $cuotaIndividual = $montoDevolver / $numCuotas;
+
+            PrestamoIndividual::create([
+                'prestamo_id' => $nuevoPrestamo->id,
+                'cliente_id' => $cliente->id,
+                'monto_prestado_individual' => $montoSolicitado,
+                'monto_cuota_prestamo_individual' => round($cuotaIndividual, 2),
+                'monto_devolver_individual' => round($montoDevolver, 2),
+                'seguro' => $seguro,
+                'interes' => round($interes, 2),
+                'estado' => 'Pendiente' // DIFERENCIA CLAVE: Estado Pendiente en lugar de Aprobado
+            ]);
+
+            $montoTotalDevolver += $montoDevolver;
+
+            // Actualizar el retanqueo individual con la cuota calculada
+            $participante->update([
+                'monto_cuota' => round($cuotaIndividual, 2)
+            ]);
+        }
+
+        // Actualizar monto a devolver del préstamo
         $nuevoPrestamo->update([
             'monto_devolver' => round($montoTotalDevolver, 2)
         ]);
