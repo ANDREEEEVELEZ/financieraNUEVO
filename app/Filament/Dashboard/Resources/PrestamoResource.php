@@ -468,7 +468,7 @@ class PrestamoResource extends Resource
             Select::make('frecuencia')
                 ->label('Frecuencia de Pago')
                 ->options([
-                    'semanal' => 'Semanal (Fijo)',
+                    'semanal' => 'Semanal',
                 ])
                 ->default('semanal')
                 ->disabled()
