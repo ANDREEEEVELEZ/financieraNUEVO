@@ -30,24 +30,31 @@ class EditRetanqueo extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        // Cargar los participantes existentes
+        // Cargar los datos del retanqueo
         $retanqueo = $this->record;
+        
+        // CRÍTICO: Asegurar que prestamo_id esté en el formulario
+        $data['prestamo_id'] = $retanqueo->prestamo_id;
+        
+        // Cargar los participantes existentes con todos los datos necesarios
         $participantes = [];
 
         foreach ($retanqueo->retanqueosIndividuales as $individual) {
             $cliente = $individual->cliente;
-            $participantes[] = [
-                'cliente_id' => $cliente->id,
-                'nombre_completo' => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos,
-                'ciclo' => \App\Helpers\CicloHelper::normalize($cliente->ciclo ?? 'I'),
-                'monto_maximo' => \App\Helpers\CicloHelper::getMontoMaximo(\App\Helpers\CicloHelper::normalize($cliente->ciclo ?? 'I')),
-                'participacion_tipo' => $individual->participacion_tipo,
-                'monto_solicitado' => $individual->monto_solicitado,
-            ];
+            if ($cliente && $cliente->persona) {
+                $participantes[] = [
+                    'cliente_id' => $cliente->id,
+                    'nombre_completo' => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos,
+                    'ciclo' => \App\Helpers\CicloHelper::normalize($cliente->ciclo ?? 'I'),
+                    'monto_maximo' => \App\Helpers\CicloHelper::getMontoMaximo(\App\Helpers\CicloHelper::normalize($cliente->ciclo ?? 'I')),
+                    'participacion_tipo' => $individual->participacion_tipo,
+                    'monto_solicitado' => (float)$individual->monto_solicitado,
+                ];
+            }
         }
 
         $data['participantes'] = $participantes;
-        $data['cantidad_cuotas_nuevo'] = $retanqueo->cantidad_cuotas_nuevo;
+        $data['cantidad_cuotas_nuevo'] = $retanqueo->cantidad_cuotas_nuevo ?? 4;
 
         // Cargar información del estado del préstamo
         try {
@@ -69,6 +76,20 @@ class EditRetanqueo extends EditRecord
             $data['estado_prestamo_info'] = null;
         }
 
+        // Cargar datos de cuenta de desembolso si existe un préstamo nuevo asociado
+        if ($retanqueo->prestamo_nuevo_id && $retanqueo->prestamoNuevo) {
+            $prestamoNuevo = $retanqueo->prestamoNuevo;
+            $data['titular_cuenta_desembolso'] = $prestamoNuevo->titular_cuenta_desembolso;
+            $data['numero_cuenta_desembolso'] = $prestamoNuevo->numero_cuenta_desembolso;
+        }
+
+        Log::info('Datos cargados para editar retanqueo', [
+            'retanqueo_id' => $retanqueo->id,
+            'prestamo_id' => $data['prestamo_id'],
+            'participantes_count' => count($participantes),
+            'tiene_cuenta_desembolso' => !empty($data['titular_cuenta_desembolso'])
+        ]);
+
         return $data;
     }
 
@@ -79,12 +100,16 @@ class EditRetanqueo extends EditRecord
             throw new \Exception('Solo se pueden editar solicitudes pendientes');
         }
 
-        // Limpiar datos innecesarios
+        // Limpiar datos innecesarios para el procesamiento
         unset($data['estado_prestamo_info']);
         
-        // IMPORTANTE: Remover campos de cuenta para que no interfieran con la edición
-        unset($data['titular_cuenta_desembolso']);
-        unset($data['numero_cuenta_desembolso']);
+        // IMPORTANTE: NO remover los datos de cuenta si están presentes y válidos
+        // Estos son necesarios para actualizar el préstamo pendiente asociado
+        Log::info('Datos de cuenta en edición', [
+            'retanqueo_id' => $this->record->id,
+            'tiene_titular' => !empty($data['titular_cuenta_desembolso']),
+            'tiene_numero' => !empty($data['numero_cuenta_desembolso'])
+        ]);
         
         return $data;
     }
@@ -163,9 +188,86 @@ class EditRetanqueo extends EditRecord
                 'saldo_restante_prestamo_antiguo' => $saldoRestante
             ]);
 
+            // NUEVO: Actualizar préstamo pendiente asociado si existe y hay datos de cuenta
+            if ($record->prestamo_nuevo_id && $record->prestamoNuevo) {
+                $prestamoNuevo = $record->prestamoNuevo;
+                
+                // Actualizar datos de cuenta si se proporcionaron
+                $datosCuentaActualizados = [];
+                if (!empty($data['titular_cuenta_desembolso'])) {
+                    $datosCuentaActualizados['titular_cuenta_desembolso'] = $data['titular_cuenta_desembolso'];
+                }
+                if (!empty($data['numero_cuenta_desembolso'])) {
+                    $datosCuentaActualizados['numero_cuenta_desembolso'] = $data['numero_cuenta_desembolso'];
+                }
+                
+                // Actualizar montos del préstamo pendiente
+                $datosCuentaActualizados['monto_prestado_total'] = $totalRetanqueo;
+                
+                $prestamoNuevo->update($datosCuentaActualizados);
+                
+                // Actualizar préstamos individuales del préstamo pendiente
+                $prestamoNuevo->prestamoIndividual()->delete();
+                
+                $montoTotalDevolver = 0;
+                foreach ($participantes as $participante) {
+                    if (in_array($participante['participacion_tipo'], ['retanquea', 'nueva'])) {
+                        $cliente = \App\Models\Cliente::find($participante['cliente_id']);
+                        $montoSolicitado = $participante['monto_solicitado'];
+                        $tasaInteres = $prestamoNuevo->tasa_interes ?? 17;
+                        $numCuotas = $prestamoNuevo->cantidad_cuotas;
+
+                        // Calcular seguro según monto
+                        $montoInt = (int) $montoSolicitado;
+                        if ($montoInt === 400) {
+                            $seguro = 7;  // Ciclo I
+                        } elseif ($montoInt === 500 || $montoInt === 600) {
+                            $seguro = 8;  // Ciclo II
+                        } elseif ($montoInt === 700 || $montoInt === 800) {
+                            $seguro = 9;  // Ciclo III
+                        } elseif ($montoInt === 900 || $montoInt === 1000) {
+                            $seguro = 10; // Ciclo IV
+                        } else {
+                            $seguro = 7;
+                        }
+                        
+                        // Calcular interés y total a devolver
+                        $interes = $montoSolicitado * ($tasaInteres / 100);
+                        $montoDevolver = $montoSolicitado + $interes + $seguro;
+                        $cuotaIndividual = $montoDevolver / $numCuotas;
+
+                        \App\Models\PrestamoIndividual::create([
+                            'prestamo_id' => $prestamoNuevo->id,
+                            'cliente_id' => $cliente->id,
+                            'monto_prestado_individual' => $montoSolicitado,
+                            'monto_cuota_prestamo_individual' => round($cuotaIndividual, 2),
+                            'monto_devolver_individual' => round($montoDevolver, 2),
+                            'seguro' => $seguro,
+                            'interes' => round($interes, 2),
+                            'estado' => 'Pendiente'
+                        ]);
+
+                        $montoTotalDevolver += $montoDevolver;
+                    }
+                }
+                
+                // Actualizar monto a devolver del préstamo
+                $prestamoNuevo->update([
+                    'monto_devolver' => round($montoTotalDevolver, 2)
+                ]);
+                
+                Log::info('Préstamo pendiente actualizado en edición de retanqueo', [
+                    'retanqueo_id' => $record->id,
+                    'prestamo_nuevo_id' => $prestamoNuevo->id,
+                    'nuevos_montos' => $datosCuentaActualizados
+                ]);
+            }
+
             Log::info('Solicitud de retanqueo actualizada', [
                 'retanqueo_id' => $record->id,
-                'user_id' => request()->user()?->id
+                'user_id' => request()->user()?->id,
+                'total_participantes' => count($participantes),
+                'total_retanqueo' => $totalRetanqueo
             ]);
 
             return $record->fresh();
