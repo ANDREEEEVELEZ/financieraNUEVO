@@ -42,11 +42,6 @@ Route::middleware([
 ])->group(function () {
     Route::get('/pagos/exportar/pdf', [PagoPdfController::class, 'exportar'])->name('pagos.exportar.pdf');
     Route::get('/moras/exportar-pdf', [MoraPdfController::class, 'exportar'])->name('moras.exportar.pdf');
-    
-    // Ruta para el editor de declaración jurada PEP
-    Route::get('/pep-editor/{cliente}', [App\Http\Controllers\PepEditorController::class, 'show'])
-        ->name('pep.editor')
-        ->middleware('role:super_admin|Jefe de operaciones|Jefe de creditos');
 });
 
 // Ruta para cerrar sesión (opcional si no usas el logout de Filament)
