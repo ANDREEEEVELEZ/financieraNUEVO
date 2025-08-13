@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Cliente;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class DeclaracionJuradaService
 {
@@ -15,20 +16,16 @@ class DeclaracionJuradaService
     {
         if (empty($texto)) return '';
         
-        // Convertir a UTF-8 si no lo está
-        if (!mb_check_encoding($texto, 'UTF-8')) {
-            $texto = mb_convert_encoding($texto, 'UTF-8', 'auto');
-        }
+        // Convertir a string básico
+        $texto = (string) $texto;
         
-        // Reemplazar caracteres problemáticos
-        $caracteres = [
-            'ñ' => 'n', 'Ñ' => 'N',
-            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
-            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U',
-            'ü' => 'u', 'Ü' => 'U'
-        ];
+        // Remover cualquier carácter no ASCII
+        $texto = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
         
-        return strtr($texto, $caracteres);
+        // Remover caracteres de control
+        $texto = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $texto);
+        
+        return trim($texto);
     }
 
     public static function generarPDF(Cliente $cliente, array $datosFormulario = [])
@@ -82,12 +79,19 @@ class DeclaracionJuradaService
         ];
 
         // Generar PDF con vista personalizada
-        $pdf = Pdf::loadView('declaracion-jurada.pdf-simple', $datos);
-        $pdf->setPaper('A4', 'portrait');
-        
-        $fechaArchivo = Carbon::now()->format('d-m-Y');
-        $nombreArchivo = "Declaracion_Jurada_{$cliente->persona->DNI}_{$fechaArchivo}.pdf";
-        
-        return $pdf->download($nombreArchivo);
+        try {
+            $pdf = Pdf::loadView('declaracion-jurada.test', $datos);
+            $pdf->setPaper('A4', 'portrait');
+            
+            $fechaArchivo = Carbon::now()->format('d-m-Y');
+            $nombreArchivo = "Declaracion_Jurada_{$cliente->persona->DNI}_{$fechaArchivo}.pdf";
+            
+            return $pdf->download($nombreArchivo);
+        } catch (\Exception $e) {
+            // Log del error específico
+            Log::error('Error generando PDF: ' . $e->getMessage());
+            Log::error('Datos: ' . json_encode($datos));
+            throw new \Exception('Error al generar PDF: ' . $e->getMessage());
+        }
     }
 }
