@@ -62,7 +62,8 @@ class DeclaracionJuradaService
         $pdf = Pdf::loadView('declaracion-jurada.pdf', $datos);
         $pdf->setPaper('A4', 'portrait');
         
-        $nombreArchivo = "Declaracion_Jurada_{$cliente->persona->DNI}_{$datos['fecha_hoy']}.pdf";
+        $fechaArchivo = Carbon::now()->format('d-m-Y');
+        $nombreArchivo = "Declaracion_Jurada_{$cliente->persona->DNI}_{$fechaArchivo}.pdf";
         
         return $pdf->download($nombreArchivo);
     }
