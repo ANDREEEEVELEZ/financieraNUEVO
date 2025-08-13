@@ -41,7 +41,13 @@
             border-bottom: 1px solid #000;
             display: inline-block;
             min-width: 100px;
-            padding: 0 3px;
+            padding: 0 3px 2px 3px;
+            line-height: 1.4;
+            vertical-align: baseline;
+            margin-bottom: 2px;
+        }
+        .ml-4 {
+            margin-left: 20px;
         }
         .checkbox {
             width: 10px;
@@ -125,12 +131,9 @@
             <td class="content-cell">
                 <span class="bold">Domicilio (indicar tipo y nombre de la vía): Jr. / Av. / Calle / Pasaje / Ovalo</span><br>
                 <span class="underline">{{ strtoupper($persona->direccion) }}</span>
-                <span class="bold">Urb. Complejo Zona - Sector:</span> <span class="underline" style="width: 100px;"></span>
-                <span class="bold">Distrito:</span> <span class="underline">{{ strtoupper($persona->distrito) }}</span>
-                <span class="bold">Int:</span> <span class="underline" style="width: 50px;"></span>
-                <span class="bold">Dpto./Int. N°:</span> <span class="underline" style="width: 50px;"></span><br>
+                <span class="bold ml-4">Distrito:</span> <span class="underline">{{ strtoupper($persona->distrito) }}</span><br>
                 <span class="bold">Provincia:</span> <span class="underline">SULLANA</span>
-                <span class="bold">Departamento:</span> <span class="underline">PIURA</span>
+                <span class="bold ml-4">Departamento:</span> <span class="underline">PIURA</span>
             </td>
         </tr>
         
@@ -157,7 +160,7 @@
             <td class="number-cell">9</td>
             <td class="content-cell">
                 <span class="bold">Propósito de la relación comercial o de negocio (siempre que esta se desprenda directamente del objeto del contrato):</span><br>
-                <span class="underline" style="width: 100%; min-height: 20px; display: block;">{{ $pep_data['proposito_relacion'] ?? '' }}</span>
+                <span class="underline" style="width: 100%; min-height: 18px; padding: 2px 3px; border-bottom: 1px solid #000; display: inline-block;">{{ $pep_data['proposito_relacion'] ?? '' }}</span>
             </td>
         </tr>
         
@@ -259,8 +262,6 @@
                 <span class="bold">ii) Tipo y número de documento de identidad:</span> <span class="underline" style="width: 200px;">{{ $pep_data['tercero_documento'] ?? '' }}</span><br>
                 <span class="bold">iii) Datos de la representación (Marque con una "X" según corresponda): Poder por Escritura Pública ( ) Mandato ( )</span><br>
                 <span class="bold">iv) Indicar si es o ha sido PEP ¿Ha cumplido, en los últimos 5 años, funciones públicas en un organismo público o funciones prominentes en una organización internacional? (marque con una "X" según corresponda): SI SOY ( ) SI HA SIDO ( ) NO ES ( ) NO HA SIDO ( )</span><br>
-                <span class="bold">Si marcó "Si es" o "Si ha sido" complete la información siguiente:</span><br>
-                <span class="bold">- Cargo:</span> <span class="underline" style="width: 250px;"></span><br>
                 <span class="bold">v) Origen de los fondos/activos involucrados en la operación, cuando esta se realice en efectivo o iguale o supere el umbral para efectos del RO.</span>
             </td>
         </tr>
@@ -276,8 +277,8 @@
                 <span class="bold">ii) Número de RUC, de ser el caso:</span> <span class="underline" style="width: 150px;">{{ $pep_data['ruc'] ?? '' }}</span><br>
                 <span class="bold">iii) Datos de la representación (Marque con una "X" según corresponda): Poder por acta ( ) Poder por Escritura Pública ( ) Mandato ( )</span><br>
                 <span class="bold">iv) Origen de los fondos/activos involucrados en la operación, cuando esta se realice en efectivo o iguale o supere el umbral para efectos del RO.</span><br>
-                <span class="bold">v) Identificación del Beneficiario Final del Beneficiario de la operación, conforme al artículo 4 del Decreto Supremo N° 1372 y sus modificatorias; según corresponda (Nombres y Apellidos):</span><br>
-                <span class="underline" style="width: 100%; height: 15px; display: block;"></span><br>
+                <span class="bold">v) Identificación del Beneficiario Final del Beneficiario de la operación, conforme al artículo 4 del Decreto Supremo N° 1372 y sus modificatorias; según corresponda (Nombres y Apellidos):</span>
+                <span class="underline" style="width: 100%; min-height: 15px; padding: 2px 3px; margin-top: 3px;">{{ $pep_data['beneficiario_final'] ?? '' }}</span><br>
                 <span class="bold">Afirmo y ratifico todo lo manifestado en la presente declaración jurada</span>
             </td>
         </tr>
