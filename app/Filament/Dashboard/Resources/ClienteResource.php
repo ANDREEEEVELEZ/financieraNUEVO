@@ -7,6 +7,7 @@ use App\Models\Cliente;
 use App\Rules\UniqueDNI;
 use App\Rules\UniqueCelular;
 use App\Rules\UniqueCorreo;
+use App\Services\DeclaracionJuradaService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -361,6 +362,147 @@ class ClienteResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
+                Tables\Actions\Action::make('declaracion_jurada')
+                    ->label('Declaración Jurada')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->form([
+                        Forms\Components\Section::make('Datos del Cliente')
+                            ->description('Los siguientes datos se autocompletarán desde la información del cliente')
+                            ->schema([
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\TextInput::make('nombres')
+                                        ->label('Nombres')
+                                        ->disabled()
+                                        ->default(fn ($record) => strtoupper($record->persona->nombre)),
+                                    Forms\Components\TextInput::make('apellidos')
+                                        ->label('Apellidos')
+                                        ->disabled()
+                                        ->default(fn ($record) => strtoupper($record->persona->apellidos)),
+                                    Forms\Components\TextInput::make('dni')
+                                        ->label('DNI')
+                                        ->disabled()
+                                        ->default(fn ($record) => $record->persona->DNI),
+                                    Forms\Components\TextInput::make('celular')
+                                        ->label('Celular')
+                                        ->disabled()
+                                        ->default(fn ($record) => $record->persona->celular),
+                                ])
+                            ]),
+                        
+                        Forms\Components\Section::make('Información de Documento')
+                            ->schema([
+                                Forms\Components\Grid::make(3)->schema([
+                                    Forms\Components\Select::make('tipo_documento')
+                                        ->label('Tipo de Documento')
+                                        ->options([
+                                            'DNI' => 'DNI',
+                                            'Pasaporte' => 'Pasaporte',
+                                            'Carnet_Extranjeria' => 'Carné de Extranjería',
+                                            'Otro' => 'Otro',
+                                        ])
+                                        ->default('DNI')
+                                        ->reactive(),
+                                    Forms\Components\TextInput::make('numero_documento')
+                                        ->label('Número de Documento')
+                                        ->default(fn ($record) => $record->persona->DNI),
+                                    Forms\Components\TextInput::make('otro_documento_detalle')
+                                        ->label('Otro (Especificar)')
+                                        ->visible(fn (callable $get) => $get('tipo_documento') === 'Otro'),
+                                ])
+                            ]),
+                        
+                        Forms\Components\Section::make('Información Complementaria')
+                            ->schema([
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\TextInput::make('conyuge_nombres')
+                                        ->label('Nombres del Cónyuge/Conviviente')
+                                        ->visible(fn ($record) => in_array(strtolower($record->persona->estado_civil), ['casado', 'conviviente'])),
+                                    Forms\Components\TextInput::make('telefono_fijo')
+                                        ->label('Teléfono Fijo (Opcional)'),
+                                ])
+                            ]),
+                        
+                        Forms\Components\Section::make('Información PEP (Persona Expuesta Políticamente)')
+                            ->description('Por defecto se marca como NO SOY/NO HE SIDO PEP')
+                            ->schema([
+                                Forms\Components\Select::make('es_pep')
+                                    ->label('¿Es o ha sido una Persona Expuesta Políticamente (PEP)?')
+                                    ->options([
+                                        'NO_SOY' => 'NO SOY',
+                                        'NO_HE_SIDO' => 'NO HE SIDO',
+                                        'SOY' => 'SOY',
+                                        'HE_SIDO' => 'HE SIDO',
+                                    ])
+                                    ->default('NO_SOY')
+                                    ->reactive(),
+                                
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\TextInput::make('cargo_publico')
+                                        ->label('Cargo Público')
+                                        ->visible(fn (callable $get) => in_array($get('es_pep'), ['SOY', 'HE_SIDO']))
+                                        ->required(fn (callable $get) => in_array($get('es_pep'), ['SOY', 'HE_SIDO'])),
+                                    Forms\Components\TextInput::make('entidad_publica')
+                                        ->label('Entidad Pública')
+                                        ->visible(fn (callable $get) => in_array($get('es_pep'), ['SOY', 'HE_SIDO']))
+                                        ->required(fn (callable $get) => in_array($get('es_pep'), ['SOY', 'HE_SIDO'])),
+                                    Forms\Components\DatePicker::make('fecha_inicio_cargo')
+                                        ->label('Fecha Inicio del Cargo')
+                                        ->visible(fn (callable $get) => in_array($get('es_pep'), ['SOY', 'HE_SIDO'])),
+                                    Forms\Components\DatePicker::make('fecha_fin_cargo')
+                                        ->label('Fecha Fin del Cargo')
+                                        ->visible(fn (callable $get) => $get('es_pep') === 'HE_SIDO'),
+                                ]),
+                                
+                                Forms\Components\Textarea::make('parentesco_pep')
+                                    ->label('¿Tiene parentesco hasta segundo grado con alguna PEP?')
+                                    ->visible(fn (callable $get) => in_array($get('es_pep'), ['SOY', 'HE_SIDO']))
+                                    ->rows(2),
+                            ]),
+                        
+                        Forms\Components\Section::make('Representación')
+                            ->description('Por defecto se marca "Por mi mismo" ya que el préstamo es personal')
+                            ->schema([
+                                Forms\Components\Select::make('actua_por')
+                                    ->label('¿Actúa por cuenta propia o de tercera persona?')
+                                    ->options([
+                                        'MI_MISMO' => 'Por mi mismo',
+                                        'TERCERA_PERSONA' => 'Por tercera persona',
+                                    ])
+                                    ->default('MI_MISMO')
+                                    ->reactive(),
+                                
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\TextInput::make('representado_nombres')
+                                        ->label('Nombres del Representado')
+                                        ->visible(fn (callable $get) => $get('actua_por') === 'TERCERA_PERSONA')
+                                        ->required(fn (callable $get) => $get('actua_por') === 'TERCERA_PERSONA'),
+                                    Forms\Components\TextInput::make('representado_apellidos')
+                                        ->label('Apellidos del Representado')
+                                        ->visible(fn (callable $get) => $get('actua_por') === 'TERCERA_PERSONA')
+                                        ->required(fn (callable $get) => $get('actua_por') === 'TERCERA_PERSONA'),
+                                    Forms\Components\TextInput::make('representado_documento')
+                                        ->label('Documento del Representado')
+                                        ->visible(fn (callable $get) => $get('actua_por') === 'TERCERA_PERSONA')
+                                        ->required(fn (callable $get) => $get('actua_por') === 'TERCERA_PERSONA'),
+                                ]),
+                            ]),
+                    ])
+                    ->action(function ($record, $data) {
+                        try {
+                            return \App\Services\DeclaracionJuradaService::generarPDF($record, $data);
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->danger()
+                                ->title('Error al generar PDF')
+                                ->body('Ocurrió un error al generar la declaración jurada: ' . $e->getMessage())
+                                ->send();
+                        }
+                    })
+                    ->modalHeading('Generar Declaración Jurada')
+                    ->modalDescription(fn ($record) => "Generar declaración jurada para {$record->persona->nombre} {$record->persona->apellidos}")
+                    ->modalSubmitActionLabel('Generar PDF')
+                    ->modalWidth('7xl'),
                 Tables\Actions\Action::make('trasladar_cliente')
                     ->label('Trasladar Cliente')
                     ->icon('heroicon-o-arrow-right-circle')
