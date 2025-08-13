@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Declaración Jurada de Conocimiento del Cliente</title>
+    <title>Declaración Jurada de Conocimiento del Client            <td class="content-cell">
+                <span class="bold">Ocupación:</span> 
+                <span class="field-container" style="min-width: 300px;">
+                    <span class="field-text">{{ strtoupper($persona->ocupacion) }}</span>
+                    <span class="field-line"></span>
+                </span>
+            </td>title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -41,13 +47,34 @@
             border-bottom: 1px solid #000;
             display: inline-block;
             min-width: 100px;
-            padding: 0 3px 2px 3px;
-            line-height: 1.4;
-            vertical-align: baseline;
-            margin-bottom: 2px;
+            padding: 0 3px;
+            line-height: 1.1;
+            vertical-align: top;
+            margin: 0;
+            height: 14px;
         }
         .ml-4 {
             margin-left: 20px;
+        }
+        .field-container {
+            position: relative;
+            display: inline-block;
+        }
+        .field-text {
+            position: relative;
+            z-index: 2;
+            background: transparent;
+            padding: 0 3px;
+            margin-bottom: 1px;
+        }
+        .field-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #000;
+            z-index: 1;
         }
         .checkbox {
             width: 10px;
@@ -82,8 +109,16 @@
         <tr>
             <td class="number-cell">1</td>
             <td class="content-cell">
-                <span class="bold">Nombres:</span> <span class="underline">{{ strtoupper($persona->nombre) }}</span>
-                <span style="margin-left: 50px;" class="bold">Apellidos:</span> <span class="underline">{{ strtoupper($persona->apellidos) }}</span>
+                <span class="bold">Nombres:</span> 
+                <span class="field-container" style="min-width: 200px;">
+                    <span class="field-text">{{ strtoupper($persona->nombre) }}</span>
+                    <span class="field-line"></span>
+                </span>
+                <span style="margin-left: 50px;" class="bold">Apellidos:</span> 
+                <span class="field-container" style="min-width: 200px;">
+                    <span class="field-text">{{ strtoupper($persona->apellidos) }}</span>
+                    <span class="field-line"></span>
+                </span>
             </td>
         </tr>
         
@@ -93,7 +128,11 @@
             <td class="content-cell">
                 <span class="bold">Tipo y número de documento de identidad (marque con una "X" según corresponda):</span><br>
                 <span class="bold">DNI</span> ( <span style="font-size: 14px;">X</span> ) <span class="bold">Pasaporte</span> ( ) <span class="bold">Carné de Extranjería</span> ( ) <span class="bold">Otro (Indique):</span> ( )
-                <span style="margin-left: 50px;" class="bold">N°:</span> <span class="underline">{{ $persona->DNI }}</span>
+                <span style="margin-left: 50px;" class="bold">N°:</span> 
+                <span class="field-container" style="min-width: 150px;">
+                    <span class="field-text">{{ $persona->DNI }}</span>
+                    <span class="field-line"></span>
+                </span>
             </td>
         </tr>
         
@@ -101,7 +140,11 @@
         <tr>
             <td class="number-cell">3</td>
             <td class="content-cell">
-                <span class="bold">Nacionalidad (en el caso de extranjero):</span> <span class="underline">PERUANA</span>
+                <span class="bold">Nacionalidad (en el caso de extranjero):</span> 
+                <span class="field-container" style="min-width: 150px;">
+                    <span class="field-text">PERUANA</span>
+                    <span class="field-line"></span>
+                </span>
             </td>
         </tr>
         
@@ -121,7 +164,11 @@
         <tr>
             <td class="number-cell">5</td>
             <td class="content-cell">
-                <span class="bold">Nombres y apellidos del cónyuge o conviviente:</span> <span class="underline" style="width: 300px;">{{ $pep_data['conyuge_conviviente'] ?? '' }}</span>
+                <span class="bold">Nombres y apellidos del cónyuge o conviviente:</span> 
+                <span class="field-container" style="min-width: 300px;">
+                    <span class="field-text">{{ $pep_data['conyuge_conviviente'] ?? '' }}</span>
+                    <span class="field-line"></span>
+                </span>
             </td>
         </tr>
         
@@ -130,10 +177,25 @@
             <td class="number-cell">6</td>
             <td class="content-cell">
                 <span class="bold">Domicilio (indicar tipo y nombre de la vía): Jr. / Av. / Calle / Pasaje / Ovalo</span><br>
-                <span class="underline">{{ strtoupper($persona->direccion) }}</span>
-                <span class="bold ml-4">Distrito:</span> <span class="underline">{{ strtoupper($persona->distrito) }}</span><br>
-                <span class="bold">Provincia:</span> <span class="underline">SULLANA</span>
-                <span class="bold ml-4">Departamento:</span> <span class="underline">PIURA</span>
+                <span class="field-container" style="min-width: 400px;">
+                    <span class="field-text">{{ strtoupper($persona->direccion) }}</span>
+                    <span class="field-line"></span>
+                </span><br>
+                <span class="bold">Distrito:</span> 
+                <span class="field-container" style="min-width: 150px;">
+                    <span class="field-text">{{ strtoupper($persona->distrito) }}</span>
+                    <span class="field-line"></span>
+                </span>
+                <span class="bold ml-4">Provincia:</span> 
+                <span class="field-container" style="min-width: 120px;">
+                    <span class="field-text">SULLANA</span>
+                    <span class="field-line"></span>
+                </span>
+                <span class="bold ml-4">Departamento:</span> 
+                <span class="field-container" style="min-width: 120px;">
+                    <span class="field-text">PIURA</span>
+                    <span class="field-line"></span>
+                </span>
             </td>
         </tr>
         
@@ -149,9 +211,21 @@
         <tr>
             <td class="number-cell">8</td>
             <td class="content-cell">
-                <span class="bold">N° Teléfono Fijo (indicar código de cuidad):</span> <span class="underline" style="width: 120px;">{{ $pep_data['telefono_fijo'] ?? '' }}</span>
-                <span class="bold">Celular:</span> <span class="underline">{{ $persona->celular }}</span>
-                <span class="bold">Correo electrónico:</span> <span class="underline">{{ strtolower($persona->correo) }}</span>
+                <span class="bold">N° Teléfono Fijo (indicar código de cuidad):</span> 
+                <span class="field-container" style="min-width: 120px;">
+                    <span class="field-text">{{ $pep_data['telefono_fijo'] ?? '' }}</span>
+                    <span class="field-line"></span>
+                </span>
+                <span class="bold">Celular:</span> 
+                <span class="field-container" style="min-width: 120px;">
+                    <span class="field-text">{{ $persona->celular }}</span>
+                    <span class="field-line"></span>
+                </span>
+                <span class="bold">Correo electrónico:</span> 
+                <span class="field-container" style="min-width: 200px;">
+                    <span class="field-text">{{ strtolower($persona->correo) }}</span>
+                    <span class="field-line"></span>
+                </span>
             </td>
         </tr>
         
@@ -160,7 +234,10 @@
             <td class="number-cell">9</td>
             <td class="content-cell">
                 <span class="bold">Propósito de la relación comercial o de negocio (siempre que esta se desprenda directamente del objeto del contrato):</span><br>
-                <span class="underline" style="width: 100%; min-height: 18px; padding: 2px 3px; border-bottom: 1px solid #000; display: inline-block;">{{ $pep_data['proposito_relacion'] ?? '' }}</span>
+                <span class="field-container" style="width: 100%; min-height: 18px;">
+                    <span class="field-text">{{ $pep_data['proposito_relacion'] ?? '' }}</span>
+                    <span class="field-line"></span>
+                </span>
             </td>
         </tr>
         
