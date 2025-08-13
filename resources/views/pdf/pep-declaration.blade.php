@@ -165,18 +165,31 @@
         <tr>
             <td class="number-cell">10</td>
             <td class="content-cell">
-                <span class="bold">10.1. Indicar si es o ha sido PEP: ¿Ha cumplido, en los últimos 5 años, ¿ funciones públicas en un organismo público o i) funciones prominentes en una organización internacional? (marque con una "X" según corresponda): SI SOY ( ) SI HE SIDO ( ) NO SOY ( ) NO HE SIDO ( )</span><br>
-                <span class="bold">¿Ha sido colaborador directo de la máxima autoridad en dichas instituciones? SI SOY ( ) SI HE SIDO ( ) NO SOY ( ) NO HE SIDO ( )</span><br>
+                <span class="bold">10.1. Indicar si es o ha sido PEP: ¿Ha cumplido, en los últimos 5 años, funciones públicas en un organismo público o funciones prominentes en una organización internacional? (marque con una "X" según corresponda):</span><br>
+                
+                <span class="bold">SI SOY</span> ( {{ ($pep_data['es_pep'] ?? '') === 'si_soy' ? 'X' : ' ' }} ) 
+                <span class="bold">SI HE SIDO</span> ( {{ ($pep_data['es_pep'] ?? '') === 'si_he_sido' ? 'X' : ' ' }} ) 
+                <span class="bold">NO SOY</span> ( {{ ($pep_data['es_pep'] ?? '') === 'no_soy' ? 'X' : ' ' }} ) 
+                <span class="bold">NO HE SIDO</span> ( {{ ($pep_data['es_pep'] ?? '') === 'no_he_sido' ? 'X' : ' ' }} )<br><br>
+                
+                <span class="bold">¿Ha sido colaborador directo de la máxima autoridad en dichas instituciones?</span><br>
+                <span class="bold">SI SOY</span> ( {{ ($pep_data['es_colaborador_pep'] ?? '') === 'si_soy' ? 'X' : ' ' }} ) 
+                <span class="bold">SI HE SIDO</span> ( {{ ($pep_data['es_colaborador_pep'] ?? '') === 'si_he_sido' ? 'X' : ' ' }} ) 
+                <span class="bold">NO SOY</span> ( {{ ($pep_data['es_colaborador_pep'] ?? '') === 'no_soy' ? 'X' : ' ' }} ) 
+                <span class="bold">NO HE SIDO</span> ( {{ ($pep_data['es_colaborador_pep'] ?? '') === 'no_he_sido' ? 'X' : ' ' }} )<br><br>
+                
                 <span class="bold">Si marcó "Sí soy" o "Si he sido" complete la información siguiente:</span><br><br>
                 
-                <span class="bold">Cargo:</span> <span class="underline" style="width: 200px;"></span>
-                <span class="bold">Nombre de la institución (organismo público u organización internacional):</span> <span class="underline" style="width: 200px;"></span><br><br>
+                <span class="bold">Cargo:</span> <span class="underline" style="width: 200px;">{{ $pep_data['cargo_pep'] ?? '' }}</span>
+                <span class="bold">Nombre de la institución (organismo público u organización internacional):</span> <span class="underline" style="width: 200px;">{{ $pep_data['institucion_pep'] ?? '' }}</span><br><br>
                 
                 <span class="bold">10.2. De ser PEP, indicar los nombres y apellidos de sus:</span><br>
                 <span class="bold">(1) Parientes hasta el 2do grado de consanguinidad</span> <span class="small-text">(Padre, Madre, Abuelos, Abuelas, Hermanos, Hermanas)</span> <span class="bold">y 2do de afinidad</span> <span class="small-text">(suegros, yerno, nuera, cuñados, nueras o cuñadas de cónyuge)</span><br>
                 <span class="bold">(2) Cónyuge o conviviente:</span><br><br>
                 
-                <span class="bold">10.3. Indicar si es pariente de PEP hasta el 2do. grado de consanguinidad</span> <span class="small-text">(Padre, Madre, Abuelos, Abuelas, apellidos, hermanos, hermanas)</span> <span class="bold">2do de afinidad</span> <span class="small-text">(suegros, yerno, nuera, cuñados, nueras o cuñadas de cónyuge)</span> <span class="bold">y cónyuge o conviviente (marque con una "X" según corresponda): SI SOY ( ) NO SOY ( )</span><br>
+                <span class="bold">10.3. Indicar si es pariente de PEP hasta el 2do. grado de consanguinidad</span> <span class="small-text">(Padre, Madre, Abuelos, Abuelas, apellidos, hermanos, hermanas)</span> <span class="bold">2do de afinidad</span> <span class="small-text">(suegros, yerno, nuera, cuñados, nueras o cuñadas de cónyuge)</span> <span class="bold">y cónyuge o conviviente (marque con una "X" según corresponda):</span><br>
+                <span class="bold">SI SOY</span> ( {{ ($pep_data['es_pariente_pep'] ?? '') === 'si_soy' ? 'X' : ' ' }} ) 
+                <span class="bold">NO SOY</span> ( {{ ($pep_data['es_pariente_pep'] ?? '') === 'no_soy' ? 'X' : ' ' }} )<br>
                 <span class="bold">Si marcó "Si SOY" especifique los datos siguientes:</span><br><br>
                 
                 <table style="width: 100%; border-collapse: collapse; margin-top: 5px;">
@@ -184,6 +197,22 @@
                         <td style="border: 1px solid #000; padding: 3px; text-align: center; font-weight: bold;">Nombres y Apellidos del PEP</td>
                         <td style="border: 1px solid #000; padding: 3px; text-align: center; font-weight: bold;">Indicar Parentesco</td>
                     </tr>
+                    @if(!empty($pep_data['parientes_pep']) && ($pep_data['es_pariente_pep'] ?? '') === 'si_soy')
+                        @foreach($pep_data['parientes_pep'] as $pariente)
+                            @if(!empty($pariente['nombre_pariente']) || !empty($pariente['parentesco']))
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 3px; height: 20px;">{{ $pariente['nombre_pariente'] ?? '' }}</td>
+                                <td style="border: 1px solid #000; padding: 3px; height: 20px;">{{ $pariente['parentesco'] ?? '' }}</td>
+                            </tr>
+                            @endif
+                        @endforeach
+                        @for($i = count($pep_data['parientes_pep']); $i < 3; $i++)
+                        <tr>
+                            <td style="border: 1px solid #000; padding: 3px; height: 20px;"></td>
+                            <td style="border: 1px solid #000; padding: 3px; height: 20px;"></td>
+                        </tr>
+                        @endfor
+                    @else
                     <tr>
                         <td style="border: 1px solid #000; padding: 3px; height: 20px;"></td>
                         <td style="border: 1px solid #000; padding: 3px; height: 20px;"></td>
@@ -196,6 +225,7 @@
                         <td style="border: 1px solid #000; padding: 3px;">.......</td>
                         <td style="border: 1px solid #000; padding: 3px;"></td>
                     </tr>
+                    @endif
                 </table>
             </td>
         </tr>
@@ -204,43 +234,72 @@
         <tr>
             <td class="number-cell">11</td>
             <td class="content-cell">
-                <span style="text-align: center; font-weight: bold; display: block;">IDENTIFICION DEL BENEFICIARIO DE LA OPERACIÓN</span><br>
+                <span style="text-align: center; font-weight: bold; display: block;">IDENTIFICACIÓN DEL BENEFICIARIO DE LA OPERACIÓN</span><br>
                 <span class="bold">Realiza esta operación a favor de (marque con una "X" según corresponda):</span><br>
-                <span class="bold">1. De mi mismo ( )</span> <span class="bold">2. De un tercero persona natural ( )</span> <span class="bold">3. Persona jurídica ( )</span> <span class="bold">4. Ente jurídico ( )</span><br>
-                <span class="bold">Si marcó la opción 2, complete la información del numeral 11.2. Si marcó la opción 3, complete la información del numeral 11.3. Si marcó la opción 4, complete la información del numeral 11.4. Si marcó la opción 4, complete la información del numeral 11.4</span><br><br>
+                <span class="bold">1. De mi mismo</span> ( {{ ($pep_data['operacion_favor'] ?? '') === 'mi_mismo' ? 'X' : ' ' }} ) 
+                <span class="bold">2. De un tercero persona natural</span> ( {{ ($pep_data['operacion_favor'] ?? '') === 'tercero_natural' ? 'X' : ' ' }} ) 
+                <span class="bold">3. Persona jurídica</span> ( {{ ($pep_data['operacion_favor'] ?? '') === 'persona_juridica' ? 'X' : ' ' }} ) 
+                <span class="bold">4. Ente jurídico</span> ( {{ ($pep_data['operacion_favor'] ?? '') === 'ente_juridico' ? 'X' : ' ' }} )<br>
+                <span class="bold">Si marcó la opción 2, complete la información del numeral 11.2. Si marcó la opción 3, complete la información del numeral 11.3. Si marcó la opción 4, complete la información del numeral 11.4.</span><br><br>
                 
                 <span class="bold">11.1. Si realiza la operación a favor de sí mismo, complete la información siguiente:</span><br>
-                <span class="bold">En realiza la operación a favor de un tercero persona natural, complete la información siguiente:</span>
+                @if(($pep_data['operacion_favor'] ?? '') === 'mi_mismo')
+                    <span style="color: green;">✓ Operación realizada a favor del mismo cliente.</span><br>
+                @endif
             </td>
         </tr>
         
         <!-- Row 12: Tercero persona natural -->
+        @if(($pep_data['operacion_favor'] ?? '') === 'tercero_natural')
         <tr>
             <td class="number-cell">12</td>
             <td class="content-cell">
                 <span class="bold">11.2. Si realiza la operación a favor de un tercero persona natural, complete la información siguiente:</span><br>
-                <span class="bold">i) Nombres y apellido del tercero persona natural:</span> <span class="underline" style="width: 250px;"></span><br>
-                <span class="bold">ii) Tipo y número de documento de identidad:</span> <span class="underline" style="width: 200px;"></span><br>
+                <span class="bold">i) Nombres y apellido del tercero persona natural:</span> <span class="underline" style="width: 250px;">{{ $pep_data['tercero_nombres'] ?? '' }}</span><br>
+                <span class="bold">ii) Tipo y número de documento de identidad:</span> <span class="underline" style="width: 200px;">{{ $pep_data['tercero_documento'] ?? '' }}</span><br>
                 <span class="bold">iii) Datos de la representación (Marque con una "X" según corresponda): Poder por Escritura Pública ( ) Mandato ( )</span><br>
-                <span class="bold">iv) Indicar si es o ha sido PEP ¿Ha cumplido, en los últimos 5 años, ¿ funciones públicas en un organismo público o i) funciones prominentes en una organización internacional? (marque con una "X" según corresponda): SI SOY ( ) SI HA SIDO ( ) NO ES ( ) NO HA SIDO ( )</span><br>
+                <span class="bold">iv) Indicar si es o ha sido PEP ¿Ha cumplido, en los últimos 5 años, funciones públicas en un organismo público o funciones prominentes en una organización internacional? (marque con una "X" según corresponda): SI SOY ( ) SI HA SIDO ( ) NO ES ( ) NO HA SIDO ( )</span><br>
                 <span class="bold">Si marcó "Si es" o "Si ha sido" complete la información siguiente:</span><br>
                 <span class="bold">- Cargo:</span> <span class="underline" style="width: 250px;"></span><br>
-                <span class="bold">v) Origen de los fondosactivos involucrados en la operación, cuando esta se realice en efectivo o iguale o supere el umbral para efectos del RO.</span>
+                <span class="bold">v) Origen de los fondos/activos involucrados en la operación, cuando esta se realice en efectivo o iguale o supere el umbral para efectos del RO.</span>
             </td>
         </tr>
+        @endif
         
         <!-- Row 13: Persona jurídica -->
+        @if(in_array(($pep_data['operacion_favor'] ?? ''), ['persona_juridica', 'ente_juridico']))
         <tr>
             <td class="number-cell">13</td>
             <td class="content-cell">
-                <span class="bold">11.3. Si realiza la operación a favor de tercero persona jurídica o ente jurídico, en los casos aplicable a este último, complete la información siguiente:</span><br>
-                <span class="bold">i) Denominación o Razón Social:</span> <span class="underline" style="width: 300px;"></span><br>
-                <span class="bold">ii) Número de RUC, de ser el caso:</span> <span class="underline" style="width: 150px;"></span><br>
+                <span class="bold">11.3. Si realiza la operación a favor de tercero persona jurídica o ente jurídico, complete la información siguiente:</span><br>
+                <span class="bold">i) Denominación o Razón Social:</span> <span class="underline" style="width: 300px;">{{ $pep_data['razon_social'] ?? '' }}</span><br>
+                <span class="bold">ii) Número de RUC, de ser el caso:</span> <span class="underline" style="width: 150px;">{{ $pep_data['ruc'] ?? '' }}</span><br>
                 <span class="bold">iii) Datos de la representación (Marque con una "X" según corresponda): Poder por acta ( ) Poder por Escritura Pública ( ) Mandato ( )</span><br>
-                <span class="bold">iv) Origen de los fondosactivos involucrados en la operación, cuando esta se realice en efectivo o iguale o supere el umbral para efectos del RO.</span><br>
+                <span class="bold">iv) Origen de los fondos/activos involucrados en la operación, cuando esta se realice en efectivo o iguale o supere el umbral para efectos del RO.</span><br>
                 <span class="bold">v) Identificación del Beneficiario Final del Beneficiario de la operación, conforme al artículo 4 del Decreto Supremo N° 1372 y sus modificatorias; según corresponda (Nombres y Apellidos):</span><br>
                 <span class="underline" style="width: 100%; height: 15px; display: block;"></span><br>
                 <span class="bold">Afirmo y ratifico todo lo manifestado en la presente declaración jurada</span>
+            </td>
+        </tr>
+        @endif
+        
+        <!-- Row 14: Observaciones -->
+        @if(!empty($pep_data['observaciones']))
+        <tr>
+            <td class="number-cell">14</td>
+            <td class="content-cell">
+                <span class="bold">Observaciones adicionales:</span><br>
+                <div style="border: 1px solid #000; padding: 5px; min-height: 30px; margin-top: 5px;">
+                    {{ $pep_data['observaciones'] }}
+                </div>
+            </td>
+        </tr>
+        @endif
+        
+        <!-- Final Declaration -->
+        <tr>
+            <td colspan="2" style="text-align: center; padding: 15px; font-weight: bold;">
+                Afirmo y ratifico todo lo manifestado en la presente declaración jurada
             </td>
         </tr>
         
@@ -260,7 +319,7 @@
         <!-- Footer -->
         <tr>
             <td colspan="2" class="small-text" style="text-align: center; padding: 5px;">
-                Nota: Para ser completada por el sujeto obligado y, en su caso, se deberá a solicitar la UIF-Perú los antecedentes de supervisión. No enviarse a la UIF-Perú, salvo solicitud expresa.
+                Nota: Para ser completada por el sujeto obligado y, en su caso, se deberá solicitar a la UIF-Perú los antecedentes de supervisión. No enviarse a la UIF-Perú, salvo solicitud expresa.
             </td>
         </tr>
     </table>

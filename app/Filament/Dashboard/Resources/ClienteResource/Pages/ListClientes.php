@@ -431,6 +431,48 @@ class ListClientes extends ListRecords
                 ->modalSubmitActionLabel('Generar PDF Completo')
                 ->modalWidth('7xl')
                 ->slideOver(),
+                
+            // Nueva acción para el editor interactivo
+            Actions\Action::make('editar_pep_interactivo')
+                ->label('Editor PEP Interactivo')
+                ->icon('heroicon-o-pencil-square')
+                ->color('success')
+                ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de creditos', 'Jefe de operaciones']))
+                ->form([
+                    Forms\Components\Select::make('cliente_id')
+                        ->label('Seleccionar Cliente PEP')
+                        ->placeholder('Buscar cliente...')
+                        ->options(function () {
+                            return \App\Models\Cliente::where('condicion_personal', 'PEP')
+                                ->where('estado_cliente', 'Activo')
+                                ->with('persona')
+                                ->get()
+                                ->mapWithKeys(function ($cliente) {
+                                    return [$cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' - DNI: ' . $cliente->persona->DNI];
+                                });
+                        })
+                        ->searchable()
+                        ->required()
+                        ->helperText('Solo se muestran clientes con condición PEP activos'),
+                ])
+                ->action(function ($data) {
+                    $cliente = \App\Models\Cliente::find($data['cliente_id']);
+                    
+                    if (!$cliente) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('Error')
+                            ->body('Cliente no encontrado.')
+                            ->send();
+                        return;
+                    }
+                    
+                    // Redirigir al editor interactivo
+                    return redirect()->route('pep.editor', ['cliente' => $cliente->id]);
+                })
+                ->modalHeading('✏️ Editor Interactivo de Declaración Jurada PEP')
+                ->modalSubmitActionLabel('Abrir Editor')
+                ->modalWidth('lg'),
         ];
     }
 
