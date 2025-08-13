@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class PepEditor extends Component
 {
-    public $cliente_id;
-    public $cliente;
+    public Cliente $cliente;
     public $persona;
     
     // Campos editables del formulario
@@ -61,16 +60,20 @@ class PepEditor extends Component
         'observaciones' => 'nullable|string|max:500',
     ];
 
-    public function mount($cliente_id)
+    public function mount(Cliente $cliente)
     {
-        $this->cliente_id = $cliente_id;
+        $this->cliente = $cliente;
         $this->loadCliente();
         $this->initializeParientes();
     }
 
     public function loadCliente()
     {
-        $this->cliente = Cliente::with('persona')->findOrFail($this->cliente_id);
+        // Cargar la relación persona si no está cargada
+        if (!$this->cliente->relationLoaded('persona')) {
+            $this->cliente->load('persona');
+        }
+        
         $this->persona = $this->cliente->persona;
         
         // Verificar que sea PEP
@@ -78,6 +81,9 @@ class PepEditor extends Component
             session()->flash('error', 'Este cliente no tiene condición PEP.');
             return redirect()->route('filament.dashboard.resources.clientes.index');
         }
+        
+        // Cargar datos guardados en sesión si existen
+        $this->loadSavedData();
     }
 
     public function initializeParientes()
@@ -138,7 +144,7 @@ class PepEditor extends Component
         if ($this->autoSaveEnabled) {
             // Guardar en sesión para no perder datos
             session([
-                'pep_editor_data_' . $this->cliente_id => [
+                'pep_editor_data_' . $this->cliente->id => [
                     'conyuge_conviviente' => $this->conyuge_conviviente,
                     'telefono_fijo' => $this->telefono_fijo,
                     'proposito_relacion' => $this->proposito_relacion,
@@ -161,7 +167,7 @@ class PepEditor extends Component
 
     public function loadSavedData()
     {
-        $savedData = session('pep_editor_data_' . $this->cliente_id);
+        $savedData = session('pep_editor_data_' . $this->cliente->id);
         
         if ($savedData) {
             foreach ($savedData as $key => $value) {
@@ -201,7 +207,7 @@ class PepEditor extends Component
             $filename = "DJ_PEP_{$this->persona->DNI}_{$this->persona->nombre}_{$this->persona->apellidos}.pdf";
             
             // Limpiar datos de sesión después de generar PDF exitosamente
-            session()->forget('pep_editor_data_' . $this->cliente_id);
+            session()->forget('pep_editor_data_' . $this->cliente->id);
             
             session()->flash('success', 'PDF generado exitosamente.');
             
@@ -221,10 +227,5 @@ class PepEditor extends Component
     public function render()
     {
         return view('livewire.pep-editor');
-    }
-    
-    protected function getLayoutView(): string
-    {
-        return 'layouts.app';
     }
 }
