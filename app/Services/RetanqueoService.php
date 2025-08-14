@@ -317,7 +317,7 @@ class RetanqueoService
     public function rechazarRetanqueo($retanqueoId, $motivo = '')
     {
         return DB::transaction(function () use ($retanqueoId, $motivo) {
-            $retanqueo = Retanqueo::find($retanqueoId);
+            $retanqueo = Retanqueo::with('prestamoNuevo')->find($retanqueoId);
 
             if (!$retanqueo) {
                 throw new \Exception('Retanqueo no encontrado');
@@ -327,7 +327,27 @@ class RetanqueoService
                 throw new \Exception('Solo se pueden rechazar solicitudes pendientes');
             }
 
-            // Actualizar estado
+            // Si existe un préstamo nuevo asociado (pendiente), marcarlo como rechazado
+            if ($retanqueo->prestamo_nuevo_id && $retanqueo->prestamoNuevo) {
+                $prestamoNuevo = $retanqueo->prestamoNuevo;
+                
+                // Solo actualizar si está en estado Pendiente
+                if ($prestamoNuevo->estado === 'Pendiente') {
+                    $prestamoNuevo->update(['estado' => 'Rechazado']);
+                    
+                    // También actualizar los préstamos individuales asociados
+                    $prestamoNuevo->prestamoIndividual()->update(['estado' => 'Rechazado']);
+                    
+                    Log::info('Préstamo asociado al retanqueo rechazado actualizado', [
+                        'retanqueo_id' => $retanqueoId,
+                        'prestamo_nuevo_id' => $prestamoNuevo->id,
+                        'estado_anterior' => 'Pendiente',
+                        'estado_nuevo' => 'Rechazado'
+                    ]);
+                }
+            }
+
+            // Actualizar estado del retanqueo
             $retanqueo->update([
                 'estado_retanqueo' => 'rechazado'
             ]);

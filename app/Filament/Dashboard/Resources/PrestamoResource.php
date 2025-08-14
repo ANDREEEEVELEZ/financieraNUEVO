@@ -790,14 +790,27 @@ class PrestamoResource extends Resource
 
                     Tables\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
-                        ->visible(fn($record) => $record->estado === 'Pendiente' && !$record->es_retanqueo),
+                        ->visible(fn($record) => !$record->es_retanqueo && $record->estado === 'Pendiente'),
 
-                    Tables\Actions\Action::make('editar_retanqueo')
-                        ->label('Editar en Retanqueos')
+                    Tables\Actions\Action::make('ir_a_retanqueo')
+                        ->label('Gestionar en Retanqueos')
                         ->icon('heroicon-o-arrow-top-right-on-square')
-                        ->color('info')
-                        ->url(fn($record) => route('filament.dashboard.resources.retanqueos.edit', $record->retanqueoComoNuevo?->id ?? '#'))
-                        ->visible(fn($record) => $record->es_retanqueo && $record->retanqueoComoNuevo)
+                        ->color('warning')
+                        ->url(function($record) {
+                            if ($record->retanqueoComoNuevo) {
+                                return route('filament.dashboard.resources.retanqueos.view', $record->retanqueoComoNuevo->id);
+                            }
+                            return route('filament.dashboard.resources.retanqueos.index');
+                        })
+                        ->visible(fn($record) => $record->es_retanqueo)
+                        ->tooltip('Este préstamo es un retanqueo y solo puede gestionarse desde el módulo de Retanqueos'),
+
+                    Tables\Actions\Action::make('bloqueo_retanqueo')
+                        ->label('⚠️ Retanqueo')
+                        ->icon('heroicon-o-lock-closed')
+                        ->color('gray')
+                        ->disabled()
+                        ->visible(fn($record) => $record->es_retanqueo && !$record->retanqueoComoNuevo)
                         ->tooltip('Este préstamo solo puede editarse desde el módulo de Retanqueos'),
 
                     Tables\Actions\Action::make('imprimir_contrato')
@@ -837,5 +850,70 @@ class PrestamoResource extends Resource
 
         // Ordenamiento simple: siempre los más recientes arriba
         return $query->orderBy('created_at', 'desc');
+    }
+
+    // Métodos de autorización
+    public static function canEdit($record): bool
+    {
+        // No se pueden editar préstamos que son retanqueos
+        if ($record->es_retanqueo) {
+            return false;
+        }
+        
+        // Solo se pueden editar préstamos en estado Pendiente
+        if ($record->estado !== 'Pendiente') {
+            return false;
+        }
+        
+        $user = request()->user();
+        if (!$user) return false;
+
+        // Los asesores solo pueden editar sus propios préstamos
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor && $record->grupo) {
+                return $record->grupo->asesor_id === $asesor->id;
+            }
+            return false;
+        }
+
+        // Jefes y super_admin pueden editar cualquier préstamo (que no sea retanqueo y esté pendiente)
+        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
+    }
+
+    public static function canView($record): bool
+    {
+        $user = request()->user();
+        if (!$user) return false;
+
+        // Los asesores solo pueden ver sus propios préstamos
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor && $record->grupo) {
+                return $record->grupo->asesor_id === $asesor->id;
+            }
+            return false;
+        }
+
+        // Otros roles pueden ver cualquier préstamo
+        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
+    }
+
+    public static function canCreate(): bool
+    {
+        $user = request()->user();
+        return $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos', 'Asesor']);
+    }
+
+    public static function canDelete($record): bool
+    {
+        // No se pueden eliminar préstamos que son retanqueos
+        if ($record->es_retanqueo) {
+            return false;
+        }
+        
+        // Solo super_admin puede eliminar préstamos
+        $user = request()->user();
+        return $user && $user->hasRole('super_admin');
     }
 }
