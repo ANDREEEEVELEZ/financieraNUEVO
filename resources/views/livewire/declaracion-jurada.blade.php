@@ -1,57 +1,3 @@
-@extends('layouts.app')
-
-@section('title', 'Declaración Jurada - Sistema Financiero')
-
-@push('styles')
-    @filamentStyles
-    <style>
-        /* Estilos personalizados para mejorar la apariencia del formulario */
-        .fi-section {
-            margin-bottom: 1.5rem;
-        }
-        
-        .fi-section-header {
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        
-        .fi-section-header h3 {
-            color: #1f2937;
-            font-weight: 600;
-        }
-        
-        .fi-section-header p {
-            color: #6b7280;
-            font-size: 0.875rem;
-        }
-        
-        /* Estilos para campos deshabilitados */
-        .fi-input[disabled] {
-            background-color: #f9fafb !important;
-            border-color: #d1d5db !important;
-            color: #6b7280 !important;
-        }
-        
-        /* Mejorar el espaciado de los checkboxes */
-        .fi-checkbox {
-            margin-bottom: 0.5rem;
-        }
-        
-        /* Estilo para el formulario en dispositivos móviles */
-        @media (max-width: 768px) {
-            .fi-grid-cols-2 {
-                grid-template-columns: 1fr !important;
-            }
-        }
-    </style>
-@endpush
-
-@push('scripts')
-    @filamentScripts
-@endpush
-
-@section('content')
 <div class="p-6 max-w-6xl mx-auto">
     <div class="mb-6">
         <div class="flex items-center justify-between mb-4">
@@ -59,8 +5,9 @@
                 Declaración Jurada de Conocimiento del Cliente - Régimen General
             </h1>
             <a href="{{ route('filament.dashboard.resources.clientes.index') }}" 
-               class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
-                ← Volver a Clientes
+               class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Volver a Clientes
             </a>
         </div>
         <p class="text-sm text-gray-600 mb-2">
@@ -81,7 +28,7 @@
         @endif
     </div>
 
-    <div class="bg-white rounded-lg shadow-lg p-6">
+    <div class="declaracion-form p-6">
         <form wire:submit.prevent="generarPDF">
             {{ $this->form }}
             
@@ -120,4 +67,3 @@
         </ul>
     </div>
 </div>
-@endsection
