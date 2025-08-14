@@ -6,6 +6,7 @@ use App\Http\Controllers\PagoPdfController;
 use App\Http\Controllers\MoraPdfController;
 use App\Http\Controllers\AsistenteController;
 use App\Http\Controllers\DeclaracionJuradaController;
+use App\Http\Controllers\DeclaracionJuradaTestController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
@@ -30,6 +31,9 @@ Route::get('/', function () {
 
 // Ruta pública para generar esquema desde el Asistente Virtual
 Route::get('/generar-esquema', [AsistenteController::class, 'guardarEsquemaEnArchivo']);
+
+// Ruta de prueba para PDF (temporal)
+Route::get('/test-declaracion', [DeclaracionJuradaTestController::class, 'test']);
 
 // Ruta pública para impresión de contratos de grupo
 Route::get('/contratos/grupo/{grupoId}', [ContratoGrupoController::class, 'imprimirContratos'])

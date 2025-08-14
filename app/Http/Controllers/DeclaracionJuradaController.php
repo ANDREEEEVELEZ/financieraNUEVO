@@ -27,12 +27,13 @@ class DeclaracionJuradaController extends Controller
         // Obtener el cliente con sus datos relacionados
         $cliente = Cliente::with('persona')->findOrFail($clienteId);
         
-        // Configurar opciones de DOMPDF
+        // Configurar opciones de DOMPDF - Configuración segura para evitar errores UTF-8
         $options = new Options();
-        $options->set('defaultFont', 'DejaVu Sans');
-        $options->set('isHtml5ParserEnabled', true);
-        $options->set('isPhpEnabled', true);
-        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'Arial');
+        $options->set('isHtml5ParserEnabled', false);
+        $options->set('isPhpEnabled', false);
+        $options->set('isRemoteEnabled', false);
+        $options->set('chroot', public_path());
         
         $dompdf = new Dompdf($options);
         
@@ -61,6 +62,38 @@ class DeclaracionJuradaController extends Controller
     {
         $fechaActual = Carbon::now()->format('d/m/Y');
         
+        // Función para limpiar caracteres especiales que causan problemas de codificación
+        $limpiarTexto = function($texto) {
+            if (empty($texto)) return $texto;
+            
+            $reemplazos = [
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+                'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ñ' => 'N',
+                'ü' => 'u', 'Ü' => 'U'
+            ];
+            
+            return str_replace(array_keys($reemplazos), array_values($reemplazos), $texto);
+        };
+        
+        // Limpiar datos del cliente para evitar problemas de codificación
+        $clienteLimpio = (object) [
+            'nombres' => $limpiarTexto($cliente->persona->nombres ?? ''),
+            'apellidos' => $limpiarTexto($cliente->persona->apellidos ?? ''),
+            'DNI' => $cliente->persona->DNI ?? '',
+            'estado_civil' => $limpiarTexto($cliente->persona->estado_civil ?? ''),
+            'direccion' => $limpiarTexto($cliente->persona->direccion ?? ''),
+            'distrito' => $limpiarTexto($cliente->persona->distrito ?? ''),
+            'telefono' => $cliente->persona->telefono ?? '',
+            'celular' => $cliente->persona->celular ?? '',
+            'correo' => $limpiarTexto($cliente->persona->correo ?? ''),
+            'ocupacion' => $limpiarTexto($cliente->persona->ocupacion ?? 'No especificada'),
+        ];
+        
+        // Limpiar datos del formulario
+        $datosLimpios = array_map(function($valor) use ($limpiarTexto) {
+            return is_string($valor) ? $limpiarTexto($valor) : $valor;
+        }, $datos);
+        
         // Determinar qué opciones están marcadas
         $dniMarcado = 'X';
         $pasaporteMarcado = '';
@@ -68,26 +101,26 @@ class DeclaracionJuradaController extends Controller
         $otroMarcado = '';
         
         // Estado civil
-        $solteroMarcado = $cliente->persona->estado_civil === 'Soltero' ? 'X' : '';
-        $casadoMarcado = $cliente->persona->estado_civil === 'Casado' ? 'X' : '';
-        $viudoMarcado = $cliente->persona->estado_civil === 'Viudo' ? 'X' : '';
-        $divorciadoMarcado = $cliente->persona->estado_civil === 'Divorciado' ? 'X' : '';
+        $solteroMarcado = $clienteLimpio->estado_civil === 'Soltero' ? 'X' : '';
+        $casadoMarcado = $clienteLimpio->estado_civil === 'Casado' ? 'X' : '';
+        $viudoMarcado = $clienteLimpio->estado_civil === 'Viudo' ? 'X' : '';
+        $divorciadoMarcado = $clienteLimpio->estado_civil === 'Divorciado' ? 'X' : '';
         
         // PEP - Primera pregunta
-        $siSoyPep = $datos['es_pep'] === 'si_soy' ? 'X' : '';
-        $siHeSidoPep = $datos['es_pep'] === 'si_he_sido' ? 'X' : '';
-        $noSoyPep = $datos['es_pep'] === 'no_soy' ? 'X' : '';
-        $noHeSidoPep = $datos['es_pep'] === 'no_he_sido' ? 'X' : '';
+        $siSoyPep = $datosLimpios['es_pep'] === 'si_soy' ? 'X' : '';
+        $siHeSidoPep = $datosLimpios['es_pep'] === 'si_he_sido' ? 'X' : '';
+        $noSoyPep = $datosLimpios['es_pep'] === 'no_soy' ? 'X' : '';
+        $noHeSidoPep = $datosLimpios['es_pep'] === 'no_he_sido' ? 'X' : '';
         
         // Colaborador directo
-        $siSoyColab = $datos['colaborador_directo'] === 'si_soy' ? 'X' : '';
-        $siHeSidoColab = $datos['colaborador_directo'] === 'si_he_sido' ? 'X' : '';
-        $noSoyColab = $datos['colaborador_directo'] === 'no_soy' ? 'X' : '';
-        $noHeSidoColab = $datos['colaborador_directo'] === 'no_he_sido' ? 'X' : '';
+        $siSoyColab = $datosLimpios['colaborador_directo'] === 'si_soy' ? 'X' : '';
+        $siHeSidoColab = $datosLimpios['colaborador_directo'] === 'si_he_sido' ? 'X' : '';
+        $noSoyColab = $datosLimpios['colaborador_directo'] === 'no_soy' ? 'X' : '';
+        $noHeSidoColab = $datosLimpios['colaborador_directo'] === 'no_he_sido' ? 'X' : '';
         
         // Pariente PEP
-        $siSoyPariente = isset($datos['pariente_pep']) && $datos['pariente_pep'] === 'si_soy' ? 'X' : '';
-        $noSoyPariente = isset($datos['pariente_pep']) && $datos['pariente_pep'] === 'no_soy' ? 'X' : '';
+        $siSoyPariente = isset($datosLimpios['pariente_pep']) && $datosLimpios['pariente_pep'] === 'si_soy' ? 'X' : '';
+        $noSoyPariente = isset($datosLimpios['pariente_pep']) && $datosLimpios['pariente_pep'] === 'no_soy' ? 'X' : '';
         
         // Beneficiario
         $porMiMismo = 'X'; // Siempre por sí mismo en préstamos personales
@@ -96,8 +129,8 @@ class DeclaracionJuradaController extends Controller
         $enteJuridico = '';
         
         return view('pdf.declaracion-jurada', compact(
-            'cliente',
-            'datos',
+            'clienteLimpio',
+            'datosLimpios',
             'fechaActual',
             'dniMarcado',
             'pasaporteMarcado',
