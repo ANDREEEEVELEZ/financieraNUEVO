@@ -361,13 +361,6 @@ class ClienteResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
-                Tables\Actions\Action::make('declaracion_jurada')
-                    ->label('Declaración Jurada')
-                    ->icon('heroicon-o-document-text')
-                    ->color('info')
-                    ->url(fn (Cliente $record): string => route('declaracion-jurada', ['cliente_id' => $record->id]))
-                    ->openUrlInNewTab()
-                    ->tooltip('Generar Declaración Jurada SBS (PDF)'),
                 Tables\Actions\Action::make('trasladar_cliente')
                     ->label('Trasladar Cliente')
                     ->icon('heroicon-o-arrow-right-circle')
