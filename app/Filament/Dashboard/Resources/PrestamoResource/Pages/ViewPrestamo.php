@@ -53,16 +53,16 @@ class ViewPrestamo extends ViewRecord
         $user = Auth::user();
         $actions = [];
 
-        // Botón para editar solo si el estado es Pendiente
-        if ($this->record->estado === 'Pendiente') {
+        // Botón para editar solo si el estado es Pendiente Y NO es retanqueo
+        if ($this->record->estado === 'Pendiente' && !$this->record->es_retanqueo) {
             $actions[] = Actions\EditAction::make()
                 ->icon('heroicon-m-pencil-square')
                 ->label('Editar');
         }
 
-        // Solo mostrar botones de aprobar/rechazar para roles mayores y préstamos pendientes
+        // Solo mostrar botones de aprobar/rechazar para roles mayores, préstamos pendientes Y que NO sean retanqueos
         if ($user && $user->roles->pluck('name')->intersect(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->isNotEmpty() && 
-            $this->record->estado === 'Pendiente') {
+            $this->record->estado === 'Pendiente' && !$this->record->es_retanqueo) {
             
             // Botón Aprobar
             $actions[] = Actions\Action::make('aprobar')
@@ -107,6 +107,21 @@ class ViewPrestamo extends ViewRecord
                     // Recargar la página para reflejar los cambios
                     return redirect(static::getResource()::getUrl('view', ['record' => $this->record]));
                 });
+        }
+
+        // Acción especial para retanqueos: redirigir al módulo de Retanqueos
+        if ($this->record->es_retanqueo && $this->record->estado === 'Pendiente') {
+            $actions[] = Actions\Action::make('gestionar_retanqueo')
+                ->label('Gestionar en Retanqueos')
+                ->icon('heroicon-o-arrow-top-right-on-square')
+                ->color('warning')
+                ->url(function() {
+                    if ($this->record->retanqueoComoNuevo) {
+                        return route('filament.dashboard.resources.retanqueos.view', $this->record->retanqueoComoNuevo->id);
+                    }
+                    return route('filament.dashboard.resources.retanqueos.index');
+                })
+                ->tooltip('Este préstamo es un retanqueo y debe gestionarse desde el módulo de Retanqueos');
         }
 
         // Botón para imprimir contrato si está aprobado
