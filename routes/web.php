@@ -42,7 +42,7 @@ Route::middleware([
 ])->group(function () {
     Route::get('/pagos/exportar/pdf', [PagoPdfController::class, 'exportar'])->name('pagos.exportar.pdf');
     Route::get('/moras/exportar-pdf', [MoraPdfController::class, 'exportar'])->name('moras.exportar.pdf');
-    Route::get('/declaracion-jurada/{cliente_id?}', \App\Livewire\DeclaracionJurada::class)->name('declaracion-jurada');
+    Route::get('/declaracion-jurada/{cliente_id}', [\App\Http\Controllers\DeclaracionJuradaController::class, 'generarPDF'])->name('declaracion-jurada.pdf');
 });
 
 // Ruta para cerrar sesión (opcional si no usas el logout de Filament)
