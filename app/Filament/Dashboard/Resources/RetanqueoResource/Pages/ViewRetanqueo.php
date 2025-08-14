@@ -101,39 +101,121 @@ class ViewRetanqueo extends ViewRecord
                         ->exists();
 
                 if ($tienePrestamoPendiente) {
-                    // Si ya existe préstamo pendiente, solo mostrar confirmación simple
-                    $actions[] = Actions\Action::make('ejecutar')
-                        ->label('Ejecutar Retanqueo')
-                        ->icon('heroicon-m-play')
-                        ->color('primary')
-                        ->requiresConfirmation()
-                        ->modalHeading('Ejecutar Retanqueo')
-                        ->modalDescription('El préstamo ya está creado en estado Pendiente. ¿Confirma que desea activarlo?')
-                        ->modalSubmitActionLabel('Sí, Ejecutar Retanqueo')
-                        ->action(function () {
-                            try {
-                                $retanqueoService = new RetanqueoService();
-                                
-                                // No necesitamos datos de cuenta porque ya están guardados
-                                $retanqueoService->ejecutarRetanqueo($this->record->id, []);
-                                
-                                Notification::make()
-                                    ->title('Retanqueo Ejecutado')
-                                    ->body('El retanqueo ha sido ejecutado exitosamente. El préstamo pendiente ha sido activado.')
-                                    ->success()
-                                    ->send();
+                    // Si ya existe préstamo pendiente, verificar si ya tiene datos de cuenta
+                    $prestamoPendiente = \App\Models\Prestamo::find($record->prestamo_nuevo_id);
+                    $tieneDatosCuenta = $prestamoPendiente && 
+                        !empty($prestamoPendiente->titular_cuenta_desembolso) && 
+                        !empty($prestamoPendiente->numero_cuenta_desembolso);
 
-                                $this->refreshFormData(['estado_retanqueo', 'prestamo_nuevo_id']);
-                            } catch (\Exception $e) {
-                                Notification::make()
-                                    ->title('Error')
-                                    ->body('Error al ejecutar el retanqueo: ' . $e->getMessage())
-                                    ->danger()
-                                    ->send();
-                            }
-                        });
+                    if ($tieneDatosCuenta) {
+                        // Ya tiene todos los datos, solo mostrar confirmación simple
+                        $actions[] = Actions\Action::make('ejecutar')
+                            ->label('Ejecutar Retanqueo')
+                            ->icon('heroicon-m-play')
+                            ->color('primary')
+                            ->requiresConfirmation()
+                            ->modalHeading('Ejecutar Retanqueo')
+                            ->modalDescription('El préstamo ya está creado con todos los datos bancarios. ¿Confirma que desea activarlo?')
+                            ->modalSubmitActionLabel('Sí, Ejecutar Retanqueo')
+                            ->action(function () {
+                                try {
+                                    $retanqueoService = new RetanqueoService();
+                                    
+                                    // No necesitamos datos de cuenta porque ya están guardados
+                                    $retanqueoService->ejecutarRetanqueo($this->record->id, []);
+                                    
+                                    Notification::make()
+                                        ->title('Retanqueo Ejecutado')
+                                        ->body('El retanqueo ha sido ejecutado exitosamente. El préstamo pendiente ha sido activado.')
+                                        ->success()
+                                        ->send();
+
+                                    $this->refreshFormData(['estado_retanqueo', 'prestamo_nuevo_id']);
+                                } catch (\Exception $e) {
+                                    Notification::make()
+                                        ->title('Error')
+                                        ->body('Error al ejecutar el retanqueo: ' . $e->getMessage())
+                                        ->danger()
+                                        ->send();
+                                }
+                            });
+                    } else {
+                        // Falta información bancaria, solicitarla
+                        $actions[] = Actions\Action::make('ejecutar')
+                            ->label('Ejecutar Retanqueo')
+                            ->icon('heroicon-m-play')
+                            ->color('primary')
+                            ->form([
+                                \Filament\Forms\Components\Section::make('Información de Desembolso Requerida')
+                                    ->description('Complete los datos bancarios faltantes para el desembolso')
+                                    ->schema([
+                                        \Filament\Forms\Components\TextInput::make('titular_cuenta_desembolso')
+                                            ->label('Titular de la Cuenta a Desembolsar')
+                                            ->prefixIcon('heroicon-o-user')
+                                            ->placeholder('Ingrese el nombre del titular de la cuenta')
+                                            ->maxLength(255)
+                                            ->required()
+                                            ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
+                                            ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/')
+                                            ->rule('min:3')
+                                            ->extraInputAttributes([
+                                                'onkeypress' => 'return /[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/.test(event.key)',
+                                                'oninput' => 'this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")'
+                                            ]),
+
+                                        \Filament\Forms\Components\TextInput::make('numero_cuenta_desembolso')
+                                            ->label('Número de la Cuenta a Desembolsar')
+                                            ->prefixIcon('heroicon-o-credit-card')
+                                            ->placeholder('Ingrese el número de cuenta (14 dígitos)')
+                                            ->maxLength(14)
+                                            ->minLength(14)
+                                            ->required()
+                                            ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
+                                            ->rule('regex:/^[0-9]{14}$/')
+                                            ->numeric()
+                                            ->extraInputAttributes([
+                                                'onkeypress' => 'return /[0-9]/.test(event.key) && this.value.length < 14',
+                                                'oninput' => 'this.value = this.value.replace(/[^0-9]/g, "").substring(0, 14)'
+                                            ]),
+                                    ])
+                            ])
+                            ->requiresConfirmation()
+                            ->modalHeading('Ejecutar Retanqueo')
+                            ->modalDescription('Complete la información bancaria faltante y confirme la ejecución del retanqueo.')
+                            ->modalSubmitActionLabel('Ejecutar Retanqueo')
+                            ->action(function (array $data) {
+                                try {
+                                    $retanqueoService = new RetanqueoService();
+                                
+                                    // Preparar datos de cuenta con validación
+                                    $datosCuenta = [];
+                                    if (!empty($data['titular_cuenta_desembolso'])) {
+                                        $datosCuenta['titular_cuenta_desembolso'] = trim($data['titular_cuenta_desembolso']);
+                                    }
+                                    if (!empty($data['numero_cuenta_desembolso'])) {
+                                        $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
+                                    }
+                                    
+                                    $retanqueoService->ejecutarRetanqueo($this->record->id, $datosCuenta);
+                                    
+                                    Notification::make()
+                                        ->title('Retanqueo Ejecutado')
+                                        ->body('El retanqueo ha sido ejecutado exitosamente. El préstamo ha sido activado con los datos bancarios.')
+                                        ->success()
+                                        ->send();
+
+                                    $this->refreshFormData(['estado_retanqueo', 'prestamo_nuevo_id']);
+                                } catch (\Exception $e) {
+                                    Notification::make()
+                                        ->title('Error')
+                                        ->body('Error al ejecutar el retanqueo: ' . $e->getMessage())
+                                        ->danger()
+                                        ->send();
+                                }
+                            });
+                    }
                 } else {
-                    // Flujo original: pedir datos de cuenta
+                    // Flujo original: crear nuevo préstamo desde cero
                     $actions[] = Actions\Action::make('ejecutar')
                         ->label('Ejecutar Retanqueo')
                         ->icon('heroicon-m-play')

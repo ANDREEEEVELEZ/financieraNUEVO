@@ -278,6 +278,18 @@ class RetanqueoService
                 throw new \Exception('Solo se pueden aprobar solicitudes pendientes');
             }
 
+            $prestamoAntiguo = $retanqueo->prestamoAntiguo;
+            
+            // VALIDACIÓN CRÍTICA FINANCIERA: Verificar que el préstamo antiguo tenga EXACTAMENTE 1 cuota pendiente
+            $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()
+                ->where('estado_pago', '!=', 'pagado')
+                ->where('saldo_pendiente', '>', 0)
+                ->count();
+                
+            if ($cuotasPendientes !== 1) {
+                throw new \Exception("APROBACIÓN BLOQUEADA: El préstamo {$prestamoAntiguo->id} tiene {$cuotasPendientes} cuotas pendientes. Solo se pueden aprobar retanqueos cuando queda EXACTAMENTE 1 cuota por pagar. Operación cancelada por seguridad financiera.");
+            }
+
             // Actualizar estado
             $retanqueo->update([
                 'estado_retanqueo' => 'aprobado',
@@ -354,22 +366,11 @@ class RetanqueoService
             }
 
             $prestamoAntiguo = $retanqueo->prestamoAntiguo;
-            
-            // VALIDACIÓN CRÍTICA FINANCIERA: Verificar que el préstamo antiguo tenga EXACTAMENTE 1 cuota pendiente
-            $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()
-                ->where('estado_pago', '!=', 'pagado')
-                ->where('saldo_pendiente', '>', 0)
-                ->count();
-                
-            if ($cuotasPendientes !== 1) {
-                throw new \Exception("EJECUTIÓN BLOQUEADA: El préstamo {$prestamoAntiguo->id} tiene {$cuotasPendientes} cuotas pendientes. Solo se permiten retanqueos cuando queda EXACTAMENTE 1 cuota por pagar. Operación cancelada por seguridad financiera.");
-            }
-            
             $grupo = $prestamoAntiguo->grupo;
 
-            // SEGURO: Validar y limpiar datos de cuenta con reglas estrictas
+            // SEGURO: Validar y limpiar datos de cuenta con reglas estrictas SOLO si se proporcionan
             $datosCuentaLimpios = [];
-            if (is_array($datosCuenta)) {
+            if (is_array($datosCuenta) && !empty($datosCuenta)) {
                 // Validar titular: solo letras, espacios y acentos, mínimo 3 caracteres
                 if (!empty($datosCuenta['titular_cuenta_desembolso']) && 
                     is_string($datosCuenta['titular_cuenta_desembolso'])) {
@@ -395,14 +396,25 @@ class RetanqueoService
                 
                 if ($nuevoPrestamo && $nuevoPrestamo->estado === 'Pendiente') {
                     // El préstamo ya existe en estado Pendiente, solo cambiar estado
-                    $nuevoPrestamo->update(['estado' => 'Aprobado']);
+                    $actualizacion = ['estado' => 'Aprobado'];
+                    
+                    // Si se proporcionan datos de cuenta válidos, actualizarlos
+                    if (!empty($datosCuentaLimpios['titular_cuenta_desembolso'])) {
+                        $actualizacion['titular_cuenta_desembolso'] = $datosCuentaLimpios['titular_cuenta_desembolso'];
+                    }
+                    if (!empty($datosCuentaLimpios['numero_cuenta_desembolso'])) {
+                        $actualizacion['numero_cuenta_desembolso'] = $datosCuentaLimpios['numero_cuenta_desembolso'];
+                    }
+                    
+                    $nuevoPrestamo->update($actualizacion);
                     
                     // Actualizar préstamos individuales a Aprobado
                     $nuevoPrestamo->prestamoIndividual()->update(['estado' => 'Aprobado']);
                     
                     Log::info('Préstamo existente activado (Pendiente -> Aprobado)', [
                         'prestamo_id' => $nuevoPrestamo->id,
-                        'retanqueo_id' => $retanqueoId
+                        'retanqueo_id' => $retanqueoId,
+                        'datos_cuenta_actualizados' => !empty($datosCuentaLimpios)
                     ]);
                 } else {
                     throw new \Exception('El préstamo asociado al retanqueo no existe o no está en estado Pendiente');

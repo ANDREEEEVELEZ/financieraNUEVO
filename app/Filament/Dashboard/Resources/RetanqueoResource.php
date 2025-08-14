@@ -686,38 +686,59 @@ class RetanqueoResource extends Resource
                         ->color('primary')
                         ->visible(fn ($record) => $record->estaAprobado() && 
                                   request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
-                        ->form([
-                            Forms\Components\Section::make('Información de Desembolso')
-                                ->description('Datos bancarios para el desembolso del nuevo préstamo')
-                                ->schema([
-                                    TextInput::make('titular_cuenta_desembolso')
-                                        ->label('Titular de la Cuenta a Desembolsar')
-                                        ->prefixIcon('heroicon-o-user')
-                                        ->placeholder('Ingrese el nombre del titular de la cuenta')
-                                        ->maxLength(255)
-                                        ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
-                                        ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/')
-                                        ->rule('min:3')
-                                        ->extraInputAttributes([
-                                            'onkeypress' => 'return /[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/.test(event.key)',
-                                            'oninput' => 'this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")'
-                                        ]),
+                        ->form(function ($record) {
+                            // Verificar si ya existe un préstamo pendiente con datos
+                            $tienePrestamoPendiente = $record->prestamo_nuevo_id && 
+                                \App\Models\Prestamo::where('id', $record->prestamo_nuevo_id)
+                                    ->where('estado', 'Pendiente')
+                                    ->exists();
 
-                                    TextInput::make('numero_cuenta_desembolso')
-                                        ->label('Número de la Cuenta a Desembolsar')
-                                        ->prefixIcon('heroicon-o-credit-card')
-                                        ->placeholder('Ingrese el número de cuenta (14 dígitos)')
-                                        ->maxLength(14)
-                                        ->minLength(14)
-                                        ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
-                                        ->rule('regex:/^[0-9]{14}$/')
-                                        ->numeric()
-                                        ->extraInputAttributes([
-                                            'onkeypress' => 'return /[0-9]/.test(event.key) && this.value.length < 14',
-                                            'oninput' => 'this.value = this.value.replace(/[^0-9]/g, "").substring(0, 14)'
-                                        ]),
-                                ])
-                        ])
+                            if ($tienePrestamoPendiente) {
+                                $prestamoPendiente = \App\Models\Prestamo::find($record->prestamo_nuevo_id);
+                                $tieneDatosCuenta = $prestamoPendiente && 
+                                    !empty($prestamoPendiente->titular_cuenta_desembolso) && 
+                                    !empty($prestamoPendiente->numero_cuenta_desembolso);
+
+                                if ($tieneDatosCuenta) {
+                                    // No pedir datos, ya están guardados
+                                    return [];
+                                }
+                            }
+
+                            // Pedir datos de cuenta
+                            return [
+                                Forms\Components\Section::make('Información de Desembolso')
+                                    ->description('Datos bancarios para el desembolso del nuevo préstamo')
+                                    ->schema([
+                                        TextInput::make('titular_cuenta_desembolso')
+                                            ->label('Titular de la Cuenta a Desembolsar')
+                                            ->prefixIcon('heroicon-o-user')
+                                            ->placeholder('Ingrese el nombre del titular de la cuenta')
+                                            ->maxLength(255)
+                                            ->helperText('💳 Nombre completo del titular (solo letras y espacios)')
+                                            ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/')
+                                            ->rule('min:3')
+                                            ->extraInputAttributes([
+                                                'onkeypress' => 'return /[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/.test(event.key)',
+                                                'oninput' => 'this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")'
+                                            ]),
+
+                                        TextInput::make('numero_cuenta_desembolso')
+                                            ->label('Número de la Cuenta a Desembolsar')
+                                            ->prefixIcon('heroicon-o-credit-card')
+                                            ->placeholder('Ingrese el número de cuenta (14 dígitos)')
+                                            ->maxLength(14)
+                                            ->minLength(14)
+                                            ->helperText('🏦 Número de cuenta bancaria (exactamente 14 números)')
+                                            ->rule('regex:/^[0-9]{14}$/')
+                                            ->numeric()
+                                            ->extraInputAttributes([
+                                                'onkeypress' => 'return /[0-9]/.test(event.key) && this.value.length < 14',
+                                                'oninput' => 'this.value = this.value.replace(/[^0-9]/g, "").substring(0, 14)'
+                                            ]),
+                                    ])
+                            ];
+                        })
                         ->requiresConfirmation()
                         ->modalHeading('Ejecutar Retanqueo')
                         ->modalDescription('Complete la información de desembolso y confirme la ejecución del retanqueo.')
