@@ -194,7 +194,7 @@
                 <td class="contenido">
                     <strong>Domicilio (indicar tipo y nombre de la via): Jr. / Av. / Calle / Pasaje / Ovalo</strong><br>
                     <span class="campo-datos underline">{{ strtoupper($clienteLimpio->direccion) }}</span> <strong>Urb. Complejo Zona - Sector:</strong> <span class="underline">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> <strong>Distrito:</strong><br>
-                    <span class="campo-datos underline">{{ strtoupper($clienteLimpio->distrito ?? '') }}</span> <strong>Int:</strong> <span class="underline">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> <strong>Dpto./Int. N°:</strong> <span class="underline">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><br>
+                    <span class="campo-datos underline">{{ strtoupper($clienteLimpio->distrito ?? '') }}</span> <strong>Int:</strong> <span class="underline">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> <strong>Dpto./Int. No:</strong> <span class="underline">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><br>
                     <strong>Provincia:</strong> <span class="campo-datos underline">SULLANA</span> <strong>Departamento:</strong> <span class="campo-datos underline">PIURA</span>
                 </td>
             </tr>
@@ -319,7 +319,7 @@
             <tr>
                 <td class="numero">12</td>
                 <td class="contenido">
-                    <strong>Identificacion del Beneficiario Final del Beneficiario de la operacion, conforme al articulo 4 del Decreto Supremo N° 1372 y sus modificatorias; segun corresponda (Nombres y Apellidos):</strong><br>
+                    <strong>Identificacion del Beneficiario Final del Beneficiario de la operacion, conforme al articulo 4 del Decreto Supremo No 1372 y sus modificatorias; segun corresponda (Nombres y Apellidos):</strong><br>
                     <span class="underline">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
                 </td>
             </tr>
