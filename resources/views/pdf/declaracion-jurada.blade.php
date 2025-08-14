@@ -205,7 +205,7 @@
             <tr>
                 <td class="numero">7</td>
                 <td class="contenido">
-                    <strong>Ocupacion:</strong> <span class="campo-datos underline">{{ strtoupper($cliente->actividad) }}</span>
+                    <strong>Ocupacion:</strong> <span class="campo-datos underline">{{ strtoupper($clienteLimpio->ocupacion ?? 'Sin especificar') }}</span>
                 </td>
             </tr>
         </table>
