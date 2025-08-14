@@ -5,6 +5,7 @@ use App\Http\Controllers\ContratoGrupoController;
 use App\Http\Controllers\PagoPdfController;
 use App\Http\Controllers\MoraPdfController;
 use App\Http\Controllers\AsistenteController;
+use App\Http\Controllers\DeclaracionJuradaController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
@@ -42,6 +43,10 @@ Route::middleware([
 ])->group(function () {
     Route::get('/pagos/exportar/pdf', [PagoPdfController::class, 'exportar'])->name('pagos.exportar.pdf');
     Route::get('/moras/exportar-pdf', [MoraPdfController::class, 'exportar'])->name('moras.exportar.pdf');
+    
+    // Rutas para Declaración Jurada PEP
+    Route::post('/declaracion-jurada/{cliente}/generar', [DeclaracionJuradaController::class, 'generar'])
+        ->name('declaracion-jurada.generar');
 });
 
 // Ruta para cerrar sesión (opcional si no usas el logout de Filament)

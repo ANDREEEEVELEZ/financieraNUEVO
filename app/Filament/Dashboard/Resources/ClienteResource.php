@@ -361,6 +361,122 @@ class ClienteResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
+                Tables\Actions\Action::make('declaracion_jurada')
+                    ->label('Declaración Jurada PEP')
+                    ->icon('heroicon-o-document-text')
+                    ->color('primary')
+                    ->form([
+                        Forms\Components\Section::make('Información PEP')
+                            ->description('Complete la información requerida para la Declaración Jurada')
+                            ->schema([
+                                Forms\Components\Select::make('es_pep')
+                                    ->label('¿Es o ha sido PEP?')
+                                    ->required()
+                                    ->options([
+                                        'no_soy' => 'NO SOY',
+                                        'no_he_sido' => 'NO HE SIDO',
+                                        'si_soy' => 'SI SOY',
+                                        'si_he_sido' => 'SI HE SIDO', 
+                                    ])
+                                    ->default('no_soy')
+                                    ->native(false)
+                                    ->reactive()
+                                    ->helperText('¿Ha cumplido, en los últimos 5 años, funciones públicas en un organismo público?'),
+                                    
+                                Forms\Components\Select::make('colaborador_directo')
+                                    ->label('¿Ha sido colaborador directo de la máxima autoridad?')
+                                    ->required()
+                                    ->options([
+                                        'no_soy' => 'NO SOY', 
+                                        'no_he_sido' => 'NO HE SIDO',
+                                        'si_soy' => 'SI SOY',
+                                        'si_he_sido' => 'SI HE SIDO',
+                                    ])
+                                    ->default('no_soy')
+                                    ->native(false)
+                                    ->reactive(),
+                                    
+                                Forms\Components\Placeholder::make('info_no_pep')
+                                    ->label('✅ Formulario Simplificado')
+                                    ->content('Como no es PEP, el formulario se completará automáticamente con los datos básicos.')
+                                    ->visible(fn (callable $get) => 
+                                        in_array($get('es_pep'), ['no_soy', 'no_he_sido']) &&
+                                        in_array($get('colaborador_directo'), ['no_soy', 'no_he_sido'])
+                                    ),
+                                    
+                                Forms\Components\Select::make('pariente_pep')
+                                    ->label('¿Es pariente de PEP hasta el 2do grado?')
+                                    ->options([
+                                        'no_soy' => 'NO SOY',
+                                        'si_soy' => 'SI SOY',
+                                    ])
+                                    ->default('no_soy')
+                                    ->native(false)
+                                    ->reactive()
+                                    ->visible(fn (callable $get) => 
+                                        in_array($get('es_pep'), ['si_soy', 'si_he_sido']) || 
+                                        in_array($get('colaborador_directo'), ['si_soy', 'si_he_sido'])
+                                    ),
+                                    
+                                Forms\Components\Repeater::make('parientes_data')
+                                    ->label('Datos de Parientes PEP')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('nombre')
+                                            ->label('Nombre completo')
+                                            ->required(),
+                                        Forms\Components\TextInput::make('parentesco')
+                                            ->label('Parentesco')
+                                            ->required()
+                                            ->placeholder('Ej: Padre, Madre, Hermano, etc.'),
+                                    ])
+                                    ->columns(2)
+                                    ->visible(fn (callable $get) => 
+                                        (in_array($get('es_pep'), ['si_soy', 'si_he_sido']) || 
+                                         in_array($get('colaborador_directo'), ['si_soy', 'si_he_sido'])) &&
+                                        $get('pariente_pep') === 'si_soy'
+                                    )
+                                    ->minItems(0)
+                                    ->maxItems(10),
+                            ]),
+                            
+                        Forms\Components\Section::make('Información Adicional')
+                            ->schema([
+                                Forms\Components\TextInput::make('conyuge_nombre')
+                                    ->label('Nombres y apellidos del cónyuge o conviviente')
+                                    ->placeholder('Solo si aplica')
+                                    ->visible(fn (callable $get, $record) => 
+                                        $record && in_array($record->persona->estado_civil, ['Casado', 'Conviviente'])
+                                    ),
+                                    
+                                Forms\Components\TextInput::make('telefono_fijo')
+                                    ->label('Teléfono Fijo (Opcional)')
+                                    ->placeholder('Incluir código de ciudad'),
+                                    
+                                Forms\Components\Textarea::make('proposito_relacion')
+                                    ->label('Propósito de la relación comercial')
+                                    ->default('PRESTAMO')
+                                    ->rows(3)
+                                    ->maxLength(500),
+                                    
+                                Forms\Components\Textarea::make('observaciones')
+                                    ->label('Observaciones Adicionales')
+                                    ->rows(3)
+                                    ->maxLength(1000)
+                                    ->placeholder('Escriba observaciones adicionales si las hubiera...'),
+                            ])->columns(1),
+                    ])
+                    ->action(function ($record, $data) {
+                        // Crear una request simulada con los datos del formulario
+                        $request = new \Illuminate\Http\Request();
+                        $request->merge($data);
+                        
+                        // Llamar al controlador para generar el PDF
+                        $controller = new \App\Http\Controllers\DeclaracionJuradaController();
+                        return $controller->generar($request, $record->id);
+                    })
+                    ->modalHeading('Generar Declaración Jurada PEP')
+                    ->modalSubmitActionLabel('Generar PDF')
+                    ->modalWidth('7xl'),
                 Tables\Actions\Action::make('trasladar_cliente')
                     ->label('Trasladar Cliente')
                     ->icon('heroicon-o-arrow-right-circle')
