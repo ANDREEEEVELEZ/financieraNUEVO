@@ -291,11 +291,15 @@ class ListPagos extends ListRecords
                         \Filament\Forms\Components\DatePicker::make('until')->label('Hasta'),
                     ])
                     ->query(function (Builder $query, array $data) {
-                        if (!empty($data['from'])) {
-                            $query->whereDate('created_at', '>=', $data['from']);
-                        }
-                        if (!empty($data['until'])) {
-                            $query->whereDate('created_at', '<=', $data['until']);
+                        if (!empty($data['from']) || !empty($data['until'])) {
+                            $query->whereHas('cuotasGrupales.pagos', function ($q) use ($data) {
+                                if (!empty($data['from'])) {
+                                    $q->whereDate('fecha_pago', '>=', $data['from']);
+                                }
+                                if (!empty($data['until'])) {
+                                    $q->whereDate('fecha_pago', '<=', $data['until']);
+                                }
+                            });
                         }
                         return $query;
                     }),

@@ -393,7 +393,7 @@
                                     </a>
                                 @else
                                     <button type="button"
-                                        onclick="alert('No puedes registrar el pago de esta cuota porque existen cuotas anteriores con saldo pendiente. Debes pagar primero la cuota anterior.')"
+                                        title="No puedes registrar el pago porque hay cuotas anteriores en mora pendiente."
                                         class="inline-flex items-center px-3 py-2 text-xs font-semibold rounded-lg shadow
                                             bg-gray-200 text-gray-500 cursor-not-allowed
                                             border border-gray-400 dark:border-gray-600
