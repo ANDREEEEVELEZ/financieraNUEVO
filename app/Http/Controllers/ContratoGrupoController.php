@@ -47,10 +47,10 @@ class ContratoGrupoController extends Controller
             $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first();
             
             // Validar que el préstamo esté en estado válido para contratos
-            $estadosValidos = ['Aprobado', 'Parcialmente_Retanqueado', 'Finalizado'];
+            $estadosValidos = ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado', 'Pendiente'];
             $estadoMostrar = $prestamoGrupal->estado_mostrar ?? $prestamoGrupal->estado;
             
-            if (!$prestamoGrupal || (!in_array($prestamoGrupal->estado, $estadosValidos) && $estadoMostrar !== 'Activo')) {
+            if (!$prestamoGrupal || !in_array($prestamoGrupal->estado, $estadosValidos)) {
                 continue; // Saltar este grupo si no tiene préstamo válido
             }
 
@@ -119,18 +119,11 @@ class ContratoGrupoController extends Controller
         $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first(); // Toma el préstamo grupal más reciente
         
         // Validar que el préstamo esté en estado válido para contratos
-        $estadosValidos = ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'];
+        $estadosValidos = ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado', 'Pendiente'];
         $estadoMostrar = $prestamoGrupal->estado_mostrar ?? $prestamoGrupal->estado;
         
-        // Debug: Log el estado actual para diagnóstico
-        Log::info('Estado del préstamo para contrato:', [
-            'prestamo_id' => $prestamoGrupal->id ?? 'null',
-            'estado' => $prestamoGrupal->estado ?? 'null',
-            'estado_mostrar' => $estadoMostrar
-        ]);
-        
         if (!$prestamoGrupal || !in_array($prestamoGrupal->estado, $estadosValidos)) {
-            abort(403, 'Solo se pueden imprimir contratos de préstamos con estados válidos: Aprobado, Activo, Parcialmente Retanqueado o Finalizado. Estado actual: ' . ($prestamoGrupal->estado ?? 'null'));
+            abort(403, 'Solo se pueden imprimir contratos de préstamos con estados válidos: Aprobado, Activo, Parcialmente Retanqueado, Finalizado o Pendiente. Estado actual: ' . ($prestamoGrupal->estado ?? 'null'));
         }
 
         $contratosHtml = '';
