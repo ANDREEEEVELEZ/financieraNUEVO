@@ -131,7 +131,7 @@ class ViewPrestamo extends ViewRecord
                 ->label('Imprimir Contrato')
                 ->icon('heroicon-o-printer')
                 ->color('success')
-                ->url(fn() => route('contratos.grupo.imprimir', $this->record->grupo_id))
+                ->url(fn() => route('contratos.prestamo.imprimir', $this->record->id))
                 ->openUrlInNewTab();
         }
 

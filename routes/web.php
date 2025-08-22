@@ -34,6 +34,10 @@ Route::get('/generar-esquema', [AsistenteController::class, 'guardarEsquemaEnArc
 Route::get('/contratos/grupo/{grupoId}', [ContratoGrupoController::class, 'imprimirContratos'])
     ->name('contratos.grupo.imprimir');
 
+// Ruta pública para impresión de contratos de préstamo específico
+Route::get('/contratos/prestamo/{prestamoId}', [ContratoGrupoController::class, 'imprimirContratosPrestamo'])
+    ->name('contratos.prestamo.imprimir');
+
 // Ruta pública para impresión masiva de contratos por estado
 Route::get('/contratos/masivos', [ContratoGrupoController::class, 'imprimirContratosMasivos'])
     ->name('contratos.masivos.imprimir');

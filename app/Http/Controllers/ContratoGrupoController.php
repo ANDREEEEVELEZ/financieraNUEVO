@@ -204,4 +204,73 @@ class ContratoGrupoController extends Controller
         $pdf = Pdf::loadHTML($contratosHtml);
         return $pdf->download('Contrado del Grupo '.$grupo->nombre_grupo.'.pdf');
     }
+
+    /**
+     * Imprime contratos de un préstamo específico (original o retanqueo)
+     */
+    public function imprimirContratosPrestamo($prestamoId)
+    {
+        $user = request()->user();
+
+        $prestamoGrupal = \App\Models\Prestamo::with(['grupo.clientes.persona'])->findOrFail($prestamoId);
+        
+        // Validar que el préstamo tiene estado válido para contratos
+        if (!in_array($prestamoGrupal->estado, ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])) {
+            abort(403, 'Solo se pueden imprimir contratos de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
+        }
+
+        $contratosHtml = '';
+
+        // Usar getIntegrantesParaContrato() para obtener los participantes correctos del préstamo específico
+        foreach ($prestamoGrupal->getIntegrantesParaContrato() as $integrante) {
+            $cliente = $integrante['cliente'];
+            $persona = $cliente->persona;
+            $prestamoIndividual = PrestamoIndividual::where('prestamo_id', $prestamoGrupal->id)
+                ->where('cliente_id', $cliente->id)
+                ->first();
+            $monto = $prestamoIndividual->monto_prestado_individual ?? 0;
+            $plazo = $prestamoGrupal->cantidad_cuotas ?? 4;
+            $cuota = $prestamoIndividual->monto_cuota_prestamo_individual ?? 0;
+            $total = $prestamoIndividual->monto_devolver_individual ?? 0;
+            $seguro = $prestamoIndividual->seguro ?? 0;
+
+            // Generar cronograma individual basado en las fechas de cuotas grupales del préstamo específico
+            $cuotas = CuotasGrupales::where('prestamo_id', $prestamoGrupal->id)
+                ->orderBy('numero_cuota')
+                ->get();
+            $cronograma = [];
+            $cronograma_grupal = [];
+            foreach ($cuotas as $c) {
+                $cronograma[] = [
+                    'fecha' => $c->fecha_vencimiento,
+                    'monto' => $prestamoIndividual->monto_cuota_prestamo_individual ?? 0,
+                ];
+                $cronograma_grupal[] = [
+                    'fecha' => $c->fecha_vencimiento,
+                    'monto' => $c->monto_cuota_grupal,
+                ];
+            }
+
+            $contratosHtml .= View::make('contratos.contrato', [
+                'cliente' => $persona,
+                'monto' => $monto,
+                'plazo' => $plazo,
+                'cuota' => $cuota,
+                'total' => $total,
+                'seguro' => $seguro,
+                'ciclo' => $cliente->ciclo ?? '',
+                'cronograma' => $cronograma,
+                'cronograma_grupal' => $cronograma_grupal,
+            ])->render();
+            $contratosHtml .= '<div style="page-break-after: always;"></div>';
+        }
+
+        // Determinar nombre del archivo según tipo de préstamo
+        $nombreGrupo = $prestamoGrupal->grupo->nombre_grupo ?? 'Grupo';
+        $tipoContrato = stripos($prestamoGrupal->descripcion ?? '', 'RETANQUEO') !== false ? 'Retanqueo' : 'Prestamo';
+        $nombreArchivo = "Contrato_{$tipoContrato}_{$nombreGrupo}.pdf";
+
+        $pdf = Pdf::loadHTML($contratosHtml);
+        return $pdf->download($nombreArchivo);
+    }
 }
