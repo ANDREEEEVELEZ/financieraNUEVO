@@ -47,8 +47,8 @@ class ContratoGrupoController extends Controller
             // Buscar el préstamo principal (no retanqueos) con estado válido para contratos
             $prestamoGrupal = $grupo->prestamos
                 ->filter(function($prestamo) {
-                    // Excluir retanqueos (que contienen "RETANQUEO" en el nombre)
-                    $esRetanqueo = stripos($prestamo->nombre_prestamo ?? '', 'RETANQUEO') !== false;
+                    // Excluir retanqueos (que contienen "RETANQUEO" en la descripción)
+                    $esRetanqueo = stripos($prestamo->descripcion ?? '', 'RETANQUEO') !== false;
                     return !$esRetanqueo;
                 })
                 ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
@@ -133,8 +133,8 @@ class ContratoGrupoController extends Controller
         // Buscar el préstamo principal (no retanqueos) con estado válido para contratos
         $prestamoGrupal = $grupo->prestamos
             ->filter(function($prestamo) {
-                // Excluir retanqueos (que contienen "RETANQUEO" en el nombre)
-                $esRetanqueo = stripos($prestamo->nombre_prestamo ?? '', 'RETANQUEO') !== false;
+                // Excluir retanqueos (que contienen "RETANQUEO" en la descripción)
+                $esRetanqueo = stripos($prestamo->descripcion ?? '', 'RETANQUEO') !== false;
                 return !$esRetanqueo;
             })
             ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
