@@ -126,7 +126,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                             ->select('clientes.*')
                                                             ->get()
                                                             ->mapWithKeys(function($cliente) {
-                                                                return [$cliente->id => "✅ {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
+                                                                return [$cliente->id => " {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                                                             });
                                                     }
                                                 }
@@ -150,7 +150,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                             ->select('clientes.*')
                                                             ->get()
                                                             ->mapWithKeys(function($cliente) {
-                                                                return [$cliente->id => "✅ {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
+                                                                return [$cliente->id => " {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                                                             });
                                                     }
                                                     return [];
@@ -174,31 +174,23 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                 },
                                             ])
                                             ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                                                // Actualizar el contador de integrantes
-                                                $contador = is_array($state) ? count($state) : 0;
-                                                $set('numero_integrantes', $contador);
-                                                
-                                                // Mostrar mensaje de validación en tiempo real
-                                                if ($contador < 4) {
-                                                    \Filament\Notifications\Notification::make()
-                                                        ->warning()
-                                                        ->title('Número de integrantes insuficiente')
-                                                        ->body("El grupo necesita mínimo 4 integrantes. Actualmente tiene {$contador} integrantes.")
-                                                        ->send();
-                                                } elseif ($contador > 6) {
-                                                    \Filament\Notifications\Notification::make()
-                                                        ->warning()
-                                                        ->title('Número de integrantes excedido')
-                                                        ->body("El grupo puede tener máximo 6 integrantes. Actualmente tiene {$contador} integrantes.")
-                                                        ->send();
-                                                } else {
-                                                    \Filament\Notifications\Notification::make()
-                                                        ->success()
-                                                        ->title('Número de integrantes válido')
-                                                        ->body("El grupo tiene {$contador} integrantes (válido: 4-6).")
-                                                        ->send();
-                                                }
-                                            })
+                                // Limitar automáticamente a máximo 6 integrantes
+                                if (is_array($state) && count($state) > 6) {
+                                    $limitedState = array_slice($state, 0, 6);
+                                    $set('clientes', $limitedState);
+                                    $state = $limitedState;
+                                    
+                                    \Filament\Notifications\Notification::make()
+                                        ->warning()
+                                        ->title('Límite de integrantes')
+                                        ->body('Se ha limitado la selección a máximo 6 integrantes.')
+                                        ->send();
+                                }
+                                
+                                // Actualizar el contador
+                                $contador = is_array($state) ? count($state) : 0;
+                                $set('numero_integrantes', $contador);
+                            })
                                             ->disabled(fn () => $isInactivo),
                                         Forms\Components\TextInput::make('numero_integrantes')
                                             ->label('Numero de Integrantes')
@@ -244,12 +236,10 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                     ->columnSpan(1),
                             ]),
                         Forms\Components\Placeholder::make('info_integrantes')
-                            ->label('📋 Instrucciones')
-                            ->content('• Un grupo debe tener entre 4 y 6 integrantes (mínimo 4, máximo 6)
-• Selecciona integrantes para el grupo
-• Los clientes con 🔒 ya pertenecen a otro grupo activo
-• Los clientes con ✅ están disponibles
-• Elige un líder grupal entre los integrantes seleccionados')
+                            ->label('📋 Instrucciones Importantes')
+                            ->content('🎯 LÍMITES: Mínimo 4 integrantes, Máximo 6 integrantes
+📌 Si seleccionas más de 6, automáticamente se limitará a los primeros 6
+👑 Debes elegir un líder grupal entre los integrantes seleccionados')
                             ->extraAttributes(['class' => 'text-blue-600 font-medium', 'style' => 'white-space: pre-line;']),
                     ])
                     ->collapsible()
