@@ -37,84 +37,69 @@ class ListPrestamo extends ListRecords
                         ->required()
                         ->default(now()),
                         
-                    Select::make('prestamo_id')
-                        ->label('Seleccionar Préstamo Aprobado')
-                        ->options(function (Forms\Get $get) {
-                            $fechaDesde = $get('fecha_desde');
-                            $fechaHasta = $get('fecha_hasta');
-                            
-                            $query = Prestamo::with(['grupo'])
-                                ->where('estado', 'Aprobado');
-                                
-                            if ($fechaDesde) {
-                                $query->whereDate('fecha_prestamo', '>=', $fechaDesde);
-                            }
-                            
-                            if ($fechaHasta) {
-                                $query->whereDate('fecha_prestamo', '<=', $fechaHasta);
-                            }
-                            
-                            // Aplicar filtros de usuario
-                            $user = request()->user();
-                            if ($user->hasRole('Asesor')) {
-                                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-                                if ($asesor) {
-                                    $query->whereHas('grupo', fn($q) => $q->where('asesor_id', $asesor->id));
-                                }
-                            }
-                            
-                            return $query->get()
-                                ->mapWithKeys(function ($prestamo) {
-                                    $grupoNombre = $prestamo->grupo->nombre_grupo ?? 'Sin grupo';
-                                    $fecha = $prestamo->fecha_prestamo ? $prestamo->fecha_prestamo : 'Sin fecha';
-                                    $monto = 'S/ ' . number_format((float) $prestamo->monto_prestado_total, 2);
-                                    return [
-                                        $prestamo->id => "{$grupoNombre} - {$fecha} - {$monto}"
-                                    ];
-                                });
-                        })
-                        ->searchable()
+                    Select::make('estado_prestamos')
+                        ->label('Seleccionar Estado de Préstamos')
+                        ->options([
+                            'Aprobado' => 'Aprobado',
+                            'Activo' => 'Activo',
+                            'Parcialmente Retanqueado' => 'Parcialmente Retanqueado',
+                            'Finalizado' => 'Finalizado',
+                        ])
                         ->required()
-                        ->reactive()
-                        ->placeholder('Seleccione un préstamo aprobado')
-                        ->helperText('Solo se muestran préstamos con estado "Aprobado" en el rango de fechas seleccionado'),
+                        ->placeholder('Seleccione el estado de los préstamos')
+                        ->helperText('Se descargarán TODOS los contratos con el estado seleccionado en el rango de fechas'),
                 ])
                 ->action(function (array $data) {
-                    $prestamo = Prestamo::with('grupo')->find($data['prestamo_id']);
+                    $fechaDesde = $data['fecha_desde'];
+                    $fechaHasta = $data['fecha_hasta'];
+                    $estadoSeleccionado = $data['estado_prestamos'];
                     
-                    if (!$prestamo) {
+                    // Buscar préstamos con el estado seleccionado en el rango de fechas
+                    $query = Prestamo::with(['grupo'])
+                        ->where('estado', $estadoSeleccionado)
+                        ->whereNotNull('grupo_id'); // Solo préstamos con grupo
+                        
+                    if ($fechaDesde) {
+                        $query->whereDate('fecha_prestamo', '>=', $fechaDesde);
+                    }
+                    
+                    if ($fechaHasta) {
+                        $query->whereDate('fecha_prestamo', '<=', $fechaHasta);
+                    }
+                    
+                    // Aplicar filtros de usuario
+                    $user = request()->user();
+                    if ($user->hasRole('Asesor')) {
+                        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                        if ($asesor) {
+                            $query->whereHas('grupo', fn($q) => $q->where('asesor_id', $asesor->id));
+                        }
+                    }
+                    
+                    $prestamos = $query->get();
+                    
+                    if ($prestamos->isEmpty()) {
                         Notification::make()
-                            ->title('Error')
-                            ->body('Préstamo no encontrado')
-                            ->danger()
+                            ->title('Sin resultados')
+                            ->body("No se encontraron préstamos con estado '{$estadoSeleccionado}' en el rango de fechas seleccionado")
+                            ->warning()
                             ->send();
                         return;
                     }
                     
-                    if ($prestamo->estado !== 'Aprobado') {
-                        Notification::make()
-                            ->title('Error')
-                            ->body('Solo se pueden imprimir contratos de préstamos aprobados')
-                            ->danger()
-                            ->send();
-                        return;
-                    }
+                    // Redirigir a la nueva ruta que maneja la descarga masiva
+                    $gruposIds = $prestamos->pluck('grupo_id')->unique()->values()->toArray();
                     
-                    if (!$prestamo->grupo_id) {
-                        Notification::make()
-                            ->title('Error')
-                            ->body('El préstamo debe estar asociado a un grupo')
-                            ->danger()
-                            ->send();
-                        return;
-                    }
-                    
-                    // Redirigir a la URL de impresión de contratos
-                    return redirect()->route('contratos.grupo.imprimir', $prestamo->grupo_id);
+                    return redirect()->route('contratos.masivos.imprimir', [
+                        'grupos' => implode(',', $gruposIds),
+                        'estado' => $estadoSeleccionado,
+                        'fecha_desde' => $fechaDesde,
+                        'fecha_hasta' => $fechaHasta
+                    ]);
                 })
-                ->modalHeading('Imprimir Contrato de Préstamo')
-                ->modalDescription('Seleccione el rango de fechas y el préstamo aprobado para imprimir su contrato.')
-                ->modalSubmitActionLabel('Imprimir Contrato')
+                ->modalHeading('Imprimir Contratos Masivos')
+                ->modalDescription('Seleccione el rango de fechas y el estado de préstamos para descargar TODOS los contratos correspondientes.')
+                ->modalSubmitActionLabel('Descargar Contratos')
                 ->modalWidth('lg'),
         ];
     }
