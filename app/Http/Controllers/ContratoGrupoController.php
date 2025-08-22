@@ -46,7 +46,7 @@ class ContratoGrupoController extends Controller
             $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first();
             
             // Validar que el préstamo esté en estado válido para contratos
-            if (!$prestamoGrupal || !in_array(strtolower($prestamoGrupal->estado), ['aprobado', 'activo', 'parcialmente retanqueado', 'finalizado'])) {
+            if (!$prestamoGrupal || !in_array(strtolower($prestamoGrupal->estado), ['aprobado', 'activo', 'parcialmente_retanqueado', 'finalizado'])) {
                 continue; // Saltar este grupo si no tiene préstamo válido
             }
 

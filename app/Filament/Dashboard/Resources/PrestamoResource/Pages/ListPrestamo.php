@@ -42,7 +42,7 @@ class ListPrestamo extends ListRecords
                         ->options([
                             'Aprobado' => 'Aprobado',
                             'Activo' => 'Activo',
-                            'Parcialmente Retanqueado' => 'Parcialmente Retanqueado',
+                            'Parcialmente_Retanqueado' => 'Parcialmente Retanqueado',
                             'Finalizado' => 'Finalizado',
                         ])
                         ->required()
