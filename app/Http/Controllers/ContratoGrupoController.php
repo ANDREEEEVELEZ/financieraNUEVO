@@ -8,6 +8,7 @@ use App\Models\PrestamoIndividual;
 use App\Models\CuotasGrupales;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Log;
 
 class ContratoGrupoController extends Controller
 {
@@ -121,8 +122,15 @@ class ContratoGrupoController extends Controller
         $estadosValidos = ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'];
         $estadoMostrar = $prestamoGrupal->estado_mostrar ?? $prestamoGrupal->estado;
         
+        // Debug: Log el estado actual para diagnóstico
+        Log::info('Estado del préstamo para contrato:', [
+            'prestamo_id' => $prestamoGrupal->id ?? 'null',
+            'estado' => $prestamoGrupal->estado ?? 'null',
+            'estado_mostrar' => $estadoMostrar
+        ]);
+        
         if (!$prestamoGrupal || !in_array($prestamoGrupal->estado, $estadosValidos)) {
-            abort(403, 'Solo se pueden imprimir contratos de préstamos con estados válidos: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
+            abort(403, 'Solo se pueden imprimir contratos de préstamos con estados válidos: Aprobado, Activo, Parcialmente Retanqueado o Finalizado. Estado actual: ' . ($prestamoGrupal->estado ?? 'null'));
         }
 
         $contratosHtml = '';
