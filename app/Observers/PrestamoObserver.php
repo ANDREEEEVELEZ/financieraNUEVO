@@ -6,6 +6,7 @@ use App\Models\Prestamo;
 use App\Models\CuotasGrupales;
 use App\Models\Egreso;
 use App\Models\PrestamoIndividual;
+use App\Models\Retanqueo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -34,9 +35,12 @@ class PrestamoObserver
             }
         }
 
-        // Si el estado se cambió a aprobado, crear cuotas y egreso
-        if ($prestamo->wasChanged('estado') && strtolower($prestamo->estado) === 'aprobado') {
-            Log::info('PrestamoObserver: Préstamo aprobado detectado', ['prestamo_id' => $prestamo->id]);
+        // Si el estado se cambió a aprobado Y viene de Pendiente, crear cuotas y egreso
+        if ($prestamo->wasChanged('estado') && 
+            strtolower($prestamo->estado) === 'aprobado' &&
+            strtolower($prestamo->getRawOriginal('estado') ?? '') === 'pendiente') {
+            
+            Log::info('PrestamoObserver: Préstamo aprobado detectado (Pendiente -> Aprobado)', ['prestamo_id' => $prestamo->id]);
 
             // Actualizar la fecha_prestamo a la fecha de aprobación (hoy)
             $fechaAprobacion = now()->toDateString();
@@ -48,9 +52,21 @@ class PrestamoObserver
                 'fecha_anterior' => $prestamo->getRawOriginal('fecha_prestamo')
             ]);
 
-            // Crear cuotas grupales si no existen aún
+            // VALIDACIONES DE SEGURIDAD MÚLTIPLES
             $yaTieneCuotas = CuotasGrupales::where('prestamo_id', $prestamo->id)->exists();
-            if (!$yaTieneCuotas) {
+            $esRetanqueo = stripos($prestamo->descripcion ?? '', 'RETANQUEO') !== false;
+            $tienePrestamoAntiguo = \App\Models\Retanqueo::where('prestamo_nuevo_id', $prestamo->id)->exists();
+
+            Log::info('PrestamoObserver: Validaciones de seguridad', [
+                'prestamo_id' => $prestamo->id,
+                'ya_tiene_cuotas' => $yaTieneCuotas,
+                'es_retanqueo' => $esRetanqueo,
+                'tiene_prestamo_antiguo' => $tienePrestamoAntiguo,
+                'descripcion' => $prestamo->descripcion ?? 'sin_descripcion'
+            ]);
+
+            // Solo crear cuotas si es seguro (NO es retanqueo y NO tiene cuotas)
+            if (!$yaTieneCuotas && !$esRetanqueo && !$tienePrestamoAntiguo) {
                 // Usar el monto_devolver que ya incluye el interés y seguro
                 $montoTotalDevolver = $prestamo->monto_devolver;
                 $cantidadCuotas = $prestamo->cantidad_cuotas;
@@ -96,6 +112,13 @@ class PrestamoObserver
                 }
 
                 Log::info('PrestamoObserver: Cuotas grupales creadas exitosamente', ['prestamo_id' => $prestamo->id]);
+            } else {
+                Log::info('PrestamoObserver: Cuotas NO creadas por seguridad', [
+                    'prestamo_id' => $prestamo->id,
+                    'razon_ya_tiene_cuotas' => $yaTieneCuotas,
+                    'razon_es_retanqueo' => $esRetanqueo,
+                    'razon_tiene_prestamo_antiguo' => $tienePrestamoAntiguo
+                ]);
             }
 
             // Crear egreso si no existe
