@@ -161,9 +161,43 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                             ->preload()
                                             ->required()
                                             ->reactive()
+                                            ->rules([
+                                                function () {
+                                                    return function (string $attribute, $value, \Closure $fail) {
+                                                        if (!is_array($value) || count($value) < 4) {
+                                                            $fail('Un grupo debe tener mínimo 4 integrantes.');
+                                                        }
+                                                        if (!is_array($value) || count($value) > 6) {
+                                                            $fail('Un grupo debe tener máximo 6 integrantes.');
+                                                        }
+                                                    };
+                                                },
+                                            ])
                                             ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                                 // Actualizar el contador de integrantes
-                                                $set('numero_integrantes', is_array($state) ? count($state) : 0);
+                                                $contador = is_array($state) ? count($state) : 0;
+                                                $set('numero_integrantes', $contador);
+                                                
+                                                // Mostrar mensaje de validación en tiempo real
+                                                if ($contador < 4) {
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->warning()
+                                                        ->title('Número de integrantes insuficiente')
+                                                        ->body("El grupo necesita mínimo 4 integrantes. Actualmente tiene {$contador} integrantes.")
+                                                        ->send();
+                                                } elseif ($contador > 6) {
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->warning()
+                                                        ->title('Número de integrantes excedido')
+                                                        ->body("El grupo puede tener máximo 6 integrantes. Actualmente tiene {$contador} integrantes.")
+                                                        ->send();
+                                                } else {
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->success()
+                                                        ->title('Número de integrantes válido')
+                                                        ->body("El grupo tiene {$contador} integrantes (válido: 4-6).")
+                                                        ->send();
+                                                }
                                             })
                                             ->disabled(fn () => $isInactivo),
                                         Forms\Components\TextInput::make('numero_integrantes')
@@ -211,7 +245,11 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             ]),
                         Forms\Components\Placeholder::make('info_integrantes')
                             ->label('📋 Instrucciones')
-                            ->content('• Selecciona  integrantes para el grupo • Los clientes con 🔒 ya pertenecen a otro grupo activo • Los clientes con ✅ están disponibles • Elige un líder grupal entre los integrantes seleccionados')
+                            ->content('• Un grupo debe tener entre 4 y 6 integrantes (mínimo 4, máximo 6)
+• Selecciona integrantes para el grupo
+• Los clientes con 🔒 ya pertenecen a otro grupo activo
+• Los clientes con ✅ están disponibles
+• Elige un líder grupal entre los integrantes seleccionados')
                             ->extraAttributes(['class' => 'text-blue-600 font-medium', 'style' => 'white-space: pre-line;']),
                     ])
                     ->collapsible()

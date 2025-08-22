@@ -81,12 +81,51 @@ class Grupo extends Model
     }
 
     /**
+     * Validación para el número mínimo y máximo de integrantes
+     */
+    public function validarNumeroIntegrantes($numeroIntegrantes = null): void
+    {
+        $numero = $numeroIntegrantes ?? $this->clientes()->count();
+        
+        if ($numero < 4) {
+            throw new \Exception('Un grupo debe tener mínimo 4 integrantes. Actualmente tiene ' . $numero . ' integrantes.');
+        }
+        
+        if ($numero > 6) {
+            throw new \Exception('Un grupo debe tener máximo 6 integrantes. Actualmente tiene ' . $numero . ' integrantes.');
+        }
+    }
+
+    /**
+     * Valida si se puede agregar un integrante al grupo
+     */
+    public function puedeAgregarIntegrante(): bool
+    {
+        $integrantesActuales = $this->clientes()->count();
+        return $integrantesActuales < 6;
+    }
+
+    /**
+     * Valida si se puede remover un integrante del grupo
+     */
+    public function puedeRemoverIntegrante(): bool
+    {
+        $integrantesActuales = $this->clientes()->count();
+        return $integrantesActuales > 4;
+    }
+
+    /**
      * Remueve un cliente del grupo estableciendo fecha de salida
      */
     public function removerCliente($clienteId, $fechaSalida = null)
     {
         if ($this->tienePrestamosActivos()) {
             throw new \Exception('No se puede remover integrantes de un grupo con préstamos activos.');
+        }
+
+        // Validar límite mínimo ANTES de remover
+        if (!$this->puedeRemoverIntegrante()) {
+            throw new \Exception('No se puede remover este integrante. Un grupo debe tener mínimo 4 integrantes.');
         }
 
         // Verificar que el cliente existe en el grupo (activo)
@@ -139,6 +178,15 @@ class Grupo extends Model
 
         if ($nuevoGrupo->tienePrestamosActivos()) {
             throw new \Exception('No se puede agregar integrantes a un grupo con préstamos activos.');
+        }
+
+        // Validar límites antes de la transferencia
+        if (!$this->puedeRemoverIntegrante()) {
+            throw new \Exception('No se puede transferir este integrante. El grupo origen se quedaría con menos de 4 integrantes.');
+        }
+
+        if (!$nuevoGrupo->puedeAgregarIntegrante()) {
+            throw new \Exception('No se puede transferir al grupo destino. El grupo destino excedería el máximo de 6 integrantes.');
         }
 
         // Verificar que el cliente existe en el grupo actual (ACTIVO)

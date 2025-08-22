@@ -14,12 +14,24 @@ class CreateGrupo extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Si hay clientes seleccionados, actualiza el número de integrantes
+        // Validar número de integrantes
         if (isset($data['clientes'])) {
-            $data['numero_integrantes'] = is_array($data['clientes']) ? count($data['clientes']) : 0;
+            $numeroIntegrantes = is_array($data['clientes']) ? count($data['clientes']) : 0;
+            
+            if ($numeroIntegrantes < 4) {
+                throw new \Exception('Un grupo debe tener mínimo 4 integrantes. Se seleccionaron ' . $numeroIntegrantes . ' integrantes.');
+            }
+            
+            if ($numeroIntegrantes > 6) {
+                throw new \Exception('Un grupo debe tener máximo 6 integrantes. Se seleccionaron ' . $numeroIntegrantes . ' integrantes.');
+            }
+            
+            $data['numero_integrantes'] = $numeroIntegrantes;
         }
+        
         // Estado por defecto
         $data['estado_grupo'] = $data['estado_grupo'] ?? 'Activo';
+        
         // Validar que el líder esté entre los clientes seleccionados
         if (!empty($data['clientes']) && !in_array($data['lider_grupal'], $data['clientes'])) {
             throw new \Exception('El líder grupal debe ser uno de los integrantes seleccionados.');
@@ -48,7 +60,14 @@ class CreateGrupo extends CreateRecord
     {
         $clientes = $this->data['clientes'] ?? [];
         $liderId = $this->data['lider_grupal'] ?? null;
+        
         if (!empty($clientes)) {
+            // Validación adicional de seguridad
+            $numeroIntegrantes = count($clientes);
+            if ($numeroIntegrantes < 4 || $numeroIntegrantes > 6) {
+                throw new \Exception('Error de validación: El grupo debe tener entre 4 y 6 integrantes.');
+            }
+            
             $syncData = [];
             $fechaHoy = now()->toDateString();
             foreach ($clientes as $clienteId) {
@@ -63,6 +82,7 @@ class CreateGrupo extends CreateRecord
             }
             $this->record->todosLosIntegrantes()->sync($syncData);
         }
+        
         // Actualizar el número de integrantes en la tabla grupos
         $this->record->numero_integrantes = count($clientes);
         $this->record->save();

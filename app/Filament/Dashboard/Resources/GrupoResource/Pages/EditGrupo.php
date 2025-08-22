@@ -140,9 +140,19 @@ class EditGrupo extends EditRecord
             unset($data['cliente_transferir'], $data['grupo_destino_form']);
         }
 
-        // Si hay clientes seleccionados, actualiza el número de integrantes
+        // Validar número de integrantes
         if (isset($data['clientes'])) {
-            $data['numero_integrantes'] = is_array($data['clientes']) ? count($data['clientes']) : 0;
+            $numeroIntegrantes = is_array($data['clientes']) ? count($data['clientes']) : 0;
+            
+            if ($numeroIntegrantes < 4) {
+                throw new \Exception('Un grupo debe tener mínimo 4 integrantes. Se seleccionaron ' . $numeroIntegrantes . ' integrantes.');
+            }
+            
+            if ($numeroIntegrantes > 6) {
+                throw new \Exception('Un grupo debe tener máximo 6 integrantes. Se seleccionaron ' . $numeroIntegrantes . ' integrantes.');
+            }
+            
+            $data['numero_integrantes'] = $numeroIntegrantes;
         }
         
         // Estado por defecto
@@ -175,6 +185,12 @@ class EditGrupo extends EditRecord
         $liderId = $this->data['lider_grupal'] ?? null;
         $fechaHoy = now()->toDateString();
         $syncData = [];
+        
+        // Validación adicional de seguridad
+        $numeroIntegrantes = count($clientes);
+        if ($numeroIntegrantes < 4 || $numeroIntegrantes > 6) {
+            throw new \Exception('Error de validación: El grupo debe tener entre 4 y 6 integrantes.');
+        }
         
         // Si no se especifica líder, mantener el líder actual si existe
         if (!$liderId) {
