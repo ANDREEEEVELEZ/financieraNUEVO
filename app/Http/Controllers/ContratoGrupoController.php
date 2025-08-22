@@ -44,13 +44,26 @@ class ContratoGrupoController extends Controller
         $totalContratos = 0;
 
         foreach ($grupos as $grupo) {
-            $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first();
+            // Buscar el préstamo principal (no retanqueos) con estado válido para contratos
+            $prestamoGrupal = $grupo->prestamos
+                ->filter(function($prestamo) {
+                    // Excluir retanqueos (que contienen "RETANQUEO" en el nombre)
+                    $esRetanqueo = stripos($prestamo->nombre_prestamo ?? '', 'RETANQUEO') !== false;
+                    return !$esRetanqueo;
+                })
+                ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
+                ->sortByDesc('id')
+                ->first();
             
-            // Validar que el préstamo esté en estado válido para contratos
-            $estadosValidos = ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'];
-            $estadoMostrar = $prestamoGrupal->estado_mostrar ?? $prestamoGrupal->estado;
+            // Si no encontramos préstamo principal válido, intentar con cualquier préstamo válido
+            if (!$prestamoGrupal) {
+                $prestamoGrupal = $grupo->prestamos
+                    ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
+                    ->sortByDesc('id')
+                    ->first();
+            }
             
-            if (!$prestamoGrupal || !in_array($prestamoGrupal->estado, $estadosValidos)) {
+            if (!$prestamoGrupal) {
                 continue; // Saltar este grupo si no tiene préstamo válido
             }
 
@@ -116,14 +129,29 @@ class ContratoGrupoController extends Controller
         $user = request()->user();
 
         $grupo = Grupo::with(['clientes.persona', 'prestamos'])->findOrFail($grupoId);
-        $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first(); // Toma el préstamo grupal más reciente
         
-        // Validar que el préstamo esté en estado válido para contratos
-        $estadosValidos = ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'];
-        $estadoMostrar = $prestamoGrupal->estado_mostrar ?? $prestamoGrupal->estado;
+        // Buscar el préstamo principal (no retanqueos) con estado válido para contratos
+        $prestamoGrupal = $grupo->prestamos
+            ->filter(function($prestamo) {
+                // Excluir retanqueos (que contienen "RETANQUEO" en el nombre)
+                $esRetanqueo = stripos($prestamo->nombre_prestamo ?? '', 'RETANQUEO') !== false;
+                return !$esRetanqueo;
+            })
+            ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
+            ->sortByDesc('id')
+            ->first();
         
-        if (!$prestamoGrupal || !in_array($prestamoGrupal->estado, $estadosValidos)) {
-            abort(403, 'Solo se pueden imprimir contratos de préstamos con estados válidos: Aprobado, Activo, Parcialmente Retanqueado o Finalizado. Estado actual: ' . ($prestamoGrupal->estado ?? 'null'));
+        // Si no encontramos préstamo principal válido, intentar con cualquier préstamo válido
+        if (!$prestamoGrupal) {
+            $prestamoGrupal = $grupo->prestamos
+                ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
+                ->sortByDesc('id')
+                ->first();
+        }
+        
+        // Validar que encontramos un préstamo válido
+        if (!$prestamoGrupal) {
+            abort(403, 'No se encontró un préstamo válido para imprimir contratos. Solo se pueden imprimir contratos de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
         }
 
         $contratosHtml = '';
