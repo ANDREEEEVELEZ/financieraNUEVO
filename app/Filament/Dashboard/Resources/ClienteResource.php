@@ -20,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
+use App\Services\DeclaracionJuradaService;
 
 class ClienteResource extends Resource
 {
@@ -361,6 +362,39 @@ class ClienteResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
+                
+                // Nuevo botón para Declaración Jurada General (Capacitado/Iletrado)
+                Tables\Actions\Action::make('generar_declaracion_jurada_general')
+                    ->label('Declaración Jurada')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->visible(fn ($record) => in_array($record->condicion_personal, ['Capacitado', 'Iletrado']))
+                    ->action(function ($record) {
+                        try {
+                            $service = app(DeclaracionJuradaService::class);
+                            $pdfContent = $service->generateGeneralPdf($record);
+                            $filename = $service->getFilename($record, 'general');
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('PDF Generado')
+                                ->body('Declaración Jurada de Conocimiento del Cliente generada exitosamente.')
+                                ->send();
+
+                            return response()->streamDownload(function () use ($pdfContent) {
+                                echo $pdfContent;
+                            }, $filename);
+                            
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->danger()
+                                ->title('Error al generar PDF')
+                                ->body('Ocurrió un error al generar el documento: ' . $e->getMessage())
+                                ->send();
+                        }
+                    })
+                    ->tooltip('Generar Declaración Jurada de Conocimiento del Cliente'),
+                
                 Tables\Actions\Action::make('trasladar_cliente')
                     ->label('Trasladar Cliente')
                     ->icon('heroicon-o-arrow-right-circle')
