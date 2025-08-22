@@ -118,10 +118,10 @@ class ContratoGrupoController extends Controller
         $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first(); // Toma el préstamo grupal más reciente
         
         // Validar que el préstamo esté en estado válido para contratos
-        $estadosValidos = ['Aprobado', 'Parcialmente_Retanqueado', 'Finalizado'];
+        $estadosValidos = ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'];
         $estadoMostrar = $prestamoGrupal->estado_mostrar ?? $prestamoGrupal->estado;
         
-        if (!$prestamoGrupal || (!in_array($prestamoGrupal->estado, $estadosValidos) && $estadoMostrar !== 'Activo')) {
+        if (!$prestamoGrupal || !in_array($prestamoGrupal->estado, $estadosValidos)) {
             abort(403, 'Solo se pueden imprimir contratos de préstamos con estados válidos: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
         }
 
