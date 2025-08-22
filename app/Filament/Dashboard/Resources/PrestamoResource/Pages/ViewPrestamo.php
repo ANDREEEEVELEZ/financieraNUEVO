@@ -124,8 +124,9 @@ class ViewPrestamo extends ViewRecord
                 ->tooltip('Este préstamo es un retanqueo y debe gestionarse desde el módulo de Retanqueos');
         }
 
-        // Botón para imprimir contrato si está aprobado
-        if ($this->record->grupo_id !== null && strtolower($this->record->estado) === 'aprobado') {
+        // Botón para imprimir contrato si está en estado válido
+        if ($this->record->grupo_id !== null && 
+            in_array(strtolower($this->record->estado), ['aprobado', 'activo', 'parcialmente_retanqueado', 'finalizado'])) {
             $actions[] = Actions\Action::make('imprimir_contrato')
                 ->label('Imprimir Contrato')
                 ->icon('heroicon-o-printer')
