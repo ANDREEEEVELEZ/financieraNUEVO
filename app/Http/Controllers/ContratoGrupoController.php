@@ -46,7 +46,10 @@ class ContratoGrupoController extends Controller
             $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first();
             
             // Validar que el préstamo esté en estado válido para contratos
-            if (!$prestamoGrupal || !in_array(strtolower($prestamoGrupal->estado), ['aprobado', 'activo', 'parcialmente_retanqueado', 'finalizado'])) {
+            $estadosValidos = ['Aprobado', 'Parcialmente_Retanqueado', 'Finalizado'];
+            $estadoMostrar = $prestamoGrupal->estado_mostrar ?? $prestamoGrupal->estado;
+            
+            if (!$prestamoGrupal || (!in_array($prestamoGrupal->estado, $estadosValidos) && $estadoMostrar !== 'Activo')) {
                 continue; // Saltar este grupo si no tiene préstamo válido
             }
 
@@ -115,7 +118,10 @@ class ContratoGrupoController extends Controller
         $prestamoGrupal = $grupo->prestamos->sortByDesc('id')->first(); // Toma el préstamo grupal más reciente
         
         // Validar que el préstamo esté en estado válido para contratos
-        if (!$prestamoGrupal || !in_array(strtolower($prestamoGrupal->estado), ['aprobado', 'activo', 'parcialmente_retanqueado', 'finalizado'])) {
+        $estadosValidos = ['Aprobado', 'Parcialmente_Retanqueado', 'Finalizado'];
+        $estadoMostrar = $prestamoGrupal->estado_mostrar ?? $prestamoGrupal->estado;
+        
+        if (!$prestamoGrupal || (!in_array($prestamoGrupal->estado, $estadosValidos) && $estadoMostrar !== 'Activo')) {
             abort(403, 'Solo se pueden imprimir contratos de préstamos con estados válidos: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
         }
 
