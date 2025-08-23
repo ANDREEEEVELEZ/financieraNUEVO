@@ -107,6 +107,8 @@ class ContratoGrupoController extends Controller
                     'ciclo' => $cliente->ciclo ?? '',
                     'cronograma' => $cronograma,
                     'cronograma_grupal' => $cronograma_grupal,
+                    'fecha_aprobacion' => $prestamoGrupal->fecha_prestamo,
+                    'lugar' => 'Sullana',
                 ])->render();
                 
                 $contratosHtml .= '<div style="page-break-after: always;"></div>';
@@ -197,6 +199,8 @@ class ContratoGrupoController extends Controller
                 'ciclo' => $cliente->ciclo ?? '',
                 'cronograma' => $cronograma,
                 'cronograma_grupal' => $cronograma_grupal,
+                'fecha_aprobacion' => $prestamoGrupal->fecha_prestamo,
+                'lugar' => 'Sullana',
             ])->render();
             $contratosHtml .= '<div style="page-break-after: always;"></div>';
         }
@@ -261,6 +265,8 @@ class ContratoGrupoController extends Controller
                 'ciclo' => $cliente->ciclo ?? '',
                 'cronograma' => $cronograma,
                 'cronograma_grupal' => $cronograma_grupal,
+                'fecha_aprobacion' => $prestamoGrupal->fecha_prestamo,
+                'lugar' => 'Sullana',
             ])->render();
             $contratosHtml .= '<div style="page-break-after: always;"></div>';
         }
