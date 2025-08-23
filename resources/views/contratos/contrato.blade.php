@@ -81,10 +81,10 @@
     <br>
     <p class="advertencia">*Estimado cliente EVITE EL PAGO DE INTERÉS MORATORIO, a partir del primer día de atraso UD. CANCELARÁ S/. 1.00 POR DÍA EN MORA.</p>
     <div class="cuadro">
-        <b>CUENTA BCP:</b> 535026353940327<br>
-        <b>CCI:</b> 00253510263539403237<br>
+        <b>CUENTA BCP:</b> 5357081563077<br>
+        <b>CCI:</b> 00253500708156307730<br>
         <span style="color:#C00000; font-weight:bold;">IMPORTANTE: TODO PAGO DEBE SER REALIZADO A LA CUENTA BRINDADA. EL ASESOR NO ESTÁ AUTORIZADO A RECIBIR DINERO FÍSICO NI VIRTUAL (YAPE/TRANSFERENCIAS)</span><br>
-        <b>NRO PARA CONSULTAS:</b> 922 185 917
+        <b>NRO PARA CONSULTAS:</b> 938 651 127
     </div>
 </body>
 </html>
