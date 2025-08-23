@@ -25,7 +25,7 @@
     <p><b>SEGUNDO.</b> Con la firma del siguiente documento, el PRESTATARIO se compromete a devolver el préstamo en el lapso de <b>{{ $plazo * 7 }}</b> días como máximo a partir de la firma del presente contrato y el pago será de manera semanal generando un interés del <b>{{ $interes ?? '17' }}%</b> mensual. Por tanto, el PRESTATARIO está en el deber de devolver la cantidad de S/. <b>{{ number_format($total, 2) }}</b> una vez culminado el presente contrato.</p>
     <p><b>TERCERO.</b> En caso de incumplimiento de pago por parte del PRESTATARIO, el PRESTAMISTA tomará las medidas de cobranza necesarias para la recuperación del crédito.</p>
     <p><b>CUARTO.</b> El presente contrato incluye un Seguro Desgravamen, el cual se hace efectivo, en caso de fallecimiento del titular, cancelando la deuda total.</p>
-    <p><b>QUINTO.</b> Ambas PARTES señalan y aseguran que en la celebración del presente contrato no ha mediado error, dolo o nulidad que pudiera invalidar el contenido del mismo, por lo que proceden a firmar en el lugar y fecha correspondiente.</p>
+    <p><b>QUINTO.</b> Ambas PARTES señalan y aseguran que en la celebración del presente contrato no ha mediado error, dolo o nulidad que pudiera invalidar el contenido del mismo, por lo que proceden a firmar en el distrito de <b>{{ $lugar ?? 'SULLANA' }}</b>, <b>{{ $fecha_aprobacion ? strtoupper(\Carbon\Carbon::parse($fecha_aprobacion)->locale('es')->translatedFormat('l')) . ' ' . \Carbon\Carbon::parse($fecha_aprobacion)->format('d') . ' DE ' . strtoupper(\Carbon\Carbon::parse($fecha_aprobacion)->locale('es')->translatedFormat('F')) . ' DEL ' . \Carbon\Carbon::parse($fecha_aprobacion)->format('Y') : 'FECHA' }}</b>.</p>
 
     <div class="cuadro">
         <span class="section-title">CRÉDITO/DESEMBOLSO</span>
@@ -85,25 +85,6 @@
         <b>CCI:</b> 00253500708156307730<br>
         <span style="color:#C00000; font-weight:bold;">IMPORTANTE: TODO PAGO DEBE SER REALIZADO A LA CUENTA BRINDADA. EL ASESOR NO ESTÁ AUTORIZADO A RECIBIR DINERO FÍSICO NI VIRTUAL (YAPE/TRANSFERENCIAS)</span><br>
         <b>NRO PARA CONSULTAS:</b> 938 651 127
-    </div>
-    
-    <!-- Sección de firmas -->
-    <br><br>
-    
-    <div style="margin-top: 30px;">
-        <p><b>{{ $lugar ?? 'Sullana' }}, {{ $fecha_aprobacion ? \Carbon\Carbon::parse($fecha_aprobacion)->format('d') . ' DE ' . strtoupper(\Carbon\Carbon::parse($fecha_aprobacion)->locale('es')->translatedFormat('F')) . ' DEL ' . \Carbon\Carbon::parse($fecha_aprobacion)->format('Y') : 'FECHA' }}</b></p>
-        
-        <br><br><br><br>
-        <div style="display: flex; justify-content: space-between; margin-top: 50px;">
-            <div style="text-align: center; width: 45%;">
-                <div style="border-bottom: 1px solid black; height: 2px; margin-bottom: 10px;"></div>
-                <p><b>PRESTAMISTA</b></p>
-            </div>
-            <div style="text-align: center; width: 45%;">
-                <div style="border-bottom: 1px solid black; height: 2px; margin-bottom: 10px;"></div>
-                <p><b>PRESTATARIO</b></p>
-            </div>
-        </div>
     </div>
 </body>
 </html>
