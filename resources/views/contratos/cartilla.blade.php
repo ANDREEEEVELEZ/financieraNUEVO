@@ -208,7 +208,7 @@
         <div style="display: flex; justify-content: space-between; margin-top: 60px;">
             <div style="text-align: center; width: 45%;">
                 <div style="border-top: 2px solid #333; padding-top: 10px; margin-top: 60px;">
-                    <strong>Amar Melany Borace Rueda<br>
+                    <strong>Amar Melody Burneo Rueda<br>
                     JEFE DE OPERACIONES<br>
                     EMPRENDE CONMIGO S.A.C.</strong>
                 </div>
