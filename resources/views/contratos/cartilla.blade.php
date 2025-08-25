@@ -49,16 +49,18 @@
             margin-bottom: 30px;
         }
         .integrante {
-            margin-bottom: 15px;
-            padding: 10px;
-            border: 1px solid #333;
+            margin-bottom: 20px;
+            padding: 0;
+            border: none;
             page-break-inside: avoid;
         }
         .integrante-header {
-            background-color: #f0f0f0;
-            padding: 8px;
-            border-bottom: 1px solid #333;
-            margin: -10px -10px 10px -10px;
+            background-color: #e6e6e6;
+            padding: 5px 10px;
+            border: 1px solid #333;
+            margin: 0 0 0 0;
+            font-weight: bold;
+            font-size: 14px;
         }
         .integrante-nombre {
             font-weight: bold;
@@ -66,6 +68,17 @@
             margin: 0;
             color: #000;
             text-transform: uppercase;
+        }
+        .integrante-datos {
+            border: 1px solid #333;
+            border-top: none;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .integrante-info-left {
+            flex: 1;
         }
         .integrante-info {
             margin-bottom: 5px;
@@ -80,15 +93,15 @@
         .integrante-info span {
             font-size: 12px;
         }
-        .firma-section {
-            margin-top: 40px;
+        .firma-section-compact {
+            margin-left: 20px;
             text-align: center;
         }
         .firma-cuadro {
             border: 1px solid #333;
-            width: 250px;
-            height: 80px;
-            margin: 15px auto;
+            width: 150px;
+            height: 60px;
+            margin: 0;
             position: relative;
         }
         .firma-label {
@@ -97,7 +110,7 @@
             left: 50%;
             transform: translateX(-50%);
             font-weight: bold;
-            font-size: 11px;
+            font-size: 10px;
         }
         .cuenta-info {
             background-color: #f0f0f0;
@@ -167,23 +180,24 @@
         @foreach($integrantes as $integrante)
         <div class="integrante">
             <div class="integrante-header">
-                <div class="integrante-nombre">
-                    {{ $integrante['persona']->nombre ?? '' }} {{ $integrante['persona']->apellidos ?? '' }}
+                {{ strtoupper($integrante['persona']->nombre ?? '') }} {{ strtoupper($integrante['persona']->apellidos ?? '') }}
+            </div>
+            <div class="integrante-datos">
+                <div class="integrante-info-left">
+                    <div class="integrante-info">
+                        <span><strong>DNI:</strong> {{ $integrante['persona']->DNI ?? '' }}</span>
+                    </div>
+                    <div class="integrante-info">
+                        <span><strong>DIREC:</strong> {{ $integrante['persona']->direccion ?? '' }}</span>
+                    </div>
+                    <div class="integrante-info">
+                        <span><strong>CELULAR:</strong> {{ $integrante['persona']->celular ?? '' }}</span>
+                    </div>
                 </div>
-            </div>
-            <div class="integrante-info">
-                <span><strong>DNI:</strong> {{ $integrante['persona']->DNI ?? '' }}</span>
-            </div>
-            <div class="integrante-info">
-                <span><strong>DIREC:</strong> {{ $integrante['persona']->direccion ?? '' }}</span>
-            </div>
-            <div class="integrante-info">
-                <span><strong>CELULAR:</strong> {{ $integrante['persona']->celular ?? '' }}</span>
-            </div>
-            
-            <div class="firma-section">
-                <div class="firma-cuadro">
-                    <div class="firma-label">FIRMA DE CLIENTE</div>
+                <div class="firma-section-compact">
+                    <div class="firma-cuadro">
+                        <div class="firma-label">FIRMA DE CLIENTE</div>
+                    </div>
                 </div>
             </div>
         </div>
