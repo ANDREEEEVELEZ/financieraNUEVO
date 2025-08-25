@@ -31,15 +31,16 @@
             margin-bottom: 25px;
         }
         .fecha-contrato {
-            text-align: center;
-            font-weight: bold;
+            text-align: left;
+            font-weight: normal;
             margin-bottom: 20px;
-            font-size: 16px;
+            font-size: 14px;
         }
         .contrato-info {
             text-align: justify;
-            margin-bottom: 20px;
-            line-height: 1.5;
+            margin-bottom: 15px;
+            line-height: 1.4;
+            font-size: 14px;
         }
         .grupo-info {
             margin-bottom: 30px;
@@ -134,31 +135,32 @@
         <div class="title">CARTILLA DE IDENTIFICACION</div>
     </div>
 
+    <div style="margin-bottom: 20px;">
+        <strong>Denominacion DEL GRUPO:</strong> {{ $grupo->nombre_grupo ?? 'LUCIERNAGAS' }}
+    </div>
+
     <div class="fecha-contrato">
-        <strong>Fecha: </strong>{{ $fecha ? strtoupper(\Carbon\Carbon::parse($fecha)->locale('es')->translatedFormat('l')) . ', ' . \Carbon\Carbon::parse($fecha)->format('d') . ' DE ' . strtoupper(\Carbon\Carbon::parse($fecha)->locale('es')->translatedFormat('F')) . ' DEL ' . \Carbon\Carbon::parse($fecha)->format('Y') : 'FECHA' }}
+        <strong>Fecha:</strong> {{ $fecha ? strtoupper(\Carbon\Carbon::parse($fecha)->locale('es')->translatedFormat('l')) . ', ' . \Carbon\Carbon::parse($fecha)->format('d') . ' DE ' . strtoupper(\Carbon\Carbon::parse($fecha)->locale('es')->translatedFormat('F')) . ' DEL ' . \Carbon\Carbon::parse($fecha)->format('Y') : 'viernes, 22 de Agosto de 2025' }}
     </div>
 
     <div class="contrato-info">
-        <strong>El GRUPO:</strong> {{ $grupo->nombre_grupo ?? 'N/A' }}, Enterado del Contenido y alcances jurídicos de las Obligaciones que contraen con la Celebración de este Contrato; suscriben que tiene conocimiento y comprenden plenamente los términos y condiciones, habiendo sido aclaradas todas las consultas y/o Dudas. Por lo que firman el presente contrato sin limitaciones.
+        <strong>El GRUPO:</strong> Enterado del Contenido y alcance jurídico de las Obligaciones que contraen con la Celebración de este Contrato, suscriben que tiene conocimiento y comprenden plenamente los términos y condiciones, habiendo sido absueltas y aclaradas a satisfacción de sus consultas y/o Dudas, Por lo que firman de Conformidad en el lugar y fecha que se presenta en el presente documento.
     </div>
 
     <div class="contrato-info">
-        Así mismo declaro haber recibido el Contrato del Préstamo <strong>EMPRENDE CONMIGO</strong> Aprobado el cual se adjunta al <strong>CONTRATO PAGARE POR MUTUO DINERARIO.</strong> Así como haber sido instruido sobre lo estipulado en el mismo.
+        Así mismo declaro haber recibido el Contrato del Préstamo <strong>EMPRENDE CONMIGO</strong> Aprobado en el cual se adjunta el <strong>CONTRATO PAGARE POR MUTUO DINERARIO,</strong> Así como haber sido instruido sobre lo estipulado en el mismo.
     </div>
 
-    <div class="grupo-info">
-        <h3 style="color: #2F5496;">GRUPO: {{ $grupo->nombre_grupo ?? 'N/A' }}</h3>
-        <div class="integrante-info">
-            <span><strong>Cantidad de Integrantes:</strong> {{ count($integrantes) }}</span>
-        </div>
+    <div style="margin-bottom: 20px; color: #2F5496; font-weight: bold; font-size: 16px;">
+        GARANTIA FIANZA AVAL
     </div>
 
     <div class="contrato-info">
-        <strong>Las Integrantes DEL GRUPO</strong> manifiestan que ante Cualquier forma de impago o situaciones que atenten en el pago normal cada integrante responderá responsablemente. Sin ningún inconveniente allegando al límite consigo mismo.
+        Las Integrantes <strong>DEL GRUPO</strong> manifiestan que ante Cualquier forma de impago o situaciones que atenten con el pago puntual nos haremos netamente responsables. Sin ningún inconveniente alguno por lo cual firmo en señal de Conformidad.
     </div>
 
     <div class="contrato-info">
-        <strong>Las Integrantes DEL GRUPO,</strong> manifiestan en forma de declaración jurada que los datos que su Contribución se llevan son verídicos.
+        Las Integrantes <strong>DEL GRUPO,</strong> manifiestan en forma de declaración jurada que los datos que a Continuación se llenan son verdaderos.
     </div>
 
     <div class="integrantes-section">
