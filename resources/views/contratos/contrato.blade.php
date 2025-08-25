@@ -33,12 +33,10 @@
     </style>
 </head>
 <body>
-    <!-- Marca de agua con logo -->
-    @php
-        $logoPath = public_path('LogoEmprendeConmigo.png');
-        $logoData = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
-    @endphp
-    <img src="{{ $logoData }}" alt="Logo Marca de Agua" class="watermark-logo">
+    <!-- Marca de agua con logo usando variable del controlador -->
+    @if(isset($logo_marca_agua) && $logo_marca_agua)
+        <img src="{{ $logo_marca_agua }}" alt="Logo Marca de Agua" class="watermark-logo">
+    @endif
     
     <h2 style="text-align:center;">CONTRATO – PAGARE POR MUTUO DINERARIO</h2>
     <p>

@@ -97,6 +97,10 @@ class ContratoGrupoController extends Controller
                     ];
                 }
 
+                // Preparar logo como base64
+                $logoPath = public_path('LogoEmprendeConmigo.png');
+                $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
+
                 $contratosHtml .= View::make('contratos.contrato', [
                     'cliente' => $persona,
                     'monto' => $monto,
@@ -109,6 +113,7 @@ class ContratoGrupoController extends Controller
                     'cronograma_grupal' => $cronograma_grupal,
                     'fecha_aprobacion' => $prestamoGrupal->fecha_prestamo,
                     'lugar' => 'Sullana',
+                    'logo_marca_agua' => $logoBase64,
                 ])->render();
                 
                 $contratosHtml .= '<div style="page-break-after: always;"></div>';
@@ -189,6 +194,10 @@ class ContratoGrupoController extends Controller
                 ];
             }
 
+            // Preparar logo como base64
+            $logoPath = public_path('LogoEmprendeConmigo.png');
+            $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
+
             $contratosHtml .= View::make('contratos.contrato', [
                 'cliente' => $persona,
                 'monto' => $monto,
@@ -201,6 +210,7 @@ class ContratoGrupoController extends Controller
                 'cronograma_grupal' => $cronograma_grupal,
                 'fecha_aprobacion' => $prestamoGrupal->fecha_prestamo,
                 'lugar' => 'Sullana',
+                'logo_marca_agua' => $logoBase64,
             ])->render();
             $contratosHtml .= '<div style="page-break-after: always;"></div>';
         }
@@ -255,6 +265,10 @@ class ContratoGrupoController extends Controller
                 ];
             }
 
+            // Preparar logo como base64 para compatibilidad con PDF
+            $logoPath = public_path('LogoEmprendeConmigo.png');
+            $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
+
             $contratosHtml .= View::make('contratos.contrato', [
                 'cliente' => $persona,
                 'monto' => $monto,
@@ -267,6 +281,7 @@ class ContratoGrupoController extends Controller
                 'cronograma_grupal' => $cronograma_grupal,
                 'fecha_aprobacion' => $prestamoGrupal->fecha_prestamo,
                 'lugar' => 'Sullana',
+                'logo_marca_agua' => $logoBase64,
             ])->render();
             $contratosHtml .= '<div style="page-break-after: always;"></div>';
         }
