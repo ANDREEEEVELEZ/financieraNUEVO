@@ -21,7 +21,7 @@
             position: absolute;
             top: -10px;
             right: 0;
-            width: 80px;
+            width: 120px;
             height: auto;
         }
         .logo {
