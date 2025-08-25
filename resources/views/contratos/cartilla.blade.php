@@ -10,10 +10,19 @@
             margin: 0;
             padding: 20px;
             line-height: 1.4;
+            position: relative;
         }
         .header {
             text-align: center;
             margin-bottom: 30px;
+            position: relative;
+        }
+        .logo-esquina {
+            position: absolute;
+            top: -10px;
+            right: 0;
+            width: 80px;
+            height: auto;
         }
         .logo {
             width: 150px;
@@ -145,6 +154,8 @@
 </head>
 <body>
     <div class="header">
+        <!-- Logo en esquina superior derecha -->
+        <img src="{{ asset('LogoEmprendeConmigo.png') }}" alt="Logo Emprende Conmigo" class="logo-esquina">
         <div class="title">CARTILLA DE IDENTIFICACION</div>
     </div>
 
