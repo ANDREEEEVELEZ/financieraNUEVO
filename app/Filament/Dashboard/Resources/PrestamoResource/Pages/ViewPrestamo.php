@@ -133,6 +133,13 @@ class ViewPrestamo extends ViewRecord
                 ->color('success')
                 ->url(fn() => route('contratos.prestamo.imprimir', $this->record->id))
                 ->openUrlInNewTab();
+
+            $actions[] = Actions\Action::make('imprimir_cartilla')
+                ->label('Imprimir Cartilla')
+                ->icon('heroicon-o-identification')
+                ->color('info')
+                ->url(fn() => route('cartilla.prestamo.imprimir', $this->record->id))
+                ->openUrlInNewTab();
         }
 
         return $actions;

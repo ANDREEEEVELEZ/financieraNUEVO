@@ -820,6 +820,14 @@ class PrestamoResource extends Resource
                         ->url(fn($record) => route('contratos.prestamo.imprimir', $record->id))
                         ->visible(fn($record) => $record->grupo_id !== null && 
                             in_array(strtolower($record->estado), ['aprobado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
+
+                    Tables\Actions\Action::make('imprimir_cartilla')
+                        ->label('Imprimir Cartilla')
+                        ->icon('heroicon-o-identification')
+                        ->color('info')
+                        ->url(fn($record) => route('cartilla.prestamo.imprimir', $record->id))
+                        ->visible(fn($record) => $record->grupo_id !== null && 
+                            in_array(strtolower($record->estado), ['aprobado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

@@ -279,4 +279,37 @@ class ContratoGrupoController extends Controller
         $pdf = Pdf::loadHTML($contratosHtml);
         return $pdf->download($nombreArchivo);
     }
+
+    /**
+     * Imprime cartilla de identificación de un préstamo específico
+     */
+    public function imprimirCartillaPrestamo($prestamoId)
+    {
+        $user = request()->user();
+
+        $prestamoGrupal = \App\Models\Prestamo::with(['grupo.clientes.persona'])->findOrFail($prestamoId);
+        
+        // Validar que el préstamo tiene estado válido para cartilla
+        if (!in_array($prestamoGrupal->estado, ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])) {
+            abort(403, 'Solo se pueden imprimir cartillas de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
+        }
+
+        // Obtener los integrantes del préstamo
+        $integrantes = $prestamoGrupal->getIntegrantesParaContrato();
+
+        // Generar HTML para la cartilla
+        $cartillaHtml = View::make('contratos.cartilla', [
+            'prestamo' => $prestamoGrupal,
+            'grupo' => $prestamoGrupal->grupo,
+            'integrantes' => $integrantes,
+            'fecha' => $prestamoGrupal->fecha_prestamo,
+        ])->render();
+
+        // Determinar nombre del archivo
+        $nombreGrupo = $prestamoGrupal->grupo->nombre_grupo ?? 'Grupo';
+        $nombreArchivo = "Cartilla_Identificacion_{$nombreGrupo}.pdf";
+
+        $pdf = Pdf::loadHTML($cartillaHtml);
+        return $pdf->download($nombreArchivo);
+    }
 }

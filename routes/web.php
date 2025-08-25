@@ -38,6 +38,10 @@ Route::get('/contratos/grupo/{grupoId}', [ContratoGrupoController::class, 'impri
 Route::get('/contratos/prestamo/{prestamoId}', [ContratoGrupoController::class, 'imprimirContratosPrestamo'])
     ->name('contratos.prestamo.imprimir');
 
+// Ruta pública para impresión de cartilla de identificación de préstamo específico
+Route::get('/cartilla/prestamo/{prestamoId}', [ContratoGrupoController::class, 'imprimirCartillaPrestamo'])
+    ->name('cartilla.prestamo.imprimir');
+
 // Ruta pública para impresión masiva de contratos por estado
 Route::get('/contratos/masivos', [ContratoGrupoController::class, 'imprimirContratosMasivos'])
     ->name('contratos.masivos.imprimir');
