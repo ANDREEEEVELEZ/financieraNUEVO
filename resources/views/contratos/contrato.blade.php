@@ -4,7 +4,24 @@
     <meta charset="UTF-8">
     <title>CONTRATO – PAGARE POR MUTUO DINERARIO</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; }
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 12px; 
+            position: relative;
+        }
+        /* Marca de agua con logo */
+        .watermark-logo {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.08;
+            z-index: -1;
+            pointer-events: none;
+            user-select: none;
+            width: 300px;
+            height: auto;
+        }
         h2, h3 { color: #2F5496; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #333; padding: 4px; text-align: center; }
@@ -16,6 +33,13 @@
     </style>
 </head>
 <body>
+    <!-- Marca de agua con logo -->
+    @php
+        $logoPath = public_path('LogoEmprendeConmigo.png');
+        $logoData = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
+    @endphp
+    <img src="{{ $logoData }}" alt="Logo Marca de Agua" class="watermark-logo">
+    
     <h2 style="text-align:center;">CONTRATO – PAGARE POR MUTUO DINERARIO</h2>
     <p>
         Consta por el presente contrato Privado de una parte <b>"EMPRENDE CONMIGO SAC"</b> que en adelante se le denominará <b>PRESTAMISTA</b> y de otra parte la Sra. <b>{{ $cliente->nombre ?? '' }} {{ $cliente->apellidos ?? '' }}</b>, identificada con DNI: <b>{{ $cliente->DNI ?? '' }}</b> y domiciliado en <b>{{ $cliente->direccion ?? '' }}</b> a quien en adelante se le denominará <b>PRESTATARIO</b>.
