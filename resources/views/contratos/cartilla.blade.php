@@ -155,7 +155,11 @@
 <body>
     <div class="header">
         <!-- Logo en esquina superior derecha -->
-        <img src="{{ asset('LogoEmprendeConmigo.png') }}" alt="Logo Emprende Conmigo" class="logo-esquina">
+        @php
+            $logoPath = public_path('LogoEmprendeConmigo.png');
+            $logoData = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
+        @endphp
+        <img src="{{ $logoData }}" alt="Logo Emprende Conmigo" class="logo-esquina">
         <div class="title">CARTILLA DE IDENTIFICACION</div>
     </div>
 
