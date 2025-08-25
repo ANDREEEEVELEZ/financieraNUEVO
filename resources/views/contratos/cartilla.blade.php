@@ -179,12 +179,7 @@
                 <span><strong>CELULAR:</strong> {{ $integrante['persona']->celular ?? '' }}</span>
             </div>
             
-            <div class="firma-section">
-                <div class="firma-cuadro">
-                    <div class="firma-label">FIRMA DE CLIENTE</div>
-                </div>
-            </div>
-        </div>
+           
         @endforeach
     </div>
 
