@@ -130,7 +130,7 @@
             <td class="number-cell">2</td>
             <td class="content-cell">
                 <span class="bold">Tipo y número de documento de identidad (marque con una "X" según corresponda):</span><br>
-                <span class="bold">DNI</span> ( <span style="font-size: 14px;">X</span> ) <span class="bold">Pasaporte</span> ( ) <span class="bold">Carné de Extranjería</span> ( ) <span class="bold">Otro (Indique):</span> ( )
+                <span class="bold">DNI</span> ( <span style="font-size: 14px;">x</span> ) <span class="bold">Pasaporte</span> ( ) <span class="bold">Carné de Extranjería</span> ( ) <span class="bold">Otro (Indique):</span> ( )
                     <span style="margin-left: 50px;" class="bold">N°:</span> <span>{{ $persona->DNI }}</span>
             </td>
         </tr>
