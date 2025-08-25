@@ -179,7 +179,12 @@
                 <span><strong>CELULAR:</strong> {{ $integrante['persona']->celular ?? '' }}</span>
             </div>
             
-           
+            <div class="firma-section">
+                <div class="firma-cuadro">
+                    <div class="firma-label">FIRMA DE CLIENTE</div>
+                </div>
+            </div>
+        </div>
         @endforeach
     </div>
 
@@ -208,10 +213,7 @@
                     EMPRENDE CONMIGO S.A.C.</strong>
                 </div>
             </div>
-            <div style="text-align: center; width: 45%;">
-                <div style="border-top: 2px solid #333; padding-top: 10px; margin-top: 60px;">
-                    <strong>FIRMA DE CLIENTE</strong>
-                </div>
+            
             </div>
         </div>
     </div>
