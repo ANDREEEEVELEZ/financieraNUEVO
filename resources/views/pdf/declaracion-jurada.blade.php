@@ -120,8 +120,8 @@
         <tr>
             <td class="number-cell">1</td>
             <td class="content-cell">
-                <span class="bold">Nombres:</span> <span class="underline">{{ strtoupper($persona->nombre) }}</span>
-                <span style="margin-left: 50px;" class="bold">Apellidos:</span> <span class="underline">{{ strtoupper($persona->apellidos) }}</span>
+                    <span class="bold">Nombres:</span> <span>{{ strtoupper($persona->nombre) }}</span>
+                    <span style="margin-left: 50px;" class="bold">Apellidos:</span> <span>{{ strtoupper($persona->apellidos) }}</span>
             </td>
         </tr>
         
@@ -131,7 +131,7 @@
             <td class="content-cell">
                 <span class="bold">Tipo y número de documento de identidad (marque con una "X" según corresponda):</span><br>
                 <span class="bold">DNI</span> ( <span style="font-size: 14px;">X</span> ) <span class="bold">Pasaporte</span> ( ) <span class="bold">Carné de Extranjería</span> ( ) <span class="bold">Otro (Indique):</span> ( )
-                <span style="margin-left: 50px;" class="bold">N°:</span> <span class="underline">{{ $persona->DNI }}</span>
+                    <span style="margin-left: 50px;" class="bold">N°:</span> <span>{{ $persona->DNI }}</span>
             </td>
         </tr>
         
@@ -139,7 +139,7 @@
         <tr>
             <td class="number-cell">3</td>
             <td class="content-cell">
-                <span class="bold">Nacionalidad (en el caso de extranjero):</span> <span class="underline">PERUANA</span>
+                    <span class="bold">Nacionalidad (en el caso de extranjero):</span> <span>PERUANA</span>
             </td>
         </tr>
         
@@ -160,19 +160,19 @@
         <tr>
             <td class="number-cell">5</td>
             <td class="content-cell">
-                <span class="bold">Nombres y apellidos del cónyuge o conviviente:</span> <span class="underline" style="width: 300px;">{{ $pep_data['conyuge_conviviente'] ?? '' }}</span>
+                    <span class="bold">Nombres y apellidos del cónyuge o conviviente:</span> <span style="width: 300px;">{{ $pep_data['conyuge_conviviente'] ?? '' }}</span>
             </td>
         </tr>
         
         <!-- Row 6: Domicilio -->
         <tr>
-            <td class="number-cell">6</td>
-            <td class="content-cell">
-                <span class="bold">Domicilio (indicar tipo y nombre de la vía): Jr. / Av. / Calle / Pasaje / Ovalo</span><br>
-                <span class="underline">{{ strtoupper($persona->direccion) }}</span>
-                <span class="bold">Urb. Complejo Zona - Sector:</span> <span class="underline" style="width: 100px;"></span>
-                <span class="bold">Distrito:</span> <span class="underline">{{ strtoupper($persona->distrito) }}</span>
-                <span class="bold">Int:</span> <span class="underline" style="width: 50px;"></span>
+                    <span>{{ strtoupper($persona->direccion) }}</span>
+                    <span class="bold">Urb. Complejo Zona - Sector:</span> <span style="width: 100px;"></span>
+                    <span class="bold">Distrito:</span> <span>{{ strtoupper($persona->distrito) }}</span>
+                    <span class="bold">Int:</span> <span style="width: 50px;"></span>
+                    <span class="bold">Dpto./Int. N°:</span> <span style="width: 50px;"></span><br>
+                    <span class="bold">Provincia:</span> <span>SULLANA</span>
+                    <span class="bold">Departamento:</span> <span>PIURA</span>
                 <span class="bold">Dpto./Int. N°:</span> <span class="underline" style="width: 50px;"></span><br>
                 <span class="bold">Provincia:</span> <span class="underline">SULLANA</span>
                 <span class="bold">Departamento:</span> <span class="underline">PIURA</span>
@@ -183,7 +183,7 @@
         <tr>
             <td class="number-cell">7</td>
             <td class="content-cell">
-                <span class="bold">Ocupación:</span> <span class="underline">{{ strtoupper($cliente->actividad) }}</span>
+                    <span class="bold">Ocupación:</span> <span>{{ strtoupper($cliente->actividad) }}</span>
             </td>
         </tr>
         
@@ -191,9 +191,9 @@
         <tr>
             <td class="number-cell">8</td>
             <td class="content-cell">
-                <span class="bold">N° Teléfono Fijo (indicar código de cuidad):</span> <span class="underline" style="width: 120px;">{{ $pep_data['telefono_fijo'] ?? '' }}</span>
-                <span class="bold">Celular:</span> <span class="underline">{{ $persona->celular }}</span>
-                <span class="bold">Correo electrónico:</span> <span class="underline">{{ strtolower($persona->correo) }}</span>
+                    <span class="bold">N° Teléfono Fijo (indicar código de cuidad):</span> <span style="width: 120px;">{{ $pep_data['telefono_fijo'] ?? '' }}</span>
+                    <span class="bold">Celular:</span> <span>{{ $persona->celular }}</span>
+                    <span class="bold">Correo electrónico:</span> <span>{{ strtolower($persona->correo) }}</span>
             </td>
         </tr>
         
@@ -201,8 +201,8 @@
         <tr>
             <td class="number-cell">9</td>
             <td class="content-cell">
-                <span class="bold">Propósito de la relación comercial o de negocio (siempre que esta se desprenda directamente del objeto del contrato):</span><br>
-                <span class="underline" style="width: 100%; min-height: 20px; display: block;">{{ $pep_data['proposito_relacion'] ?? 'Préstamo' }}</span>
+                    <span class="bold">Propósito de la relación comercial o de negocio (siempre que esta se desprenda directamente del objeto del contrato):</span><br>
+                    <span style="width: 100%; min-height: 20px; display: block;">{{ $pep_data['proposito_relacion'] ?? 'Préstamo' }}</span>
             </td>
         </tr>
         
@@ -223,7 +223,7 @@
                 <span class="bold">Si marcó "Sí soy" o "Si he sido" complete la información siguiente:</span><br><br>
                 
                 <span class="bold">Cargo:</span> <span class="underline" style="width: 200px;">{{ $pep_data['cargo_pep'] ?? '' }}</span>
-                <span class="bold">Nombre de la institución (organismo público u organización internacional):</span> <span class="underline" style="width: 200px;">{{ $pep_data['institucion_pep'] ?? '' }}</span><br><br>
+                    <span class="bold">Nombre de la institución (organismo público u organización internacional):</span> <span style="width: 200px;">{{ $pep_data['institucion_pep'] ?? '' }}</span><br><br>
                 
                 <span class="bold">10.2. De ser PEP, indicar los nombres y apellidos de sus:</span><br>
                 <span class="bold">(1) Parientes hasta el 2do grado de consanguinidad</span> <span class="small-text">(Padre, Madre, Abuelos, Abuelas, Hermanos, Hermanas)</span> <span class="bold">y 2do de afinidad</span> <span class="small-text">(suegros, yerno, nuera, cuñados, nueras o cuñadas de cónyuge)</span><br>
@@ -288,9 +288,9 @@
                 
                 <span class="bold">i) Origen de los fondos/activos involucrados en la operación, cuando esta se realice en efectivo e iguale o supere el umbral para efectos del RO:</span><br>
                 @if(($pep_data['operacion_favor'] ?? 'mi_mismo') == 'mi_mismo')
-                <span class="underline" style="width: 100%; min-height: 20px; display: block;">{{ $pep_data['observaciones'] ?? 'No aplica' }}</span>
+                    <span style="width: 100%; min-height: 20px; display: block;">{{ $pep_data['observaciones'] ?? 'No aplica' }}</span>
                 @else
-                <span class="underline" style="width: 100%; min-height: 20px; display: block;"></span>
+                    <span style="width: 100%; min-height: 20px; display: block;"></span>
                 @endif
             </td>
         </tr>
@@ -328,7 +328,7 @@
         <!-- Signature section -->
         <tr>
             <td colspan="2" style="text-align: center; padding: 20px;">
-                <span class="bold">FECHA (día/mes/año):</span> <span class="underline">{{ $fecha_generacion ?? now()->format('d/m/Y') }}</span>
+                    <span class="bold">FECHA (día/mes/año):</span> <span>{{ $fecha_generacion ?? now()->format('d/m/Y') }}</span>
                 <span style="margin-left: 100px;" class="bold">FIRMA</span><br><br>
                 <div style="margin-top: 30px;">
                     <div style="border-top: 1px solid #000; width: 200px; margin: 0 auto;"></div>
