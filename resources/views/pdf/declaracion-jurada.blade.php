@@ -166,16 +166,16 @@
         
         <!-- Row 6: Domicilio -->
         <tr>
-                    <span>{{ strtoupper($persona->direccion) }}</span>
-                    <span class="bold">Urb. Complejo Zona - Sector:</span> <span style="width: 100px;"></span>
-                    <span class="bold">Distrito:</span> <span>{{ strtoupper($persona->distrito) }}</span>
-                    <span class="bold">Int:</span> <span style="width: 50px;"></span>
-                    <span class="bold">Dpto./Int. N°:</span> <span style="width: 50px;"></span><br>
-                    <span class="bold">Provincia:</span> <span>SULLANA</span>
-                    <span class="bold">Departamento:</span> <span>PIURA</span>
-                <span class="bold">Dpto./Int. N°:</span> <span class="underline" style="width: 50px;"></span><br>
-                <span class="bold">Provincia:</span> <span class="underline">SULLANA</span>
-                <span class="bold">Departamento:</span> <span class="underline">PIURA</span>
+            <td class="number-cell">6</td>
+            <td class="content-cell">
+                <span class="bold">Domicilio (indicar tipo y nombre de la vía): Jr. / Av. / Calle / Pasaje / Ovalo</span>
+                <span style="margin-left: 5px;">{{ strtoupper($persona->direccion) }}</span>
+                <span class="bold" style="margin-left: 10px;">Urb. Complejo Zona - Sector:</span> <span style="width: 100px; display: inline-block;"></span>
+                <span class="bold" style="margin-left: 10px;">Distrito:</span> <span>{{ strtoupper($persona->distrito) }}</span>
+                <span class="bold" style="margin-left: 10px;">Int:</span> <span style="width: 50px; display: inline-block;"></span>
+                <span class="bold" style="margin-left: 10px;">Dpto./Int. N°:</span> <span style="width: 50px; display: inline-block;"></span>
+                <span class="bold" style="margin-left: 10px;">Provincia:</span> <span>SULLANA</span>
+                <span class="bold" style="margin-left: 10px;">Departamento:</span> <span>PIURA</span>
             </td>
         </tr>
         
