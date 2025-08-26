@@ -5,20 +5,21 @@
     <title>Reporte de Moras</title>
     <style>
         @page {
-            margin: 100px 50px;
+            margin: 80px 25px;
+            size: A4 landscape;
         }
 
         body {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 12px;
+            font-size: 10px;
         }
 
         header {
             position: fixed;
-            top: -80px;
+            top: -60px;
             left: 0px;
             right: 0px;
-            height: 60px;
+            height: 40px;
             text-align: right;
             font-size: 12px;
             color: #555;
@@ -32,12 +33,20 @@
 
         table th, table td {
             border: 1px solid #aaa;
-            padding: 4px;
+            padding: 3px;
             text-align: center;
+            font-size: 9px;
         }
 
         table th {
             background-color: #f2f2f2;
+            font-weight: bold;
+            font-size: 9px;
+        }
+
+        h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -54,21 +63,24 @@
         <table>
             <thead>
                 <tr>
-                 <th>Grupo</th>
-                <th>N° Cuota</th>
-                <th>Monto de Cuota</th>
-                <th>Fecha Vencimiento</th>
-                <th>Saldo pendiente</th>
-                <th>Días de Atraso</th>
-                <th>Monto Mora</th>
-                <th>Monto total a pagar</th>
-                <th>Estado</th>
+                    <th>Nombre del Grupo</th>
+                    <th>N° Integrantes</th>
+                    <th>N° Cuota</th>
+                    <th>Monto de Cuota</th>
+                    <th>Fecha Vencimiento</th>
+                    <th>Saldo pendiente</th>
+                    <th>Días de Atraso</th>
+                    <th>Monto Mora pendiente</th>
+                    <th>Monto Mora Pagada</th>
+                    <th>Monto total a pagar</th>
+                    <th>Estado</th>
                 </tr>
             </thead>
         <tbody>
         @foreach($cuotas_mora as $cuota)
             <tr>
                 <td>{{ $cuota->prestamo->grupo->nombre_grupo ?? '-' }}</td>
+                <td>{{ $cuota->prestamo->grupo->clientes()->count() ?? 0 }}</td>
                 <td>{{ $cuota->numero_cuota ?? '-' }}</td>
                 <td>S/ {{ number_format($cuota->monto_cuota_grupal, 2) }}</td>
                 <td>{{ $cuota->fecha_vencimiento ? \Carbon\Carbon::parse($cuota->fecha_vencimiento)->format('d/m/Y') : '-' }}</td>
@@ -86,17 +98,24 @@
                     @endphp
                     {{ $diasAtraso }}
                 @endif
-            </td>
-
-                <td>S/ {{ $cuota->mora ? number_format(abs($cuota->mora->monto_mora_calculado), 2) : '0.00' }}</td>
+                </td>
                 <td>
                     @php
-                        $montoTotal = 0;
-                        if ($cuota->mora && in_array($cuota->mora->estado_mora, ['pendiente', 'parcialmente_pagada'])) {
-                            $montoTotal = $cuota->saldo_pendiente + abs($cuota->mora->monto_mora_calculado);
-                        } elseif ($cuota->saldo_pendiente > 0) {
-                            $montoTotal = $cuota->saldo_pendiente;
-                        }
+                        $moraPendiente = $cuota->getSaldoMoraPendiente();
+                    @endphp
+                    S/ {{ number_format($moraPendiente, 2) }}
+                </td>
+                <td>
+                    @php
+                        $moraPagada = $cuota->getMoraPagada();
+                    @endphp
+                    S/ {{ number_format($moraPagada, 2) }}
+                </td>
+                <td>
+                    @php
+                        $saldoCuotaPendiente = $cuota->getSaldoCuotaPendiente();
+                        $moraPendiente = $cuota->getSaldoMoraPendiente();
+                        $montoTotal = $saldoCuotaPendiente + $moraPendiente;
                     @endphp
                     S/ {{ number_format($montoTotal, 2) }}
                 </td>

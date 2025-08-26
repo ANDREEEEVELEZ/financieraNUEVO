@@ -10,7 +10,7 @@ class Grupo extends Model
     use HasFactory;
 
     protected $table = 'grupos'; // Especificando el nombre de la tabla si no sigue las convenciones de Laravel
-    
+
     protected $fillable = [
         'nombre_grupo',
         'numero_integrantes',
@@ -23,6 +23,22 @@ class Grupo extends Model
     protected $casts = [
         'fecha_registro' => 'date',
     ];
+
+    // Mutators para convertir automáticamente a mayúsculas
+    public function setNombreGrupoAttribute($value)
+    {
+        $this->attributes['nombre_grupo'] = strtoupper($value);
+    }
+
+    public function setCalificacionGrupoAttribute($value)
+    {
+        $this->attributes['calificacion_grupo'] = strtoupper($value);
+    }
+
+    public function setEstadoGrupoAttribute($value)
+    {
+        $this->attributes['estado_grupo'] = strtoupper($value);
+    }
 
     public function integrantes()
     {
@@ -74,7 +90,7 @@ class Grupo extends Model
     public function getExIntegrantesNombresAttribute()
     {
         return $this->exIntegrantes()->with('persona')->get()->map(function($cliente) {
-            $fechaSalida = $cliente->pivot->fecha_salida ? 
+            $fechaSalida = $cliente->pivot->fecha_salida ?
                 ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
             return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
         })->implode(', ');
@@ -86,11 +102,11 @@ class Grupo extends Model
     public function validarNumeroIntegrantes($numeroIntegrantes = null): void
     {
         $numero = $numeroIntegrantes ?? $this->clientes()->count();
-        
+
         if ($numero < 4) {
             throw new \Exception('Un grupo debe tener mínimo 4 integrantes. Actualmente tiene ' . $numero . ' integrantes.');
         }
-        
+
         if ($numero > 6) {
             throw new \Exception('Un grupo debe tener máximo 6 integrantes. Actualmente tiene ' . $numero . ' integrantes.');
         }
@@ -221,7 +237,7 @@ class Grupo extends Model
 
         // Verificar si el cliente ya estuvo en el grupo destino antes (ex-integrante)
         $existeEnDestino = $nuevoGrupo->todosLosIntegrantes()->where('clientes.id', $clienteId)->exists();
-        
+
         if ($existeEnDestino) {
             // El cliente ya estuvo en este grupo antes, actualizar su registro a activo
             $nuevoGrupo->todosLosIntegrantes()->updateExistingPivot($clienteId, [
@@ -277,7 +293,7 @@ class Grupo extends Model
             return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
         })->implode(', ');
     }
-    
+
     public function getNumeroIntegrantesRealAttribute()
     {
         return $this->clientes()->count();

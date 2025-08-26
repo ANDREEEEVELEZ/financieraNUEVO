@@ -141,7 +141,7 @@ class Prestamo extends Model
                     ]);
                     return false;
                 }
-                
+
                 $this->estado = 'Finalizado';
                 $this->save();
                 return true;
@@ -158,14 +158,14 @@ class Prestamo extends Model
         if ($this->estado === 'Aprobado' || $this->estado === 'Parcialmente_Retanqueado') {
             $totalCuotas = $this->cuotasGrupales()->count();
             $cuotasPagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
-            
+
             \Illuminate\Support\Facades\Log::info('Verificando estado del préstamo', [
                 'prestamo_id' => $this->id,
                 'estado_actual' => $this->estado,
                 'total_cuotas' => $totalCuotas,
                 'cuotas_pagadas' => $cuotasPagadas,
             ]);
-            
+
             if ($totalCuotas > 0 && $cuotasPagadas === $totalCuotas) {
                 // Verificar si hay retanqueos parciales donde algunas personas no retanquearon
                 if ($this->tieneIntegrantesNoRetanqueadosConDeudaPendiente()) {
@@ -174,24 +174,24 @@ class Prestamo extends Model
                     ]);
                     return false;
                 }
-                
+
                 $this->estado = 'Finalizado';
                 $this->save();
-                
+
                 // Actualizar también los préstamos individuales
                 $this->prestamoIndividual()->update(['estado' => 'Finalizado']);
-                
+
                 // Mover integrantes que no retanquearon a ex-integrantes
                 $this->moverIntegrantesNoRetanqueadosAExIntegrantes();
-                
+
                 \Illuminate\Support\Facades\Log::info('Estado del préstamo actualizado a Finalizado', [
                     'prestamo_id' => $this->id,
                 ]);
-                
+
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -226,12 +226,12 @@ class Prestamo extends Model
     public function generarDescripcionRetanqueo()
     {
         if (!$this->grupo) return $this->descripcion;
-        
+
         // Contar cuántos retanqueos previos ha tenido este grupo
         $numeroRetanqueo = self::whereHas('grupo', function($query) {
             $query->where('id', $this->grupo_id);
         })->where('es_retanqueo', true)->count();
-        
+
         return "RETANQUEO #{$numeroRetanqueo} {$this->grupo->nombre_grupo}";
     }
 
@@ -242,7 +242,7 @@ class Prestamo extends Model
     {
         // Buscar retanqueo ejecutado relacionado con este préstamo
         $retanqueo = $this->retanqueoComoAntiguo()->where('estado_retanqueo', 'ejecutado')->first();
-        
+
         if (!$retanqueo) {
             return;
         }
@@ -258,7 +258,7 @@ class Prestamo extends Model
             if ($cliente && $this->grupo) {
                 // Mover a ex-integrante
                 $this->grupo->removerCliente($cliente->id, now());
-                
+
                 \Illuminate\Support\Facades\Log::info('Cliente movido a ex-integrante por completar pagos post-retanqueo', [
                     'cliente_id' => $cliente->id,
                     'grupo_id' => $this->grupo->id,
@@ -286,23 +286,23 @@ class Prestamo extends Model
     {
         // Obtener el retanqueo ejecutado (si existe)
         $retanqueo = $this->retanqueoComoAntiguo()->where('estado_retanqueo', 'ejecutado')->first();
-        
+
         if (!$retanqueo) {
             // Si no hay retanqueo, no hay integrantes que no retanquearon
             return false;
         }
-        
+
         // Obtener integrantes que NO retanquearon
         $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
             ->where('participacion_tipo', 'no_retanquea')
             ->with('cliente')
             ->get();
-            
+
         if ($integrantesNoRetanqueados->isEmpty()) {
             // Si no hay integrantes que no retanquearon, no hay deuda pendiente individual
             return false;
         }
-        
+
         \Illuminate\Support\Facades\Log::info('Verificando integrantes que no retanquearon', [
             'prestamo_id' => $this->id,
             'estado' => $this->estado,
@@ -314,14 +314,14 @@ class Prestamo extends Model
             if ($cliente && $this->grupo) {
                 // Verificar si el cliente aún está en el grupo (no ha sido movido a ex-integrante)
                 $sigueEnGrupo = $this->grupo->clientes()->where('clientes.id', $cliente->id)->exists();
-                
+
                 if ($sigueEnGrupo) {
                     // Verificar si tiene préstamos individuales activos (no finalizados) en este préstamo
                     $prestamoIndividual = $this->prestamoIndividual()
                         ->where('cliente_id', $cliente->id)
                         ->whereNotIn('estado', ['Finalizado', 'Completado'])
                         ->first();
-                    
+
                     if ($prestamoIndividual) {
                         // También verificar que el monto a devolver sea mayor a 0
                         $montoDevolver = (float)$prestamoIndividual->monto_devolver_individual;
@@ -340,21 +340,21 @@ class Prestamo extends Model
                 }
             }
         }
-        
+
         // Verificación adicional para préstamos Parcialmente_Retanqueado:
-        // También verificar si hay cuotas grupales con saldo pendiente que correspondan 
+        // También verificar si hay cuotas grupales con saldo pendiente que correspondan
         // a la parte no cubierta por quienes no retanquearon
         if ($this->estado === 'Parcialmente_Retanqueado') {
             $cuotasConSaldoPendiente = $this->cuotasGrupales()
                 ->where('estado_pago', '!=', 'pagado')
                 ->where('saldo_pendiente', '>', 0)
                 ->count();
-                
+
             \Illuminate\Support\Facades\Log::info('Verificación adicional de cuotas grupales pendientes', [
                 'prestamo_id' => $this->id,
                 'cuotas_con_saldo_pendiente' => $cuotasConSaldoPendiente
             ]);
-                
+
             if ($cuotasConSaldoPendiente > 0) {
                 return true;
             }
@@ -377,8 +377,7 @@ class Prestamo extends Model
 
         // Actualizar el estado del grupo asociado
         if ($this->grupo) {
-            $this->grupo->estado_grupo = 'Activo';
-            $this->grupo->save();
+            $this->grupo->update(['estado_grupo' => 'Activo']);
         }
 
         // Actualizar el estado de los préstamos individuales
@@ -399,8 +398,7 @@ class Prestamo extends Model
 
         // Actualizar el estado del grupo asociado
         if ($this->grupo) {
-            $this->grupo->estado_grupo = 'Activo';
-            $this->grupo->save();
+            $this->grupo->update(['estado_grupo' => 'Activo']);
         }
 
         // Actualizar el estado de los préstamos individuales
@@ -420,16 +418,16 @@ class Prestamo extends Model
             ]);
             return $this;
         }
-        
+
         if ($this->prestamoIndividual()->count() > 0) {
             $montoTotal = $this->prestamoIndividual()->sum('monto_prestado_individual');
             $montoDevolver = $this->prestamoIndividual()->sum('monto_devolver_individual');
-            
+
             $this->updateQuietly([
                 'monto_prestado_total' => round($montoTotal, 2),
                 'monto_devolver' => round($montoDevolver, 2),
             ]);
-            
+
             \Illuminate\Support\Facades\Log::info('Sincronización de montos completada', [
                 'prestamo_id' => $this->id,
                 'monto_total_anterior' => $this->getOriginal('monto_prestado_total'),
@@ -437,10 +435,10 @@ class Prestamo extends Model
                 'monto_devolver_anterior' => $this->getOriginal('monto_devolver'),
                 'monto_devolver_nuevo' => round($montoDevolver, 2),
             ]);
-            
+
             return $this->fresh();
         }
-        
+
         return $this;
     }
 
@@ -497,13 +495,13 @@ class Prestamo extends Model
 
         $fecha = \Carbon\Carbon::parse($detalles['fecha_retanqueo'])->format('d/m/Y');
         $mensaje = "Cobertura automática por retanqueo ({$fecha}):\n";
-        
+
         foreach ($detalles['clientes'] as $cliente) {
             $mensaje .= "• {$cliente['nombre']}: S/ " . number_format($cliente['monto_cubierto'], 2) . " cubierto\n";
         }
-        
+
         $mensaje .= "Total: S/ " . number_format($detalles['total_cubierto'], 2) . " cubierto automáticamente";
-        
+
         return $mensaje;
     }
 }

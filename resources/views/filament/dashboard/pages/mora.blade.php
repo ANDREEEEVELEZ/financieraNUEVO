@@ -42,7 +42,7 @@
                 </a>
             @endif
 
-            <!-- Botón exportar PDF -->
+            <!-- Botón exportar Moras -->
             <button type="button" onclick="document.getElementById('exportarModal').showModal()"
                 class="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-green-200 to-green-400 hover:from-green-300 hover:to-green-500 text-black text-base font-bold rounded-xl shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900 border border-green-400 dark:border-green-600">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -50,7 +50,7 @@
                 d="M12 16v-8m0 8l-4-4m4 4l4-4M4 4h16v16H4V4z" />
             </svg>
 
-                Exportar PDF
+                Exportar Moras
             </button>
         </div>
 
@@ -167,10 +167,20 @@
     </form>
 </dialog>
 
-        <!-- Modal de Exportar PDF (sin cambios) -->
+        <!-- Modal de Exportar Moras -->
      <dialog id="exportarModal" class="rounded-xl shadow-xl p-0 w-full max-w-lg bg-white dark:bg-gray-800 border border-blue-200 dark:border-gray-700">
-    <form method="GET" action="{{ route('moras.exportar.pdf') }}" class="p-6 flex flex-col gap-6">
-        <h3 class="text-lg font-bold text-blue-700 dark:text-blue-200 mb-2">Exportar Moras a PDF</h3>
+    <form method="GET" action="{{ route('moras.exportar.pdf') }}" class="p-6 flex flex-col gap-6" id="exportForm">
+        <h3 class="text-lg font-bold text-blue-700 dark:text-blue-200 mb-2">Exportar Moras</h3>
+
+        <!-- Selector de formato -->
+        <div class="flex flex-col">
+            <label class="text-xs font-semibold mb-2 text-blue-700 dark:text-blue-200">Formato de exportación</label>
+            <select name="formato" id="formatoSelect" class="rounded-lg border border-blue-200 dark:border-blue-500 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 dark:bg-gray-900 dark:text-white transition">
+                <option value="pdf" selected>📄 PDF</option>
+                <option value="excel">📊 Excel</option>
+            </select>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="flex flex-col">
                 <label class="text-xs font-semibold mb-1 text-blue-700 dark:text-blue-200">Nombre del grupo</label>
@@ -219,12 +229,12 @@
                 </div>
                 <div class="flex justify-end gap-3 mt-4">
                     <button type="button" onclick="document.getElementById('exportarModal').close()" class="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition">Exportar PDF</button>
+                    <button type="submit" id="exportButton" class="px-4 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">📄 Exportar PDF</button>
                 </div>
             </form>
         </dialog>
 
-        <!-- JavaScript para manejar el modal de filtros -->
+        <!-- JavaScript para manejar el modal de filtros y exportación -->
         <script>
             // Función para limpiar los filtros dentro del modal
             function limpiarFiltrosModal() {
@@ -238,6 +248,24 @@
                     }
                 });
             }
+
+            // Función para manejar el cambio de formato en el modal de exportación
+            document.addEventListener('DOMContentLoaded', function() {
+                const formatoSelect = document.getElementById('formatoSelect');
+                const exportButton = document.getElementById('exportButton');
+                const exportForm = document.getElementById('exportForm');
+
+                formatoSelect.addEventListener('change', function() {
+                    const formato = this.value;
+                    if (formato === 'pdf') {
+                        exportButton.innerHTML = '📄 Exportar PDF';
+                        exportForm.action = '{{ route("moras.exportar.pdf") }}';
+                    } else if (formato === 'excel') {
+                        exportButton.innerHTML = '📊 Exportar Excel';
+                        exportForm.action = '{{ route("moras.exportar.excel") }}';
+                    }
+                });
+            });
 
             // Cerrar modal automáticamente después de aplicar filtros
             document.getElementById('filtros-mora-form').addEventListener('submit', function() {

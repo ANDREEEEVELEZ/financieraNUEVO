@@ -28,7 +28,7 @@ class Categoria extends Model
 
     public function setNombreCategoriaAttribute($value)
     {
-        $this->attributes['nombre_categoria'] = strtolower($value);
+        $this->attributes['nombre_categoria'] = strtoupper($value);
     }
 }
 

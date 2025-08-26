@@ -287,7 +287,7 @@ Forms\Components\TextInput::make('monto')
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
                     */
-                Tables\Columns\TextColumn::make('monto')->label('Monto')->money('PEN')->sortable(),
+                Tables\Columns\TextColumn::make('monto')->label('Monto')->formatStateUsing(fn($state) => 'S/. ' . number_format($state, 2))->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('tipo_egreso')->label('Tipo de Egreso')->options([

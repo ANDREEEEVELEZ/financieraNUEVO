@@ -25,13 +25,13 @@ class ListClientes extends ListRecords
         return [
             Actions\CreateAction::make()
                 ->icon('heroicon-o-plus-circle'),
-            
+
             // Acción de traslado masivo visible en el header
             Actions\Action::make('trasladar_clientes_masivo')
                 ->label('Trasladar Clientes')
                 ->icon('heroicon-o-arrow-right-circle')
                 ->color('warning')
-                ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
                 ->form([
                     Forms\Components\Section::make('Paso 1: Seleccionar Asesor de Origen')
                         ->description('Seleccione el asesor del cual desea trasladar clientes')
@@ -55,7 +55,7 @@ class ListClientes extends ListRecords
                                 ->helperText('Seleccione el asesor que actualmente tiene los clientes que desea trasladar')
                                 ->afterStateUpdated(fn (callable $set) => $set('clientes_seleccionados', [])),
                         ]),
-                    
+
                     Forms\Components\Section::make('Paso 2: Seleccionar Clientes a Trasladar')
                         ->description('Seleccione los clientes específicos o todos los clientes del asesor')
                         ->schema([
@@ -69,7 +69,7 @@ class ListClientes extends ListRecords
                                         $set('clientes_seleccionados', []);
                                     }
                                 }),
-                            
+
                             Forms\Components\CheckboxList::make('clientes_seleccionados')
                                 ->label('O seleccionar clientes específicos')
                                 ->options(function (callable $get) {
@@ -77,13 +77,13 @@ class ListClientes extends ListRecords
                                     if (!$asesorOrigenId) {
                                         return [];
                                     }
-                                    
+
                                     return \App\Models\Cliente::with(['persona', 'grupos'])
                                         ->where('asesor_id', $asesorOrigenId)
                                         ->where('estado_cliente', 'Activo')
                                         ->get()
                                         ->mapWithKeys(function ($cliente) {
-                                            $grupoInfo = $cliente->tieneGrupoActivo() 
+                                            $grupoInfo = $cliente->tieneGrupoActivo()
                                                 ? " 🏢 Grupo: {$cliente->grupos()->where('estado_grupo', 'Activo')->first()->nombre_grupo}"
                                                 : " 👤 Sin grupo";
                                             return [
@@ -102,33 +102,33 @@ class ListClientes extends ListRecords
                                     }
                                 })
                                 ->helperText('Seleccione clientes específicos si no desea trasladar todos'),
-                            
+
                             Forms\Components\Placeholder::make('info_seleccion')
                                 ->content(function (callable $get) {
                                     $asesorOrigenId = $get('asesor_origen_id');
                                     $trasladarTodos = $get('trasladar_todos');
                                     $clientesSeleccionados = $get('clientes_seleccionados') ?? [];
-                                    
+
                                     if (!$asesorOrigenId) {
                                         return '⚠️ Primero seleccione un asesor de origen';
                                     }
-                                    
+
                                     if ($trasladarTodos) {
                                         $totalClientes = \App\Models\Cliente::where('asesor_id', $asesorOrigenId)
                                             ->where('estado_cliente', 'Activo')
                                             ->count();
                                         return "✅ Se trasladarán TODOS los clientes ({$totalClientes} clientes)";
                                     }
-                                    
+
                                     if (!empty($clientesSeleccionados)) {
                                         return "✅ Se trasladarán " . count($clientesSeleccionados) . " cliente(s) seleccionado(s)";
                                     }
-                                    
+
                                     return '⚠️ Seleccione "Trasladar todos" o elija clientes específicos';
                                 })
                                 ->extraAttributes(['class' => 'text-sm font-medium']),
                         ]),
-                    
+
                     Forms\Components\Section::make('Paso 3: Seleccionar Nuevo Asesor')
                         ->description('Seleccione el asesor al cual se trasladarán los clientes')
                         ->schema([
@@ -157,13 +157,13 @@ class ListClientes extends ListRecords
                     $nuevoAsesorId = $data['nuevo_asesor_id'];
                     $trasladarTodos = $data['trasladar_todos'] ?? false;
                     $clientesSeleccionadosIds = $data['clientes_seleccionados'] ?? [];
-                    
+
                     // Obtener información de asesores
                     $asesorOrigen = \App\Models\Asesor::with('persona')->find($asesorOrigenId);
                     $nuevoAsesor = \App\Models\Asesor::with('persona')->find($nuevoAsesorId);
                     $nombreAsesorOrigen = $asesorOrigen->persona->nombre . ' ' . $asesorOrigen->persona->apellidos;
                     $nombreNuevoAsesor = $nuevoAsesor->persona->nombre . ' ' . $nuevoAsesor->persona->apellidos;
-                    
+
                     // Determinar qué clientes trasladar
                     if ($trasladarTodos) {
                         $clientes = \App\Models\Cliente::with(['persona', 'grupos'])
@@ -175,7 +175,7 @@ class ListClientes extends ListRecords
                             ->whereIn('id', $clientesSeleccionadosIds)
                             ->get();
                     }
-                    
+
                     if ($clientes->isEmpty()) {
                         \Filament\Notifications\Notification::make()
                             ->warning()
@@ -184,10 +184,10 @@ class ListClientes extends ListRecords
                             ->send();
                         return;
                     }
-                    
+
                     $clientesSinGrupo = collect();
                     $gruposAfectados = collect();
-                    
+
                     // Clasificar clientes según si pertenecen a grupos
                     foreach ($clientes as $cliente) {
                         if ($cliente->tieneGrupoActivo()) {
@@ -199,26 +199,26 @@ class ListClientes extends ListRecords
                             $clientesSinGrupo->push($cliente);
                         }
                     }
-                    
+
                     // Trasladar clientes sin grupo directamente
                     if ($clientesSinGrupo->isNotEmpty()) {
                         foreach ($clientesSinGrupo as $cliente) {
                             $cliente->asesor_id = $nuevoAsesorId;
                             $cliente->save();
                         }
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->success()
                             ->title('Clientes Trasladados Exitosamente')
                             ->body($clientesSinGrupo->count() . " cliente(s) sin grupo han sido trasladados de {$nombreAsesorOrigen} a {$nombreNuevoAsesor}.")
                             ->send();
                     }
-                    
+
                     // Procesar grupos que necesitan traslado completo
                     if ($gruposAfectados->isNotEmpty()) {
                         static::procesarTrasladoGrupos($gruposAfectados, $nuevoAsesorId, $nombreNuevoAsesor, $nombreAsesorOrigen);
                     }
-                    
+
                     // Mensaje final de resumen
                     \Filament\Notifications\Notification::make()
                         ->info()
@@ -292,10 +292,10 @@ class ListClientes extends ListRecords
     {
         $gruposParaTrasladar = collect();
         $gruposConflictivos = collect();
-        
+
         foreach ($gruposAfectados as $grupo) {
             $totalIntegrantes = $grupo->clientes()->count();
-            
+
             // Si el grupo tiene más de un integrante, necesita confirmación adicional
             if ($totalIntegrantes > 1) {
                 $gruposConflictivos->push([
@@ -306,19 +306,19 @@ class ListClientes extends ListRecords
                 $gruposParaTrasladar->push($grupo);
             }
         }
-        
+
         // Trasladar grupos de un solo integrante
         if ($gruposParaTrasladar->isNotEmpty()) {
             foreach ($gruposParaTrasladar as $grupo) {
                 $grupo->asesor_id = $nuevoAsesorId;
                 $grupo->save();
-                
+
                 // Actualizar también el cliente
                 $cliente = $grupo->clientes()->first();
                 $cliente->asesor_id = $nuevoAsesorId;
                 $cliente->save();
             }
-            
+
             $mensajeOrigen = $nombreAsesorOrigen ? " (desde {$nombreAsesorOrigen})" : "";
             \Filament\Notifications\Notification::make()
                 ->success()
@@ -326,13 +326,13 @@ class ListClientes extends ListRecords
                 ->body($gruposParaTrasladar->count() . " grupo(s) de un integrante han sido trasladados exitosamente{$mensajeOrigen} al asesor {$nombreNuevoAsesor}.")
                 ->send();
         }
-        
+
         // Mostrar alerta para grupos con múltiples integrantes
         if ($gruposConflictivos->isNotEmpty()) {
             $mensajeGrupos = $gruposConflictivos->map(function ($item) {
                 return "• {$item['grupo']->nombre_grupo} ({$item['integrantes']} integrantes)";
             })->join("\n");
-            
+
             \Filament\Notifications\Notification::make()
                 ->warning()
                 ->title('Grupos con Múltiples Integrantes Detectados')

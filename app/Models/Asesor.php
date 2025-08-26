@@ -19,13 +19,24 @@ class Asesor extends Model
         'estado_asesor',
     ];
 
+    // Mutators para convertir automáticamente a mayúsculas
+    public function setCodigoAsesorAttribute($value)
+    {
+        $this->attributes['codigo_asesor'] = strtoupper($value);
+    }
+
+    public function setEstadoAsesorAttribute($value)
+    {
+        $this->attributes['estado_asesor'] = strtoupper($value);
+    }
+
     /**
      * Register the model observers.
      */
     protected static function boot()
     {
         parent::boot();
-        
+
         // Registrar el Observer para el modelo Asesor
         static::observe(\App\Observers\AsesorObserver::class);
     }
@@ -40,7 +51,7 @@ class Asesor extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
-    
+
     public function grupos()
     {
         return $this->hasMany(Grupo::class);

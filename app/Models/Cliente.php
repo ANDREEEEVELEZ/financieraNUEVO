@@ -28,8 +28,7 @@ class Cliente extends Model
     ];
 
 
-    // Mutators comentados - sin conversión automática a mayúsculas
-    /*
+    // Mutators para convertir automáticamente a mayúsculas
     public function setInfocorpAttribute($value)
     {
         $this->attributes['infocorp'] = strtoupper($value);
@@ -54,7 +53,6 @@ class Cliente extends Model
     {
         $this->attributes['estado_cliente'] = strtoupper($value);
     }
-    */
 
 
     /**
@@ -143,7 +141,7 @@ class Cliente extends Model
     {
         return \App\Helpers\CicloHelper::normalize($this->ciclo);
     }
-    
+
     /**
      * Accessor para obtener el monto máximo según el ciclo
      */

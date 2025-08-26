@@ -24,6 +24,17 @@ class Ingreso extends Model
         'monto' => 'decimal:2',
     ];
 
+    // Mutators para convertir automáticamente a mayúsculas
+    public function setDescripcionAttribute($value)
+    {
+        $this->attributes['descripcion'] = strtoupper($value);
+    }
+
+    public function setTipoIngresoAttribute($value)
+    {
+        $this->attributes['tipo_ingreso'] = strtoupper($value);
+    }
+
     // Relación con el modelo Pago
     public function pago(): BelongsTo
     {
@@ -43,7 +54,7 @@ class Ingreso extends Model
         if ($this->tipo_ingreso === 'pago de cuota de grupo' && $this->pago) {
             return $this->pago->codigo_operacion;
         }
-        
+
         return null;
     }
 

@@ -26,6 +26,18 @@ class User extends Authenticatable
         'active',
     ];
 
+    // Mutators para convertir automáticamente a mayúsculas
+    public function setNameAttribute($value)
+    {
+        $this->attributes['name'] = strtoupper($value);
+    }
+
+    public function setEmailAttribute($value)
+    {
+        // Para el email, mantener minúsculas para compatibilidad
+        $this->attributes['email'] = strtolower($value);
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -69,23 +81,23 @@ public function canAccessPanel(\Filament\Panel $panel): bool
     Log::info('canAccessPanel called for user: ' . $this->email);
     Log::info('User active: ' . ($this->active ? 'true' : 'false'));
     Log::info('User roles: ' . implode(', ', $this->getRoleNames()->toArray()));
-    
+
     // Simplificamos temporalmente para debug
     // Si es super admin, siempre permitir acceso
     if ($this->hasRole('super_admin')) {
         Log::info('User has super_admin role - allowing access');
         return true;
     }
-    
+
     $canAccess = $this->active && $this->hasAnyRole([
         'super_admin',
         'Jefe de operaciones',
         'Jefe de creditos',
         'Asesor',
     ]);
-    
+
     Log::info('Can access panel: ' . ($canAccess ? 'true' : 'false'));
-    
+
     return $canAccess;
 }
 

@@ -24,6 +24,17 @@ class Egreso extends Model
         'monto' => 'decimal:2',
     ];
 
+    // Mutators para convertir automáticamente a mayúsculas
+    public function setDescripcionAttribute($value)
+    {
+        $this->attributes['descripcion'] = strtoupper($value);
+    }
+
+    public function setTipoEgresoAttribute($value)
+    {
+        $this->attributes['tipo_egreso'] = strtoupper($value);
+    }
+
     // Relaciones
     public function prestamo()
     {

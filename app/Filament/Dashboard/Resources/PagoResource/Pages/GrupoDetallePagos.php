@@ -773,8 +773,8 @@ public function table(Table $table): Table
                         $persona = optional($pi->cliente->persona);
                         $nombre = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
                         $detalle = $detallesPagoById->get($pi->id);
-                        // Si existe el detalle, usar el monto_pagado registrado (incluso si es 0), si no, dejar null
-                        $monto = $detalle !== null ? floatval($detalle->monto_pagado) : null;
+                        // Si existe el detalle, usar el monto_pagado registrado, si no, usar 0 por defecto
+                        $monto = $detalle !== null ? floatval($detalle->monto_pagado) : 0;
                         return [
                             'prestamo_individual_id' => $pi->id,
                             'nombre_integrante' => $nombre,
@@ -789,7 +789,7 @@ public function table(Table $table): Table
                         $user = Auth::user();
 
                         // Super admin y jefes pueden ver todos los pagos
-                        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones'])) {
+                        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
                             return true;
                         }
 

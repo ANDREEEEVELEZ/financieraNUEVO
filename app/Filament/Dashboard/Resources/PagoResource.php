@@ -336,7 +336,7 @@ public static function form(Form $form): Form
                             'prestamo_individual_id' => $pi->id,
                             'nombre_integrante' => $nombre,
                             // ✅ VERIFICAR: Este debe ser el monto individual de cada integrante
-                            'monto_pagado' => $state === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : null,
+                            'monto_pagado' => $state === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : 0,
                         ];
                     })->toArray());
                 }
@@ -585,7 +585,7 @@ public static function form(Form $form): Form
                 if (!$pi || !$pi->cliente || !$pi->cliente->persona) return 'Sin nombre';
                 return trim(($pi->cliente->persona->nombre ?? '') . ' ' . ($pi->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
             }),
-           
+
 
         TextInput::make('monto_pagado')
             ->label('Monto Pagado')
@@ -609,9 +609,9 @@ public static function form(Form $form): Form
                         $prestamoIndId = $get('prestamo_individual_id');
                         $pi = $prestamoIndId ? \App\Models\PrestamoIndividual::find($prestamoIndId) : null;
                         // ✅ VERIFICAR: Debe retornar el monto individual de cada integrante
-                        return $pi ? $pi->monto_cuota_prestamo_individual : null;
+                        return $pi ? $pi->monto_cuota_prestamo_individual : 0;
                     }
-                    return null;
+                    return 0;
                 })
             ->live(onBlur: true)
             // NUEVO: Agregar afterStateUpdated para calcular la suma automática
@@ -685,7 +685,7 @@ public static function form(Form $form): Form
             $component->state($integrantes->map(function($pi) use ($tipoPago) {
                 return [
                     'prestamo_individual_id' => $pi->id,
-                    'monto_pagado' => $tipoPago === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : null,
+                    'monto_pagado' => $tipoPago === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : 0,
                     'estado_pago_individual' => $tipoPago === 'pago_completo' ? 'Pagada' : null,
                 ];
             })->toArray());
@@ -802,33 +802,31 @@ public static function form(Form $form): Form
                     ->label('Cuota')
                     ->alignLeft()
                     ->sortable()
-                    ->money('PEN')
+                    ->formatStateUsing(fn($state) => 'S/. ' . number_format($state, 2))
                     ->width('70px'),
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.mora.monto_mora_calculado')
                     ->label('Mora')
                     ->alignLeft()
-                    ->money('PEN')
                     ->formatStateUsing(function($state, $record) {
                         $mora = $record->cuotaGrupal && $record->cuotaGrupal->mora ? $record->cuotaGrupal->mora : null;
                         // Siempre mostrar el monto de mora calculado, aunque esté pagada
                         if (!$mora || !isset($mora->monto_mora_calculado)) {
-                            return number_format(0, 2);
+                            return 'S/. ' . number_format(0, 2);
                         }
-                        return number_format(abs($mora->monto_mora_calculado), 2);
+                        return 'S/. ' . number_format(abs($mora->monto_mora_calculado), 2);
                     })
                     ->width('65px'),
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.monto_total_a_pagar')
                     ->label('Total')
                     ->alignLeft()
-                    ->money('PEN')
                     ->formatStateUsing(function ($state, $record) {
                         $cuota = $record->cuotaGrupal;
                         $saldo = $cuota ? floatval($cuota->monto_cuota_grupal) : 0;
                         $mora = $cuota && $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
                         // Siempre mostrar la suma cuota + mora, aunque ya esté pagada
-                        return number_format(round($saldo + $mora, 2), 2);
+                        return 'S/. ' . number_format(round($saldo + $mora, 2), 2);
                     })
                     ->width('75px'),
 
@@ -836,14 +834,13 @@ public static function form(Form $form): Form
                     ->label('Pagado')
                     ->alignLeft()
                     ->searchable()
-                    ->money('PEN')
+                    ->formatStateUsing(fn($state) => 'S/. ' . number_format($state, 2))
                     ->width('65px'),
 
 
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
                     ->label('Saldo')
-                    ->formatStateUsing(fn($record) => 'S/. ' . number_format($record->cuotaGrupal->saldoPendiente(), 2))
                     ->sortable()
                     ->formatStateUsing(function ($state, $record) {
                         // Si el pago está rechazado, no mostrar saldo
@@ -866,7 +863,7 @@ public static function form(Form $form): Form
 
                         $saldo = round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);
 
-                        return number_format($saldo, 2);
+                        return 'S/. ' . number_format($saldo, 2);
                     })
                     ->width('70px'),
 

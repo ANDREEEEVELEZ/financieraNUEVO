@@ -5,6 +5,7 @@ namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
 use App\Filament\Dashboard\Resources\PagoResource;
 use App\Filament\Dashboard\Resources\PagoResource\Widgets\PagosStatsWidget;
 use Filament\Actions;
+use Filament\Forms;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -268,18 +269,25 @@ class ListPagos extends ListRecords
             ])
             ->filters([
                 // Mostrar filtro solo a super_admin y Jefe de operaciones
-                ...((Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones'])) ? [
+                ...((Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) ? [
                     Tables\Filters\SelectFilter::make('asesor_id')
                         ->label('Filtrar por Asesor')
                         ->options(function () {
-                            return \App\Models\Asesor::with('user')
+                            return \App\Models\Asesor::with('persona')
                                 ->get()
-                                ->pluck('user.name', 'id')
-                                ->prepend('Todos', '');
+                                ->mapWithKeys(function ($asesor) {
+                                    $nombreCompleto = $asesor->persona
+                                        ? $asesor->persona->nombre . ' ' . $asesor->persona->apellidos
+                                        : 'Asesor sin nombre';
+                                    return [$asesor->id => $nombreCompleto];
+                                })
+                                ->prepend('Todos los asesores', '');
                         })
                         ->query(function (Builder $query, array $data) {
                             if (isset($data['value']) && $data['value'] !== '') {
-                                return $query->where('asesor_id', $data['value']);
+                                return $query->whereHas('grupo', function ($q) use ($data) {
+                                    $q->where('asesor_id', $data['value']);
+                                });
                             }
                             return $query;
                         }),
@@ -365,52 +373,107 @@ class ListPagos extends ListRecords
                 ->icon('heroicon-o-plus-circle')
                 ->label('Crear Pago'),
 
-            Actions\Action::make('exportar_pdf')
-                ->label('Exportar PDF')
-                ->icon('heroicon-o-document-arrow-down')
+            Actions\Action::make('exportar')
+                ->label('Exportar Pagos')
+                ->icon('heroicon-o-arrow-down-tray')
                 ->color('primary')
                 ->form([
-                    \Filament\Forms\Components\Select::make('grupo')
-                        ->label('Nombre del grupo')
-                        ->options(function () use ($user) {
-                            $query = \App\Models\Grupo::query();
+                    Forms\Components\Section::make('Configuración de Exportación')
+                        ->description('Seleccione el formato y filtros para la exportación')
+                        ->schema([
+                            Forms\Components\Grid::make(2)
+                                ->schema([
+                                    Forms\Components\Select::make('formato')
+                                        ->label('Formato de Exportación')
+                                        ->options([
+                                            'pdf' => '📄 PDF',
+                                            'excel' => '📊 Excel (.csv)'
+                                        ])
+                                        ->default('pdf')
+                                        ->required()
+                                        ->native(false),
 
-                            if ($user->hasRole('Asesor')) {
-                                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-                                if ($asesor) {
-                                    $query->where('asesor_id', $asesor->id);
-                                } else {
-                                    return [];
-                                }
-                            } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                                return [];
-                            }
+                                    Forms\Components\Select::make('grupo')
+                                        ->label('Nombre del grupo')
+                                        ->options(function () use ($user) {
+                                            $query = \App\Models\Grupo::query();
 
-                            return $query->orderBy('nombre_grupo')->pluck('nombre_grupo', 'id')->toArray();
-                        })
-                        ->searchable()
-                        ->placeholder('Todos'),
-                    \Filament\Forms\Components\DatePicker::make('from')->label('Desde'),
-                    \Filament\Forms\Components\DatePicker::make('until')->label('Hasta'),
-                    \Filament\Forms\Components\Select::make('estado_pago')
-                        ->label('Estado')
-                        ->options([
-                            '' => 'Todos',
-                            'Pendiente' => 'Pendiente',
-                            'Aprobado' => 'Aprobado',
-                            'Rechazado' => 'Rechazado',
+                                            if ($user->hasRole('Asesor')) {
+                                                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                                                if ($asesor) {
+                                                    $query->where('asesor_id', $asesor->id);
+                                                } else {
+                                                    return [];
+                                                }
+                                            } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                                                return [];
+                                            }
+
+                                            return $query->orderBy('nombre_grupo')->pluck('nombre_grupo', 'id')->toArray();
+                                        })
+                                        ->searchable()
+                                        ->placeholder('Todos'),
+                                ]),
+
+                            Forms\Components\Grid::make(2)
+                                ->schema([
+                                    Forms\Components\DatePicker::make('from')
+                                        ->label('Fecha Desde')
+                                        ->helperText('Dejar vacío para incluir desde el principio')
+                                        ->maxDate(now()),
+
+                                    Forms\Components\DatePicker::make('until')
+                                        ->label('Fecha Hasta')
+                                        ->helperText('Dejar vacío para incluir hasta la fecha actual')
+                                        ->maxDate(now()),
+                                ]),
+
+                            Forms\Components\Select::make('estado_pago')
+                                ->label('Estado de Pago')
+                                ->options([
+                                    'Todos los estados' => '📋 Todos los estados',
+                                    'Pendiente' => '⏳ Pendiente',
+                                    'Aprobado' => '✅ Aprobado',
+                                    'Rechazado' => '❌ Rechazado',
+                                ])
+                                ->default('Todos los estados')
+                                ->placeholder(null)
+                                ->native(false),
+
+                            Forms\Components\Placeholder::make('info')
+                                ->content('💡 **Información importante:**
+• Si no selecciona fechas, se exportarán todos los registros
+• El archivo se descargará automáticamente una vez generado')
+                                ->columnSpanFull(),
                         ]),
                 ])
                 ->action(function (array $data) {
-                    $params = array_filter([
-                        'grupo' => $data['grupo'] ?? null,
-                        'from' => $data['from'] ?? null,
-                        'until' => $data['until'] ?? null,
-                        'estado_pago' => $data['estado_pago'] ?? null,
-                    ]);
-                    $url = route('pagos.exportar.pdf', $params);
+                    $params = [
+                        'formato' => $data['formato'],
+                    ];
+
+                    // Agregar parámetros opcionales solo si tienen valor
+                    if (!empty($data['grupo'])) {
+                        $params['grupo'] = $data['grupo'];
+                    }
+                    if (!empty($data['from'])) {
+                        $params['from'] = $data['from'];
+                    }
+                    if (!empty($data['until'])) {
+                        $params['until'] = $data['until'];
+                    }
+                    // Para estado_pago, siempre incluir el valor
+                    $params['estado_pago'] = $data['estado_pago'] ?? 'Todos los estados';
+
+                    // Usar la ruta unificada que maneja tanto PDF como Excel
+                    $url = route('pagos.exportar', $params);
+
                     return redirect($url);
-                }),
+                })
+                ->modalHeading('📊 Exportar Pagos')
+                ->modalSubmitActionLabel('Generar y Descargar')
+                ->modalCancelActionLabel('Cancelar')
+                ->modalWidth('2xl'),
         ];
     }
 

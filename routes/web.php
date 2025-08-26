@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ContratoGrupoController;
 use App\Http\Controllers\PagoPdfController;
+use App\Http\Controllers\PagoExportController;
 use App\Http\Controllers\MoraPdfController;
 use App\Http\Controllers\AsistenteController;
 use Illuminate\Support\Facades\Auth;
@@ -53,7 +54,13 @@ Route::middleware([
     'role:super_admin|Jefe de operaciones|Jefe de creditos|Asesor'
 ])->group(function () {
     Route::get('/pagos/exportar/pdf', [PagoPdfController::class, 'exportar'])->name('pagos.exportar.pdf');
+    Route::get('/pagos/exportar/excel', [\App\Http\Controllers\PagoExportController::class, 'export'])->name('pagos.exportar.excel');
+    Route::get('/pagos/exportar', [\App\Http\Controllers\PagoExportController::class, 'export'])->name('pagos.exportar');
     Route::get('/moras/exportar-pdf', [MoraPdfController::class, 'exportar'])->name('moras.exportar.pdf');
+    Route::get('/moras/exportar/excel', [MoraPdfController::class, 'exportar'])->name('moras.exportar.excel');
+    Route::get('/moras/exportar', [MoraPdfController::class, 'exportar'])->name('moras.exportar');
+    Route::get('/egresos/exportar', [\App\Http\Controllers\EgresoExportController::class, 'export'])->name('egresos.exportar');
+    Route::get('/ingresos/exportar', [\App\Http\Controllers\IngresoExportController::class, 'export'])->name('ingresos.exportar');
 });
 
 // Ruta para cerrar sesión (opcional si no usas el logout de Filament)

@@ -34,13 +34,12 @@ class Persona extends Model
     protected static function boot()
     {
         parent::boot();
-        
+
         // Registrar el Observer para el modelo Persona
         static::observe(\App\Observers\PersonaObserver::class);
     }
 
-    // Mutators comentados - sin conversión automática a mayúsculas
-    /*
+    // Mutators para convertir automáticamente a mayúsculas
     public function setNombreAttribute($value)
     {
         $this->attributes['nombre'] = strtoupper($value);
@@ -58,7 +57,8 @@ class Persona extends Model
 
     public function setCorreoAttribute($value)
     {
-        $this->attributes['correo'] = strtoupper($value);
+        // Para el correo, mantener minúsculas para compatibilidad
+        $this->attributes['correo'] = strtolower($value);
     }
 
     public function setDistritoAttribute($value)
@@ -75,18 +75,17 @@ class Persona extends Model
     {
         $this->attributes['sexo'] = strtoupper($value);
     }
-    */
 
     public function user()
     {
         return $this->hasOne(User::class, 'persona_id');
     }
-    
+
     public function asesor()
     {
         return $this->hasOne(Asesor::class, 'persona_id');
     }
-    
+
     public function clientes()
     {
         return $this->hasMany(Cliente::class, 'persona_id');

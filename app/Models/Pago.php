@@ -29,6 +29,27 @@ class Pago extends Model
         'fecha_pago' => 'datetime',
         'saldo_pendiente' => 'decimal:2',
     ];
+
+    // Mutators para convertir automáticamente a mayúsculas
+    public function setTipoPagoAttribute($value)
+    {
+        $this->attributes['tipo_pago'] = strtoupper($value);
+    }
+
+    public function setCodigoOperacionAttribute($value)
+    {
+        $this->attributes['codigo_operacion'] = strtoupper($value);
+    }
+
+    public function setEstadoPagoAttribute($value)
+    {
+        $this->attributes['estado_pago'] = strtoupper($value);
+    }
+
+    public function setObservacionesAttribute($value)
+    {
+        $this->attributes['observaciones'] = strtoupper($value);
+    }
     protected $attributes = [
     'estado_pago' => 'pendiente',
     ];

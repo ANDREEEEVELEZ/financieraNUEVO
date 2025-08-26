@@ -32,6 +32,6 @@ class Subcategoria extends Model
 
     public function setNombreSubcategoriaAttribute($value)
     {
-        $this->attributes['nombre_subcategoria'] = strtolower($value);
+        $this->attributes['nombre_subcategoria'] = strtoupper($value);
     }
 }

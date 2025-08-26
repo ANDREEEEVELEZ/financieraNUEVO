@@ -190,7 +190,7 @@ class IngresosResource extends Resource
 
                 TextColumn::make('monto')
                     ->label('Monto')
-                    ->money('PEN')
+                    ->formatStateUsing(fn($state) => 'S/. ' . number_format($state, 2))
                     ->sortable(),
             ])
             ->filters([

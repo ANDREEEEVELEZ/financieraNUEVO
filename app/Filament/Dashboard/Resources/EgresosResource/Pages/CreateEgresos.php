@@ -23,14 +23,14 @@ class CreateEgresos extends CreateRecord
                 if (!empty($data['categoria_id']) && !empty($data['subcategoria_id'])) {
                     $categoria = Categoria::find($data['categoria_id']);
                     $subcategoria = Subcategoria::find($data['subcategoria_id']);
-                    
+
                     if ($categoria && $subcategoria) {
                         $data['descripcion'] = $categoria->nombre_categoria . ' de ' . $subcategoria->nombre_subcategoria;
                     }
                 }
             }
         }
-        
+
         // Para desembolsos
         if ($data['tipo_egreso'] === 'desembolso') {
             if (empty(trim($data['descripcion'] ?? ''))) {
@@ -50,5 +50,13 @@ class CreateEgresos extends CreateRecord
         }
 
         return $data;
+    }
+
+    /**
+     * Redireccionar a la lista después de crear
+     */
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 }
