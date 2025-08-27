@@ -17,6 +17,26 @@
         color: #111 !important;
         font-weight: bold;
     }
+
+    /* Estilos para el botón de exportar */
+    #exportButton {
+        color: white !important;
+        font-weight: bold !important;
+        background-color: #2563eb !important;
+        border: none !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+    }
+
+    #exportButton:hover {
+        background-color: #1d4ed8 !important;
+        color: white !important;
+    }
+
+    #exportButton:focus {
+        color: white !important;
+        outline: 2px solid #3b82f6 !important;
+        outline-offset: 2px !important;
+    }
 </style>
 <x-filament::page>
     <div class="w-full overflow-x-auto bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 rounded-xl px-4 sm:px-8 pt-4 pb-6 shadow-lg border border-blue-100 dark:border-gray-700">
@@ -229,7 +249,7 @@
                 </div>
                 <div class="flex justify-end gap-3 mt-4">
                     <button type="button" onclick="document.getElementById('exportarModal').close()" class="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition">Cancelar</button>
-                    <button type="submit" id="exportButton" class="px-4 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">📄 Exportar PDF</button>
+                    <button type="submit" id="exportButton" class="px-4 py-2 rounded bg-blue-600 text-white font-bold hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" style="color: white !important; font-weight: bold !important;">📄 Exportar PDF</button>
                 </div>
             </form>
         </dialog>
@@ -264,6 +284,11 @@
                         exportButton.innerHTML = '📊 Exportar Excel';
                         exportForm.action = '{{ route("moras.exportar.excel") }}';
                     }
+
+                    // Forzar estilos para asegurar visibilidad del texto
+                    exportButton.style.color = 'white';
+                    exportButton.style.fontWeight = 'bold';
+                    exportButton.style.backgroundColor = '#2563eb'; // bg-blue-600
                 });
             });
 
