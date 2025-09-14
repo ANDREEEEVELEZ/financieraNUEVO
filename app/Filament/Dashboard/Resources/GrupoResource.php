@@ -84,7 +84,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             ->disabled(fn () => $isInactivo),
                         Forms\Components\TextInput::make('estado_grupo')
                             ->prefixIcon('heroicon-o-check-circle')
-                            ->default('Activo')
+                            ->default('ACTIVO')
                             ->maxLength(255)
                             ->disabled()
                             ->dehydrated(),
@@ -291,7 +291,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
             Tables\Columns\TextColumn::make('estado_grupo')
                 ->searchable()
                 ->badge()
-                ->color(fn($state) => $state === 'Inactivo' ? 'danger' : ($state === 'Activo' ? 'success' : 'warning')),
+                ->color(fn($state) => $state === 'INACTIVO' ? 'danger' : ($state === 'ACTIVO' ? 'success' : 'warning')),
             Tables\Columns\TextColumn::make('integrantes_nombres')
                 ->label('Integrantes')
                 ->limit(50)
@@ -353,10 +353,10 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                 Tables\Filters\SelectFilter::make('estado_grupo')
                     ->label('Estado del Grupo')
                     ->options([
-                        'Activo' => 'Activo',
-                        'Inactivo' => 'Inactivo',
+                        'ACTIVO' => 'ACTIVO',
+                        'INACTIVO' => 'INACTIVO',
                     ])
-                    ->default('Activo'),
+                    ->default('ACTIVO'),
                 
                 // Filtro por Asesor (visible solo para roles administrativos, NO para Asesor)
                 Tables\Filters\SelectFilter::make('asesor')
