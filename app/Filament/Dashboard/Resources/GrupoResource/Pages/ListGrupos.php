@@ -76,7 +76,7 @@ class ListGrupos extends ListRecords
                         ->options(function (callable $get) {
                             return $get('clientes_disponibles') ?? [];
                         })
-                        ->helperText('⚠️ VALIDACIONES: No se puede remover al líder grupal sin cambiar liderazgo. El grupo debe mantener mínimo 4 integrantes después de remover.')
+                        ->helperText('⚠️ VALIDACIONES: No se puede remover al líder grupal sin cambiar liderazgo primero.')
                         ->reactive()
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
                             if (!empty($state)) {
@@ -87,23 +87,7 @@ class ListGrupos extends ListRecords
                                     $cantidadARemover = count($state);
                                     $integrantesRestantes = $integrantesActuales - $cantidadARemover;
                                     
-                                    // Validar límite mínimo
-                                    if ($integrantesRestantes < 4) {
-                                        \Filament\Notifications\Notification::make()
-                                            ->danger()
-                                            ->title('No se puede remover')
-                                            ->body("Si se remueven {$cantidadARemover} integrantes, el grupo quedaría con {$integrantesRestantes} integrantes. Un grupo debe tener mínimo 4 integrantes.")
-                                            ->send();
-                                        
-                                        // Permitir solo remover hasta dejar 4 integrantes
-                                        $maximoPermitido = $integrantesActuales - 4;
-                                        if ($maximoPermitido > 0) {
-                                            $set('clientes_a_remover', array_slice($state, 0, $maximoPermitido));
-                                        } else {
-                                            $set('clientes_a_remover', []);
-                                        }
-                                        return;
-                                    }
+                                    // Ya no hay validación de límite mínimo
                                     
                                     // Validar líder grupal
                                     $lider = $grupo->clientes()->wherePivot('rol', 'Líder Grupal')->first();
@@ -217,8 +201,7 @@ class ListGrupos extends ListRecords
                                         })
                                         ->mapWithKeys(function($grupo) {
                                             $integrantesActuales = $grupo->clientes()->count();
-                                            $espacioDisponible = 6 - $integrantesActuales;
-                                            return [$grupo->id => $grupo->nombre_grupo . " ({$integrantesActuales} integrantes - {$espacioDisponible} espacio(s) disponible(s))"];
+                                            return [$grupo->id => $grupo->nombre_grupo . " ({$integrantesActuales} integrantes)"];
                                         });
                                     $set('grupos_destino_disponibles', $opcionesDestino->toArray());
                                 }
@@ -230,7 +213,7 @@ class ListGrupos extends ListRecords
                         ->options(function (callable $get) {
                             return $get('clientes_origen_disponibles') ?? [];
                         })
-                        ->helperText('⚠️ VALIDACIONES: Si transfiere al líder grupal, el grupo se quedará sin líder. El grupo origen debe mantener mínimo 4 integrantes y el destino máximo 6.')
+                        ->helperText('⚠️ VALIDACIONES: Si transfiere al líder grupal, el grupo se quedará sin líder.')
                         ->reactive()
                         ->afterStateUpdated(function ($state, callable $get) {
                             if ($state) {
@@ -272,7 +255,7 @@ class ListGrupos extends ListRecords
                                         \Filament\Notifications\Notification::make()
                                             ->danger()
                                             ->title('No se puede transferir')
-                                            ->body("El grupo destino tendría {$integrantesDestinoDespues} integrantes. Un grupo puede tener máximo 6 integrantes.")
+                                            ->body("Revisión de integrantes: el grupo destino tendría {$integrantesDestinoDespues} integrantes.")
                                             ->send();
                                     }
                                 }
@@ -284,7 +267,7 @@ class ListGrupos extends ListRecords
                         ->options(function (callable $get) {
                             return $get('grupos_destino_disponibles') ?? [];
                         })
-                        ->helperText('Solo se muestran grupos sin préstamos activos y con menos de 6 integrantes'),
+                        ->helperText('Solo se muestran grupos sin préstamos activos'),
                     \Filament\Forms\Components\Hidden::make('clientes_origen_disponibles'),
                     \Filament\Forms\Components\Hidden::make('grupos_destino_disponibles'),
                     \Filament\Forms\Components\DatePicker::make('fecha_transferencia')

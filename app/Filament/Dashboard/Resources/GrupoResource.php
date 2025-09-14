@@ -161,31 +161,9 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                             ->preload()
                                             ->required()
                                             ->reactive()
-                                            ->rules([
-                                                function () {
-                                                    return function (string $attribute, $value, \Closure $fail) {
-                                                        if (!is_array($value) || count($value) < 4) {
-                                                            $fail('Un grupo debe tener mínimo 4 integrantes.');
-                                                        }
-                                                        if (!is_array($value) || count($value) > 6) {
-                                                            $fail('Un grupo debe tener máximo 6 integrantes.');
-                                                        }
-                                                    };
-                                                },
-                                            ])
                                             ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                 // Limitar automáticamente a máximo 6 integrantes
-                                if (is_array($state) && count($state) > 6) {
-                                    $limitedState = array_slice($state, 0, 6);
-                                    $set('clientes', $limitedState);
-                                    $state = $limitedState;
-                                    
-                                    \Filament\Notifications\Notification::make()
-                                        ->warning()
-                                        ->title('Límite de integrantes')
-                                        ->body('Se ha limitado la selección a máximo 6 integrantes.')
-                                        ->send();
-                                }
+                                // Validación eliminada - Ya no hay límite de integrantes
                                 
                                 // Actualizar el contador
                                 $contador = is_array($state) ? count($state) : 0;
@@ -237,9 +215,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             ]),
                         Forms\Components\Placeholder::make('info_integrantes')
                             ->label('📋 Instrucciones Importantes')
-                            ->content('🎯 LÍMITES: Mínimo 4 integrantes, Máximo 6 integrantes
-📌 Si seleccionas más de 6, automáticamente se limitará a los primeros 6
-👑 Debes elegir un líder grupal entre los integrantes seleccionados')
+                            ->content('👑 Debes elegir un líder grupal entre los integrantes seleccionados')
                             ->extraAttributes(['class' => 'text-blue-600 font-medium', 'style' => 'white-space: pre-line;']),
                     ])
                     ->collapsible()

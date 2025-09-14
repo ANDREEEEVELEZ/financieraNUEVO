@@ -911,35 +911,13 @@ class RetanqueoService
             'participantes_count' => $retanqueosIndividuales->count()
         ]);
 
-        // Contar cambios previstos para validar límites
-        $clientesActuales = $grupo->clientes()->count();
+        // Contar cambios para informes
         $clientesQueNoRetanquean = 0;
         $clientesNuevos = 0;
 
-        foreach ($retanqueosIndividuales as $retanqueoIndividual) {
-            $clienteId = $retanqueoIndividual->cliente_id;
-            $participacionTipo = $retanqueoIndividual->participacion_tipo;
-            $esMiembroActual = $grupo->clientes()->where('clientes.id', $clienteId)->exists();
+        // Ya no se requieren conteos para validaciones
 
-            if ($participacionTipo === 'no_retanquea' && $esMiembroActual) {
-                $clientesQueNoRetanquean++;
-            } elseif ($participacionTipo === 'nueva' && !$esMiembroActual) {
-                $clientesNuevos++;
-            }
-        }
-
-        $integrantesFinal = $clientesActuales - $clientesQueNoRetanquean + $clientesNuevos;
-
-        // Validar límites
-        if ($integrantesFinal < 4) {
-            throw new \Exception("Los cambios de membresía resultarían en {$integrantesFinal} integrantes. Un grupo debe tener mínimo 4 integrantes.");
-        }
-        
-        if ($integrantesFinal > 6) {
-            throw new \Exception("Los cambios de membresía resultarían en {$integrantesFinal} integrantes. Un grupo debe tener máximo 6 integrantes.");
-        }
-
-        // Proceder con los cambios ahora que están validados
+        // Proceder con los cambiosahora que están validados
         foreach ($retanqueosIndividuales as $retanqueoIndividual) {
             $clienteId = $retanqueoIndividual->cliente_id;
             $participacionTipo = $retanqueoIndividual->participacion_tipo;
@@ -981,12 +959,9 @@ class RetanqueoService
             }
         }
 
-        // Actualizar contador de integrantes del grupo y validar resultado final
+        // Actualizar contador de integrantes del grupo
         $integrantesActivos = $grupo->clientes()->count();
         $grupo->update(['numero_integrantes' => $integrantesActivos]);
-        
-        // Validación de seguridad final
-        $grupo->validarNumeroIntegrantes();
 
         Log::info('Cambios de membresía completados', [
             'grupo_id' => $grupo->id,

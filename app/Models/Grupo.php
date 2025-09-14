@@ -97,28 +97,11 @@ class Grupo extends Model
     }
 
     /**
-     * Validación para el número mínimo y máximo de integrantes
-     */
-    public function validarNumeroIntegrantes($numeroIntegrantes = null): void
-    {
-        $numero = $numeroIntegrantes ?? $this->clientes()->count();
-
-        if ($numero < 4) {
-            throw new \Exception('Un grupo debe tener mínimo 4 integrantes. Actualmente tiene ' . $numero . ' integrantes.');
-        }
-
-        if ($numero > 6) {
-            throw new \Exception('Un grupo debe tener máximo 6 integrantes. Actualmente tiene ' . $numero . ' integrantes.');
-        }
-    }
-
-    /**
      * Valida si se puede agregar un integrante al grupo
      */
     public function puedeAgregarIntegrante(): bool
     {
-        $integrantesActuales = $this->clientes()->count();
-        return $integrantesActuales < 6;
+        return true;
     }
 
     /**
@@ -126,8 +109,7 @@ class Grupo extends Model
      */
     public function puedeRemoverIntegrante(): bool
     {
-        $integrantesActuales = $this->clientes()->count();
-        return $integrantesActuales > 4;
+        return true;
     }
 
     /**

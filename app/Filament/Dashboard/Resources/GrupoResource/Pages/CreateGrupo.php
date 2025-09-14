@@ -18,13 +18,7 @@ class CreateGrupo extends CreateRecord
         if (isset($data['clientes'])) {
             $numeroIntegrantes = is_array($data['clientes']) ? count($data['clientes']) : 0;
             
-            if ($numeroIntegrantes < 4) {
-                throw new \Exception('Un grupo debe tener mínimo 4 integrantes. Se seleccionaron ' . $numeroIntegrantes . ' integrantes.');
-            }
-            
-            if ($numeroIntegrantes > 6) {
-                throw new \Exception('Un grupo debe tener máximo 6 integrantes. Se seleccionaron ' . $numeroIntegrantes . ' integrantes.');
-            }
+            // Ya no hay límites de integrantes
             
             $data['numero_integrantes'] = $numeroIntegrantes;
         }
@@ -64,9 +58,7 @@ class CreateGrupo extends CreateRecord
         if (!empty($clientes)) {
             // Validación adicional de seguridad
             $numeroIntegrantes = count($clientes);
-            if ($numeroIntegrantes < 4 || $numeroIntegrantes > 6) {
-                throw new \Exception('Error de validación: El grupo debe tener entre 4 y 6 integrantes.');
-            }
+            // Ya no hay validación de límites de integrantes
             
             $syncData = [];
             $fechaHoy = now()->toDateString();
