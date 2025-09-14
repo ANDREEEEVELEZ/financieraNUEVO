@@ -21,7 +21,7 @@ class EditGrupo extends EditRecord
     protected function getHeaderActions(): array
     {
         // Solo mostrar la acción de inactivar si el grupo está activo
-        if ($this->record->estado_grupo === 'Activo') {
+        if ($this->record->estado_grupo === 'ACTIVO') {
             return [
                 Actions\Action::make('inactivar')
                     ->label('Inactivar Grupo')
@@ -31,7 +31,7 @@ class EditGrupo extends EditRecord
                     ->modalDescription('Esta acción inactivará el grupo y todos sus integrantes. ¿Estás seguro?')
                     ->action(function () {
                         // Cambiar el estado del grupo
-                        $this->record->estado_grupo = 'Inactivo';
+                        $this->record->estado_grupo = 'INACTIVO';
                         $this->record->save();
                         
                         // Sincronizar el estado de todos los integrantes activos
@@ -243,7 +243,7 @@ class EditGrupo extends EditRecord
         }
         
         // Si el grupo está inactivo, todos los integrantes deben estar inactivos
-        if ($this->record->estado_grupo === 'Inactivo') {
+        if ($this->record->estado_grupo === 'INACTIVO') {
             foreach ($syncData as &$pivotData) {
                 $pivotData['estado_grupo_cliente'] = 'Inactivo';
                 if ($pivotData['fecha_salida'] === null) {
@@ -262,8 +262,8 @@ class EditGrupo extends EditRecord
         $this->record->numero_integrantes = $numActivos;
         
         // Si no hay integrantes activos, poner el grupo como inactivo
-        if ($numActivos === 0 && $this->record->estado_grupo !== 'Inactivo') {
-            $this->record->estado_grupo = 'Inactivo';
+        if ($numActivos === 0 && $this->record->estado_grupo !== 'INACTIVO') {
+            $this->record->estado_grupo = 'INACTIVO';
         }
         
         $this->record->save();
