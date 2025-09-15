@@ -71,8 +71,12 @@ class PrestamoObserver
                 $montoTotalDevolver = $prestamo->monto_devolver;
                 $cantidadCuotas = $prestamo->cantidad_cuotas;
                 $montoPorCuota = $montoTotalDevolver / $cantidadCuotas;
-                // Usar la fecha de aprobación como fecha base para las cuotas
-                $fechaInicio = Carbon::parse($fechaAprobacion);
+                
+                // Usar la fecha de desembolso como fecha base para las cuotas
+                if (!$prestamo->fecha_desembolso) {
+                    throw new \Exception('No se puede crear las cuotas sin fecha de desembolso');
+                }
+                $fechaInicio = Carbon::parse($prestamo->fecha_desembolso);
                 $dias = match($prestamo->frecuencia) {
                     'mensual' => 30,
                     'quincenal' => 15,

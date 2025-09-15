@@ -728,7 +728,7 @@ class RetanqueoService
     private function generarCuotasGrupalesNuevas($nuevoPrestamo)
     {
         $cuotaGrupal = $nuevoPrestamo->monto_devolver / $nuevoPrestamo->cantidad_cuotas;
-        $fechaInicio = Carbon::parse($nuevoPrestamo->fecha_prestamo);
+        $fechaInicio = Carbon::parse($nuevoPrestamo->fecha_desembolso);
 
         for ($i = 1; $i <= $nuevoPrestamo->cantidad_cuotas; $i++) {
             $fechaVencimiento = $this->calcularFechaVencimiento($fechaInicio, $i, $nuevoPrestamo->frecuencia);
