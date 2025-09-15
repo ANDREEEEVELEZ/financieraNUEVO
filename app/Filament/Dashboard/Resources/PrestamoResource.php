@@ -502,7 +502,7 @@ class PrestamoResource extends Resource
                 ->default('semanal')
                 ->disabled()
                 ->dehydrateStateUsing(fn () => 'semanal')
-                ->helperText('⚠ La frecuencia está fija en semanal para todos los préstamos'),
+                ->helperText(' La frecuencia está fija en semanal para todos los préstamos'),
                 
 
             TextInput::make('cantidad_cuotas')
@@ -510,8 +510,7 @@ class PrestamoResource extends Resource
                 ->default(4)
                 ->disabled()
                 ->dehydrateStateUsing(fn () => 4)
-                ->helperText('⚠ Fijo en 4 cuotas semanales para todos los préstamos'),
-            ,
+                ->helperText(' Fijo en 4 cuotas semanales para todos los préstamos'),
 
             // La fecha_prestamo siempre será la fecha actual y no editable
             DatePicker::make('fecha_prestamo')
