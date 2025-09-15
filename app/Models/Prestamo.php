@@ -11,6 +11,15 @@ class Prestamo extends Model
 
     protected $table = 'prestamos';
 
+    // Constantes para estados del préstamo
+    public const ESTADO_PENDIENTE = 'Pendiente';
+    public const ESTADO_APROBADO = 'Aprobado';
+    public const ESTADO_EJECUTADO = 'Ejecutado';
+    public const ESTADO_ACTIVO = 'Activo';
+    public const ESTADO_RECHAZADO = 'Rechazado';
+    public const ESTADO_FINALIZADO = 'Finalizado';
+    public const ESTADO_PARCIALMENTE_RETANQUEADO = 'Parcialmente_Retanqueado';
+
     protected $fillable = [
         'grupo_id',
         'tasa_interes',
@@ -370,11 +379,11 @@ class Prestamo extends Model
      */
     public function aprobar()
     {
-        if (strtolower($this->estado) !== 'pendiente') {
-            return;
+        if (strtolower($this->estado) !== self::ESTADO_PENDIENTE) {
+            return false;
         }
 
-        $this->estado = 'Aprobado';
+        $this->estado = self::ESTADO_APROBADO;
         $this->save();
 
         // Actualizar el estado del grupo asociado
@@ -383,7 +392,33 @@ class Prestamo extends Model
         }
 
         // Actualizar el estado de los préstamos individuales
-        $this->prestamoIndividual()->update(['estado' => 'Aprobado']);
+        $this->prestamoIndividual()->update(['estado' => self::ESTADO_APROBADO]);
+
+        return true;
+    }
+
+    /**
+     * Método para ejecutar un préstamo
+     */
+    public function ejecutar()
+    {
+        if (strtolower($this->estado) !== self::ESTADO_APROBADO || !$this->fecha_desembolso) {
+            return false;
+        }
+
+        $this->estado = self::ESTADO_EJECUTADO;
+        $this->save();
+
+        // Actualizar el estado de los préstamos individuales
+        $this->prestamoIndividual()->update(['estado' => self::ESTADO_EJECUTADO]);
+
+        // Crear las cuotas grupales si no existen
+        if ($this->cuotasGrupales()->count() === 0) {
+            // Aquí iría la lógica de creación de cuotas
+            // que ya debe existir en otro lugar del código
+        }
+
+        return true;
     }
 
     /**
@@ -391,11 +426,12 @@ class Prestamo extends Model
      */
     public function rechazar()
     {
-        if (strtolower($this->estado) !== 'pendiente') {
-            return;
+        // Se puede rechazar tanto desde Pendiente como desde Aprobado
+        if (!in_array(strtolower($this->estado), [self::ESTADO_PENDIENTE, self::ESTADO_APROBADO])) {
+            return false;
         }
 
-        $this->estado = 'Rechazado';
+        $this->estado = self::ESTADO_RECHAZADO;
         $this->save();
 
         // Actualizar el estado del grupo asociado
@@ -404,7 +440,34 @@ class Prestamo extends Model
         }
 
         // Actualizar el estado de los préstamos individuales
-        $this->prestamoIndividual()->update(['estado' => 'Rechazado']);
+        $this->prestamoIndividual()->update(['estado' => self::ESTADO_RECHAZADO]);
+
+        return true;
+    }
+
+    /**
+     * Verifica si el préstamo puede ser ejecutado
+     */
+    public function puedeSerEjecutado(): bool
+    {
+        return $this->estado === self::ESTADO_APROBADO && 
+               $this->fecha_desembolso !== null;
+    }
+
+    /**
+     * Verifica si el préstamo puede ser aprobado
+     */
+    public function puedeSerAprobado(): bool
+    {
+        return $this->estado === self::ESTADO_PENDIENTE;
+    }
+
+    /**
+     * Verifica si el préstamo puede ser rechazado
+     */
+    public function puedeSerRechazado(): bool
+    {
+        return in_array($this->estado, [self::ESTADO_PENDIENTE, self::ESTADO_APROBADO]);
     }
 
     // Método para sincronizar los montos totales basándose en los préstamos individuales

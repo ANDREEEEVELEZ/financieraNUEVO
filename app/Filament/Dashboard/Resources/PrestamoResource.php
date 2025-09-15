@@ -15,6 +15,7 @@ use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class PrestamoResource extends Resource
 {
@@ -711,8 +712,10 @@ class PrestamoResource extends Resource
                 ->formatStateUsing(fn($state, $record) => $record->estado_visible)
                 ->badge()
                 ->color(fn(string $state) => match (strtolower($state)) {
-                    'aprobado' => 'success',
-                    'activo' => 'warning',
+                    'pendiente' => 'warning',
+                    'aprobado' => 'info',
+                    'ejecutado' => 'success',
+                    'activo' => 'success',
                     'parcialmente_retanqueado' => 'info',
                     'parcialmente retanqueado' => 'info',
                     'rechazado' => 'danger',
@@ -819,7 +822,72 @@ class PrestamoResource extends Resource
 
                     Tables\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
-                        ->visible(fn($record) => !$record->es_retanqueo && $record->estado === 'Pendiente'),
+                        ->visible(fn($record) => !$record->es_retanqueo && $record->estado === \App\Models\Prestamo::ESTADO_PENDIENTE),
+
+                    // Aprobar Préstamo (desde Pendiente)
+                    Tables\Actions\Action::make('aprobar_prestamo')
+                        ->label('Aprobar Préstamo')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Aprobar este préstamo?')
+                        ->modalDescription('Al aprobar el préstamo, se podrá descargar el contrato para las firmas.')
+                        ->modalSubmitActionLabel('Sí, aprobar')
+                        ->action(function($record) {
+                            if ($record->aprobar()) {
+                                Notification::make()
+                                    ->title('Préstamo aprobado correctamente')
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeSerAprobado()),
+
+                    // Ejecutar Préstamo (desde Aprobado)
+                    Tables\Actions\Action::make('ejecutar_prestamo')
+                        ->label('Ejecutar Préstamo')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Ejecutar este préstamo?')
+                        ->modalDescription('Al ejecutar el préstamo, se confirma que los contratos están firmados y se procederá con el desembolso.')
+                        ->modalSubmitActionLabel('Sí, ejecutar')
+                        ->action(function($record) {
+                            if (!$record->fecha_desembolso) {
+                                Notification::make()
+                                    ->title('Error al ejecutar el préstamo')
+                                    ->body('Debe especificar la fecha de desembolso antes de ejecutar el préstamo.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+                            if ($record->ejecutar()) {
+                                Notification::make()
+                                    ->title('Préstamo ejecutado correctamente')
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeSerEjecutado()),
+
+                    // Rechazar Préstamo (desde Pendiente o Aprobado)
+                    Tables\Actions\Action::make('rechazar_prestamo')
+                        ->label('Rechazar Préstamo')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Rechazar este préstamo?')
+                        ->modalDescription('Esta acción no se puede deshacer. El préstamo quedará anulado.')
+                        ->modalSubmitActionLabel('Sí, rechazar')
+                        ->action(function($record) {
+                            if ($record->rechazar()) {
+                                Notification::make()
+                                    ->title('Préstamo rechazado')
+                                    ->success()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeSerRechazado()),
 
                     Tables\Actions\Action::make('ir_a_retanqueo')
                         ->label('Gestionar en Retanqueos')
@@ -848,7 +916,7 @@ class PrestamoResource extends Resource
                         ->color('success')
                         ->url(fn($record) => route('contratos.prestamo.imprimir', $record->id))
                         ->visible(fn($record) => $record->grupo_id !== null && 
-                            in_array(strtolower($record->estado), ['aprobado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
+                            in_array(strtolower($record->estado), ['aprobado', 'ejecutado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
 
                     Tables\Actions\Action::make('imprimir_cartilla')
                         ->label('Imprimir Cartilla')
@@ -856,7 +924,7 @@ class PrestamoResource extends Resource
                         ->color('info')
                         ->url(fn($record) => route('cartilla.prestamo.imprimir', $record->id))
                         ->visible(fn($record) => $record->grupo_id !== null && 
-                            in_array(strtolower($record->estado), ['aprobado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
+                            in_array(strtolower($record->estado), ['ejecutado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
