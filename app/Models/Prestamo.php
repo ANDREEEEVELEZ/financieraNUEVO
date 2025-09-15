@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Prestamo extends Model
 {
@@ -379,22 +380,61 @@ class Prestamo extends Model
      */
     public function aprobar()
     {
-        if (strtolower($this->estado) !== self::ESTADO_PENDIENTE) {
+        try {
+            \Illuminate\Support\Facades\Log::info('Intentando aprobar préstamo', [
+                'prestamo_id' => $this->id,
+                'estado_actual' => $this->estado,
+                'estado_esperado' => self::ESTADO_PENDIENTE
+            ]);
+
+            // Refrescar el modelo desde la base de datos
+            $this->refresh();
+
+            // Verificar el estado actual (sin strtolower)
+            if ($this->estado !== self::ESTADO_PENDIENTE) {
+                \Illuminate\Support\Facades\Log::warning('No se puede aprobar: Estado incorrecto', [
+                    'prestamo_id' => $this->id,
+                    'estado_actual' => $this->estado,
+                    'estado_esperado' => self::ESTADO_PENDIENTE
+                ]);
+                return false;
+            }
+
+            DB::beginTransaction();
+
+            $this->estado = self::ESTADO_APROBADO;
+            $guardado = $this->save();
+
+            if (!$guardado) {
+                throw new \Exception('Error al guardar el estado del préstamo');
+            }
+
+            // Actualizar el estado del grupo asociado
+            if ($this->grupo) {
+                $this->grupo->update(['estado_grupo' => 'Activo']);
+            }
+
+            // Actualizar el estado de los préstamos individuales
+            $actualizados = $this->prestamoIndividual()->update(['estado' => self::ESTADO_APROBADO]);
+
+            \Illuminate\Support\Facades\Log::info('Préstamo aprobado exitosamente', [
+                'prestamo_id' => $this->id,
+                'nuevo_estado' => $this->estado,
+                'prestamos_individuales_actualizados' => $actualizados
+            ]);
+
+            DB::commit();
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Error al aprobar préstamo', [
+                'prestamo_id' => $this->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return false;
         }
-
-        $this->estado = self::ESTADO_APROBADO;
-        $this->save();
-
-        // Actualizar el estado del grupo asociado
-        if ($this->grupo) {
-            $this->grupo->update(['estado_grupo' => 'Activo']);
-        }
-
-        // Actualizar el estado de los préstamos individuales
-        $this->prestamoIndividual()->update(['estado' => self::ESTADO_APROBADO]);
-
-        return true;
     }
 
     /**

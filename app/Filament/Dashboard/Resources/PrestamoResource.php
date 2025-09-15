@@ -834,10 +834,29 @@ class PrestamoResource extends Resource
                         ->modalDescription('Al aprobar el préstamo, se podrá descargar el contrato para las firmas.')
                         ->modalSubmitActionLabel('Sí, aprobar')
                         ->action(function($record) {
+                            // Refrescar el registro desde la base de datos
+                            $record = $record->fresh();
+
+                            if (!$record->puedeSerAprobado()) {
+                                Notification::make()
+                                    ->title('Error al aprobar el préstamo')
+                                    ->body('El préstamo no está en estado Pendiente o ya fue aprobado.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
                             if ($record->aprobar()) {
+                                // Refrescar la página para mostrar los cambios
                                 Notification::make()
                                     ->title('Préstamo aprobado correctamente')
                                     ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Error al aprobar el préstamo')
+                                    ->body('Hubo un error al intentar aprobar el préstamo. Por favor, intente nuevamente.')
+                                    ->danger()
                                     ->send();
                             }
                         })
