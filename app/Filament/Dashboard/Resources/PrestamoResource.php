@@ -519,6 +519,30 @@ class PrestamoResource extends Resource
             Forms\Components\Section::make('Información de Desembolso')
                 ->description('Datos bancarios para el desembolso del préstamo')
                 ->schema([
+                    DatePicker::make('fecha_desembolso')
+                        ->label('Fecha de Desembolso')
+                        ->prefixIcon('heroicon-o-calendar')
+                        ->required()
+                        ->placeholder('Seleccione la fecha de desembolso')
+                        ->helperText('📅 Fecha en que se realizará el desembolso del préstamo')
+                        ->minDate(fn () => today())
+                        ->maxDate(fn () => today()->addDays(7))
+                        ->rules([
+                            function () {
+                                return function (string $attribute, $value, \Closure $fail) {
+                                    // Convertir tanto la fecha de préstamo como la de desembolso a objetos Carbon
+                                    $fechaDesembolso = \Carbon\Carbon::parse($value)->startOfDay();
+                                    $fechaPrestamo = \Carbon\Carbon::parse(request()->input('data.fecha_prestamo'))->startOfDay();
+                                    
+                                    // La fecha de desembolso debe ser igual o posterior a la fecha del préstamo
+                                    if ($fechaDesembolso->lt($fechaPrestamo)) {
+                                        $fail("La fecha de desembolso no puede ser anterior a la fecha del préstamo.");
+                                    }
+                                };
+                            },
+                        ])
+                        ->disabled(fn() => !$puedeEditarCampos),
+
                     TextInput::make('titular_cuenta_desembolso')
                         ->label('Titular de la Cuenta a Desembolsar')
                         ->prefixIcon('heroicon-o-user')
@@ -676,7 +700,12 @@ class PrestamoResource extends Resource
             TextColumn::make('monto_prestado_total')->label('Monto Prestado')->money('PEN')->sortable(),
             TextColumn::make('monto_devolver')->label('Monto a Devolver')->money('PEN')->sortable(),
             TextColumn::make('cantidad_cuotas')->label('N° Cuotas')->sortable(),
-            TextColumn::make('fecha_prestamo')->label('Fecha')->date()->sortable(),
+            TextColumn::make('fecha_prestamo')->label('Fecha Préstamo')->date()->sortable(),
+            TextColumn::make('fecha_desembolso')
+                ->label('Fecha Desembolso')
+                ->date()
+                ->sortable()
+                ->toggleable(),
             TextColumn::make('estado')
                 ->label('Estado')
                 ->formatStateUsing(fn($state, $record) => $record->estado_visible)

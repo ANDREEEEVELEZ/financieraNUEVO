@@ -18,6 +18,7 @@ class Prestamo extends Model
         'monto_devolver',
         'cantidad_cuotas',
         'fecha_prestamo',
+        'fecha_desembolso',
         'frecuencia',
         'estado',
         'calificacion',
@@ -34,6 +35,7 @@ class Prestamo extends Model
         'monto_devolver' => 'decimal:2',
         'cantidad_cuotas' => 'integer',
         'fecha_prestamo' => 'date',
+        'fecha_desembolso' => 'date',
         'es_retanqueo' => 'boolean',
     ];
 
