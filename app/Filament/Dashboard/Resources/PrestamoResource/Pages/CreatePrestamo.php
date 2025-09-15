@@ -16,6 +16,7 @@ class CreatePrestamo extends CreateRecord
     {
         $data['estado'] = 'Pendiente';
         $data['frecuencia'] = 'semanal';
+        $data['fecha_prestamo'] = now(); // Asignar fecha actual automáticamente
 
         $clientesGrupo = $data['clientes_grupo'] ?? [];
 

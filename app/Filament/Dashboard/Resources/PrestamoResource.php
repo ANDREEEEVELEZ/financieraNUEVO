@@ -511,7 +511,13 @@ class PrestamoResource extends Resource
                 ->dehydrateStateUsing(fn () => 4)
                 ->helperText('⚠️ Fijo en 4 cuotas semanales para todos los préstamos'),
 
-            DatePicker::make('fecha_prestamo')->required()->disabled(fn() => !$puedeEditarCampos),
+            // La fecha_prestamo siempre será la fecha actual y no editable
+            DatePicker::make('fecha_prestamo')
+                ->label('Fecha del Préstamo')
+                ->default(now())
+                ->required()
+                ->disabled()
+                ->helperText('Fecha asignada automáticamente'),
 
             // Campo Estado oculto - siempre se crea como Pendiente
             Forms\Components\Hidden::make('estado')->default('Pendiente'),
