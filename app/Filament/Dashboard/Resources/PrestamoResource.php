@@ -501,23 +501,23 @@ class PrestamoResource extends Resource
                 ])
                 ->default('semanal')
                 ->disabled()
-                ->dehydrateStateUsing(fn () => 'semanal')
-                ->helperText('⚠️ La frecuencia está fija en semanal para todos los préstamos'),
+                ->dehydrateStateUsing(fn () => 'semanal'),
+                
 
             TextInput::make('cantidad_cuotas')
                 ->label('Cantidad de Cuotas')
                 ->default(4)
                 ->disabled()
-                ->dehydrateStateUsing(fn () => 4)
-                ->helperText('⚠️ Fijo en 4 cuotas semanales para todos los préstamos'),
+                ->dehydrateStateUsing(fn () => 4),
+            ,
 
             // La fecha_prestamo siempre será la fecha actual y no editable
             DatePicker::make('fecha_prestamo')
                 ->label('Fecha del Préstamo')
                 ->default(now())
                 ->required()
-                ->disabled()
-                ->helperText('Fecha asignada automáticamente'),
+                ->disabled(),
+                
 
             // Campo Estado oculto - siempre se crea como Pendiente
             Forms\Components\Hidden::make('estado')->default('Pendiente'),
