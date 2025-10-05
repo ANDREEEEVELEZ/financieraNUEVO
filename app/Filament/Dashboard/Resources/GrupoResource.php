@@ -105,7 +105,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                 // Obtener el grupo actual si estamos editando
                                                 $record = request()->route('record');
                                                 $grupoActual = $record ? \App\Models\Grupo::find($record) : null;
-                                                
+
                                                 // Si es asesor, mostrar solo sus clientes
                                                 if ($user->hasRole('Asesor')) {
                                                     $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
@@ -164,7 +164,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                             ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                 // Limitar automáticamente a máximo 6 integrantes
                                 // Validación eliminada - Ya no hay límite de integrantes
-                                
+
                                 // Actualizar el contador
                                 $contador = is_array($state) ? count($state) : 0;
                                 $set('numero_integrantes', $contador);
@@ -241,7 +241,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                     return 'Ninguno';
                                 }
                                 return $exIntegrantes->map(function($cliente) {
-                                    $fechaSalida = $cliente->pivot->fecha_salida ? 
+                                    $fechaSalida = $cliente->pivot->fecha_salida ?
                                         ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
                                     return '• ' . $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
                                 })->implode("\n");
@@ -292,7 +292,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                         return 'No hay ex-integrantes';
                     }
                     return $exIntegrantes->map(function($cliente) {
-                        $fechaSalida = $cliente->pivot->fecha_salida ? 
+                        $fechaSalida = $cliente->pivot->fecha_salida ?
                             ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
                         return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
                     })->implode("\n");
@@ -306,8 +306,8 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                 ->trueColor('danger')
                 ->falseColor('success')
                 ->tooltip(function($record) {
-                    return $record->tienePrestamosActivos() ? 
-                        'Grupo con préstamos activos - No se pueden modificar integrantes' : 
+                    return $record->tienePrestamosActivos() ?
+                        'Grupo con préstamos activos - No se pueden modificar integrantes' :
                         'Grupo sin préstamos activos - Se pueden modificar integrantes';
                 })
         ];
@@ -333,7 +333,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                         'INACTIVO' => 'INACTIVO',
                     ])
                     ->default('ACTIVO'),
-                
+
                 // Filtro por Asesor (visible solo para roles administrativos, NO para Asesor)
                 Tables\Filters\SelectFilter::make('asesor')
                     ->label('Asesor')
@@ -370,13 +370,13 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                 if ($record->estado_grupo === 'ACTIVO') {
                                     // Desactivar el grupo
                                     $record->update(['estado_grupo' => 'INACTIVO']);
-                                    
+
                                     // Actualizar estado_grupo_cliente en la tabla pivot para todos los integrantes
                                     $record->clientes()->updateExistingPivot(
                                         $record->clientes->pluck('id')->toArray(),
                                         ['estado_grupo_cliente' => 'INACTIVO']
                                     );
-                                    
+
                                     $count++;
                                 } else {
                                     $inactivos++;

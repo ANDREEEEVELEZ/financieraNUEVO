@@ -490,7 +490,7 @@ class Prestamo extends Model
      */
     public function puedeSerEjecutado(): bool
     {
-        return $this->estado === self::ESTADO_APROBADO && 
+        return $this->estado === self::ESTADO_APROBADO &&
                $this->fecha_desembolso !== null;
     }
 

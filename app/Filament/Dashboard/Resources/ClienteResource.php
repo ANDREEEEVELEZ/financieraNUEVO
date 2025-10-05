@@ -51,12 +51,12 @@ class ClienteResource extends Resource
                                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                         // Limpiar cualquier error previo
                                         $set('dni_error', '');
-                                        
+
                                         // Solo validar si tiene exactamente 8 dígitos
                                         if (strlen(trim($state)) === 8 && ctype_digit(trim($state))) {
                                             $personaId = $get('persona_id'); // Para edición
                                             $rule = new UniqueDNI($personaId);
-                                            
+
                                             $rule->validate('DNI', $state, function ($message) use ($set) {
                                                 $set('dni_error', $message);
                                             });
@@ -107,12 +107,12 @@ class ClienteResource extends Resource
                                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                         // Limpiar cualquier error previo
                                         $set('celular_error', '');
-                                        
+
                                         // Solo validar si tiene exactamente 9 dígitos
                                         if (strlen(trim($state)) === 9 && ctype_digit(trim($state))) {
                                             $personaId = $get('persona_id'); // Para edición
                                             $rule = new UniqueCelular($personaId);
-                                            
+
                                             $rule->validate('celular', $state, function ($message) use ($set) {
                                                 $set('celular_error', $message);
                                             });
@@ -129,12 +129,12 @@ class ClienteResource extends Resource
                                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                         // Limpiar cualquier error previo
                                         $set('correo_error', '');
-                                        
+
                                         // Solo validar si tiene formato de email válido
                                         if (filter_var(trim($state), FILTER_VALIDATE_EMAIL)) {
                                             $personaId = $get('persona_id'); // Para edición
                                             $rule = new UniqueCorreo($personaId);
-                                            
+
                                             $rule->validate('correo', $state, function ($message) use ($set) {
                                                 $set('correo_error', $message);
                                             });
@@ -172,7 +172,7 @@ class ClienteResource extends Resource
                                     ])
                                     ->native(false)
                                     ->required(),
-                                
+
                                 // Campos ocultos para manejo de validaciones reactivas
                                 Forms\Components\Hidden::make('persona_id'),
                                 Forms\Components\Hidden::make('dni_error'),
@@ -362,7 +362,7 @@ class ClienteResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
-                
+
                 // Nuevo botón para Declaración Jurada General (Capacitado/Iletrado)
                 Tables\Actions\Action::make('generar_declaracion_jurada_general')
                     ->label('Declaración Jurada')
@@ -374,7 +374,7 @@ class ClienteResource extends Resource
                             $service = app(DeclaracionJuradaService::class);
                             $pdfContent = $service->generateGeneralPdf($record);
                             $filename = $service->getFilename($record, 'general');
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->success()
                                 ->title('PDF Generado')
@@ -384,7 +384,7 @@ class ClienteResource extends Resource
                             return response()->streamDownload(function () use ($pdfContent) {
                                 echo $pdfContent;
                             }, $filename);
-                            
+
                         } catch (\Exception $e) {
                             \Filament\Notifications\Notification::make()
                                 ->danger()
@@ -394,7 +394,7 @@ class ClienteResource extends Resource
                         }
                     })
                     ->tooltip('Generar Declaración Jurada de Conocimiento del Cliente'),
-                
+
                 Tables\Actions\Action::make('trasladar_cliente')
                     ->label('Trasladar Cliente')
                     ->icon('heroicon-o-arrow-right-circle')
@@ -420,12 +420,12 @@ class ClienteResource extends Resource
                         $nuevoAsesor = \App\Models\Asesor::with('persona')->find($nuevoAsesorId);
                         $nombreNuevoAsesor = $nuevoAsesor->persona->nombre . ' ' . $nuevoAsesor->persona->apellidos;
                         $nombreCliente = $record->persona->nombre . ' ' . $record->persona->apellidos;
-                        
+
                         // Verificar si el cliente pertenece a un grupo activo
                         if ($record->tieneGrupoActivo()) {
                             $grupo = $record->grupos()->where('estado_grupo', 'Activo')->first();
                             $integrantesGrupo = $grupo->clientes()->count();
-                            
+
                             if ($integrantesGrupo > 1) {
                                 // Mostrar modal de confirmación para trasladar todo el grupo
                                 \Filament\Notifications\Notification::make()
@@ -440,14 +440,14 @@ class ClienteResource extends Resource
                                                 // Trasladar grupo completo
                                                 $grupo->asesor_id = $nuevoAsesorId;
                                                 $grupo->save();
-                                                
+
                                                 // Trasladar todos los clientes del grupo
                                                 $clientesGrupo = $grupo->clientes;
                                                 foreach ($clientesGrupo as $clienteGrupo) {
                                                     $clienteGrupo->asesor_id = $nuevoAsesorId;
                                                     $clienteGrupo->save();
                                                 }
-                                                
+
                                                 \Filament\Notifications\Notification::make()
                                                     ->success()
                                                     ->title('Grupo Trasladado Exitosamente')
@@ -473,11 +473,11 @@ class ClienteResource extends Resource
                                 $grupo->save();
                             }
                         }
-                        
+
                         // Trasladar cliente individual o único integrante de grupo
                         $record->asesor_id = $nuevoAsesorId;
                         $record->save();
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->success()
                             ->title('Cliente Trasladado Exitosamente')

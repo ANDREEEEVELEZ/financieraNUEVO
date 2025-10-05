@@ -41,18 +41,18 @@ public static function form(Form $form): Form
             ->prefixIcon('heroicon-o-rectangle-stack')
             ->options(function () {
                 $user = request()->user();
-                
+
                 // Si viene desde moras con cuota_grupal_id, incluir esa opción específica
                 $cuotaGrupalId = request()->get('cuota_grupal_id');
                 $opciones = [];
-                
+
                 if ($cuotaGrupalId) {
                     $cuota = \App\Models\CuotasGrupales::with('prestamo.grupo')->find($cuotaGrupalId);
                     if ($cuota && $cuota->prestamo && $cuota->prestamo->grupo) {
                         $grupo = $cuota->prestamo->grupo;
                         $prestamo = $cuota->prestamo;
                         $key = $grupo->id . '_' . $prestamo->id;
-                        
+
                         if ($prestamo->es_retanqueo) {
                             $opciones[$key] = $prestamo->descripcion;
                         } else {
@@ -60,7 +60,7 @@ public static function form(Form $form): Form
                         }
                     }
                 }
-                
+
                 $query = \App\Models\Grupo::whereHas('prestamos', function($q) {
                     $q->whereIn('estado', ['Activo', 'Ejecutado']);
                 })->orderBy('nombre_grupo', 'asc');
