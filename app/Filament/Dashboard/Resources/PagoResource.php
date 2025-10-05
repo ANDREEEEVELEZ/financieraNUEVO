@@ -41,8 +41,28 @@ public static function form(Form $form): Form
             ->prefixIcon('heroicon-o-rectangle-stack')
             ->options(function () {
                 $user = request()->user();
+                
+                // Si viene desde moras con cuota_grupal_id, incluir esa opción específica
+                $cuotaGrupalId = request()->get('cuota_grupal_id');
+                $opciones = [];
+                
+                if ($cuotaGrupalId) {
+                    $cuota = \App\Models\CuotasGrupales::with('prestamo.grupo')->find($cuotaGrupalId);
+                    if ($cuota && $cuota->prestamo && $cuota->prestamo->grupo) {
+                        $grupo = $cuota->prestamo->grupo;
+                        $prestamo = $cuota->prestamo;
+                        $key = $grupo->id . '_' . $prestamo->id;
+                        
+                        if ($prestamo->es_retanqueo) {
+                            $opciones[$key] = $prestamo->descripcion;
+                        } else {
+                            $opciones[$key] = $grupo->nombre_grupo;
+                        }
+                    }
+                }
+                
                 $query = \App\Models\Grupo::whereHas('prestamos', function($q) {
-                    $q->whereIn('estado', ['Aprobado', 'Parcialmente_Retanqueado']);
+                    $q->whereIn('estado', ['Activo', 'Ejecutado']);
                 })->orderBy('nombre_grupo', 'asc');
 
                 if ($user->hasRole('Asesor')) {
@@ -50,26 +70,28 @@ public static function form(Form $form): Form
                     if ($asesor) {
                         $query->where('asesor_id', $asesor->id);
                     } else {
-                        return [];
+                        return $opciones; // Retornar solo la opción específica si es asesor sin permisos
                     }
                 } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                    return [];
+                    return $opciones; // Retornar solo la opción específica si no tiene permisos
                 }
 
                 // Modificar para mostrar nombres diferenciados
                 $grupos = $query->with(['prestamos' => function($q) {
-                    $q->whereIn('estado', ['Aprobado', 'Parcialmente_Retanqueado']);
+                    $q->whereIn('estado', ['Activo', 'Ejecutado']);
                 }])->get();
 
-                $opciones = [];
                 foreach ($grupos as $grupo) {
                     foreach ($grupo->prestamos as $prestamo) {
-                        if ($prestamo->es_retanqueo) {
-                            // Para retanqueos, mostrar la descripción completa que ya incluye "RETANQUEO #X"
-                            $opciones[$grupo->id . '_' . $prestamo->id] = $prestamo->descripcion;
-                        } else {
-                            // Para originales, mostrar solo el nombre del grupo
-                            $opciones[$grupo->id . '_' . $prestamo->id] = $grupo->nombre_grupo;
+                        $key = $grupo->id . '_' . $prestamo->id;
+                        if (!isset($opciones[$key])) { // No sobrescribir si ya existe
+                            if ($prestamo->es_retanqueo) {
+                                // Para retanqueos, mostrar la descripción completa que ya incluye "RETANQUEO #X"
+                                $opciones[$key] = $prestamo->descripcion;
+                            } else {
+                                // Para originales, mostrar solo el nombre del grupo
+                                $opciones[$key] = $grupo->nombre_grupo;
+                            }
                         }
                     }
                 }
@@ -84,7 +106,7 @@ public static function form(Form $form): Form
                     $component->state($grupoId . '_' . $prestamoId);
 
                     $user = request()->user();
-                    if (strtolower($record->estado_pago) !== 'pendiente' ||
+                    if ($record->estado_pago !== 'pendiente' ||
                         $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
                         $component->disabled(true);
                     } else {
@@ -106,7 +128,7 @@ public static function form(Form $form): Form
                     ->pluck('id');
 
                 $pagoPendiente = Pago::whereIn('cuota_grupal_id', $cuotas)
-                    ->where('estado_pago', 'Pendiente')
+                    ->where('estado_pago', 'pendiente')
                     ->exists();
 
                 if ($pagoPendiente) {
@@ -132,7 +154,7 @@ public static function form(Form $form): Form
                 $prestamo = \App\Models\Prestamo::find($prestamoId);
 
                 // Para préstamos parcialmente retanqueados, usar lógica especial
-                if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                if ($prestamo && $prestamo->estado === 'Ejecutado') {
                     // Buscar todas las cuotas que no estén completamente pagadas
                     $todasLasCuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
                             $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
@@ -216,7 +238,7 @@ public static function form(Form $form): Form
                 // Auto-llenar observaciones si hay retanqueo
                 [$grupoIdReal, $prestamoId] = explode('_', $state, 2);
                 $prestamo = \App\Models\Prestamo::find($prestamoId);
-                if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                if ($prestamo && $prestamo->estado === 'Ejecutado') {
                     $mensajeRetanqueo = $prestamo->generarMensajeRetanqueoPago();
                     $observacionesActuales = $get('observaciones') ?? '';
 
@@ -351,7 +373,7 @@ public static function form(Form $form): Form
                         $prestamo = \App\Models\Prestamo::find($prestamoId);
 
                         // Para préstamos parcialmente retanqueados, usar lógica especial
-                        if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                        if ($prestamo && $prestamo->estado === 'Ejecutado') {
                             // Buscar todas las cuotas que no estén completamente pagadas
                             $todasLasCuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
                                     $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
@@ -418,7 +440,7 @@ public static function form(Form $form): Form
                 if ($grupoEstado && str_contains($grupoEstado, '_')) {
                     [$grupoIdReal, $prestamoId] = explode('_', $grupoEstado, 2);
                     $prestamo = \App\Models\Prestamo::find($prestamoId);
-                    if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                    if ($prestamo && $prestamo->estado === 'Ejecutado') {
                         $mensajeRetanqueo = $prestamo->generarMensajeRetanqueoPago();
                         $observacionesActuales = $get('observaciones') ?? '';
 
@@ -538,7 +560,7 @@ public static function form(Form $form): Form
                 [$grupoIdReal, $prestamoId] = explode('_', $grupoId, 2);
                 $prestamo = \App\Models\Prestamo::find($prestamoId);
 
-                if ($prestamo && $prestamo->estado === 'Parcialmente_Retanqueado') {
+                if ($prestamo && $prestamo->estado === 'Ejecutado') {
                     return $prestamo->generarMensajeRetanqueoPago();
                 }
 
@@ -556,11 +578,11 @@ public static function form(Form $form): Form
             ->label('Estado del Pago')
               ->prefixIcon('heroicon-o-check-badge')
             ->options([
-                'Pendiente' => 'Pendiente',
+                'pendiente' => 'Pendiente',
                 'aprobado' => 'Aprobado',
-                'Rechazado' => 'Rechazado',
+                'rechazado' => 'Rechazado',
             ])
-            ->default('Pendiente')
+            ->default('pendiente')
             ->disabled(true)
             ->dehydrated(),
             ])
@@ -776,7 +798,24 @@ public static function form(Form $form): Form
                     ->label('Tipo')
                     ->alignLeft()
                     ->searchable()
-                    ->width('65px'),
+                    ->width('65px')
+                    ->badge()
+                    ->color(function (string $state): string {
+                        $normalizedState = strtolower(trim($state));
+                        return match ($normalizedState) {
+                            'pago_completo' => 'success',
+                            'pago_parcial' => 'warning',
+                            default => 'danger',
+                        };
+                    })
+                    ->formatStateUsing(function (string $state): string {
+                        $normalizedState = strtolower(trim($state));
+                        return match ($normalizedState) {
+                            'pago_completo' => 'Completo',
+                            'pago_parcial' => 'Parcial',
+                            default => 'ERROR: ' . $state,
+                        };
+                    }),
                 Tables\Columns\TextColumn::make('codigo_operacion')
                     ->label('Cód. Oper')
                     ->alignLeft()
@@ -871,7 +910,26 @@ public static function form(Form $form): Form
                     ->label('Estado')
                     ->alignLeft()
                     ->searchable()
-                    ->width('60px'),
+                    ->width('60px')
+                    ->badge()
+                    ->color(function (string $state): string {
+                        $normalizedState = strtolower(trim($state));
+                        return match ($normalizedState) {
+                            'pendiente' => 'warning',
+                            'aprobado' => 'success',
+                            'rechazado' => 'danger',
+                            default => 'danger',
+                        };
+                    })
+                    ->formatStateUsing(function (string $state): string {
+                        $normalizedState = strtolower(trim($state));
+                        return match ($normalizedState) {
+                            'pendiente' => 'Pendiente',
+                            'aprobado' => 'Aprobado',
+                            'rechazado' => 'Rechazado',
+                            default => $state, // Mostrar el valor tal como está
+                        };
+                    }),
             ])
             ->filters([
                 Tables\Filters\Filter::make('fecha_pago')

@@ -109,6 +109,69 @@ class ViewPrestamo extends ViewRecord
                 });
         }
 
+        // Botones para préstamos APROBADOS que NO sean retanqueos
+        if ($user && $user->roles->pluck('name')->intersect(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->isNotEmpty() && 
+            $this->record->estado === 'Aprobado' && !$this->record->es_retanqueo) {
+            
+            // Botón Ejecutar
+            $actions[] = Actions\Action::make('ejecutar')
+                ->label('Ejecutar Préstamo')
+                ->icon('heroicon-o-banknotes')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('¿Ejecutar este préstamo?')
+                ->modalDescription('Al ejecutar el préstamo, se confirma que los contratos están firmados y se procederá con el desembolso.')
+                ->modalSubmitActionLabel('Sí, ejecutar')
+                ->action(function () {
+                    if (!$this->record->fecha_desembolso) {
+                        Notification::make()
+                            ->title('Error al ejecutar el préstamo')
+                            ->body('Debe especificar la fecha de desembolso antes de ejecutar el préstamo.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+                    
+                    if ($this->record->ejecutar()) {
+                        Notification::make()
+                            ->title('Préstamo ejecutado correctamente')
+                            ->success()
+                            ->send();
+                        
+                        // Recargar la página para reflejar los cambios
+                        return redirect(static::getResource()::getUrl('view', ['record' => $this->record]));
+                    }
+                });
+
+            // Botón Rechazar (también disponible desde estado Aprobado)
+            $actions[] = Actions\Action::make('rechazar_aprobado')
+                ->label('Rechazar Préstamo')
+                ->icon('heroicon-m-x-circle')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Rechazar Préstamo Aprobado')
+                ->modalDescription('¿Está seguro de que desea rechazar este préstamo aprobado? Esta acción no se puede deshacer.')
+                ->modalSubmitActionLabel('Sí, Rechazar')
+                ->action(function () {
+                    if ($this->record->rechazar()) {
+                        Notification::make()
+                            ->title('Préstamo Rechazado')
+                            ->body('El préstamo ha sido rechazado exitosamente.')
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Error al rechazar')
+                            ->body('No se pudo rechazar el préstamo. Verifique el estado actual.')
+                            ->danger()
+                            ->send();
+                    }
+                    
+                    // Recargar la página para reflejar los cambios
+                    return redirect(static::getResource()::getUrl('view', ['record' => $this->record]));
+                });
+        }
+
         // Acción especial para retanqueos: redirigir al módulo de Retanqueos
         if ($this->record->es_retanqueo && $this->record->estado === 'Pendiente') {
             $actions[] = Actions\Action::make('gestionar_retanqueo')

@@ -100,7 +100,7 @@ class Cliente extends Model
     public function tieneGrupoActivo(): bool
     {
         return $this->grupos()
-            ->where('estado_grupo', 'Activo')
+            ->where('estado_grupo', 'ACTIVO')
             ->exists();
     }
 
@@ -111,7 +111,7 @@ class Cliente extends Model
     public function getGrupoActivoAttribute()
     {
         return $this->grupos()
-            ->where('estado_grupo', 'Activo')
+            ->where('estado_grupo', 'ACTIVO')
             ->first();
     }
 

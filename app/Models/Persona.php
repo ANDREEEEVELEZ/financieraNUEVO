@@ -66,15 +66,7 @@ class Persona extends Model
         $this->attributes['distrito'] = strtoupper($value);
     }
 
-    public function setEstadoCivilAttribute($value)
-    {
-        $this->attributes['estado_civil'] = strtoupper($value);
-    }
-
-    public function setSexoAttribute($value)
-    {
-        $this->attributes['sexo'] = strtoupper($value);
-    }
+    // Mutators para campos ENUM eliminados - los valores ENUM deben mantenerse como están definidos
 
     public function user()
     {

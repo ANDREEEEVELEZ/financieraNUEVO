@@ -232,17 +232,17 @@ class ClienteResource extends Resource
                                 Forms\Components\Select::make('estado_cliente')
                                     ->prefixIcon('heroicon-o-check-circle')
                                     ->options([
-                                        'Activo' => 'Activo',
-                                        'Inactivo' => 'Inactivo',
+                                        'ACTIVO' => 'Activo',
+                                        'INACTIVO' => 'Inactivo',
                                     ])
-                                    ->default('Activo')
+                                    ->default('ACTIVO')
                                     ->native(false)
                                     ->label('Estado Cliente')
                                     ->required(),
                                 Forms\Components\Select::make('asesor_id')
                                     ->label('Asesor responsable')
                                     ->options(function () {
-                                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                                        return \App\Models\Asesor::where('estado_asesor', 'ACTIVO')
                                             ->with('persona')
                                             ->get()
                                             ->mapWithKeys(function ($asesor) {
@@ -271,9 +271,9 @@ class ClienteResource extends Resource
             Tables\Columns\TextColumn::make('estado_cliente')
                 ->label('Estado')
                 ->badge()
-                ->color(fn (string $state): string => match ($state) {
-                    'Activo' => 'success',
-                    'Inactivo' => 'danger',
+                ->color(fn (string $state): string => match (strtoupper($state)) {
+                    'ACTIVO' => 'success',
+                    'INACTIVO' => 'danger',
                     default => 'warning',
                 }),
             Tables\Columns\TextColumn::make('grupos')
@@ -298,11 +298,11 @@ class ClienteResource extends Resource
                 // Filtro de estado existente
                 Tables\Filters\SelectFilter::make('estado_cliente')
                     ->options([
-                        'Activo' => 'Activos',
-                        'Inactivo' => 'Inactivos',
+                        'ACTIVO' => 'Activos',
+                        'INACTIVO' => 'Inactivos',
                     ])
                     ->label('Estado')
-                    ->default('Activo')
+                    ->default('ACTIVO')
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when($data['value'], function (Builder $query, string $value): Builder {
                             return $query->where('estado_cliente', $value);
@@ -312,7 +312,7 @@ class ClienteResource extends Resource
                 Tables\Filters\SelectFilter::make('asesor_id')
                     ->label('Nombre de Asesor')
                     ->options(function () {
-                        return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                        return \App\Models\Asesor::where('estado_asesor', 'ACTIVO')
                             ->with('persona')
                             ->get()
                             ->mapWithKeys(function ($asesor) {
@@ -336,12 +336,12 @@ class ClienteResource extends Resource
                         if ($data['value'] === 'con_grupo') {
                             // Clientes que tienen al menos un grupo activo
                             return $query->whereHas('grupos', function ($q) {
-                                $q->where('estado_grupo', 'Activo');
+                                $q->where('estado_grupo', 'ACTIVO');
                             });
                         } elseif ($data['value'] === 'sin_grupo') {
                             // Clientes que no tienen ningún grupo activo
                             return $query->whereDoesntHave('grupos', function ($q) {
-                                $q->where('estado_grupo', 'Activo');
+                                $q->where('estado_grupo', 'ACTIVO');
                             });
                         }
                         return $query;
@@ -405,7 +405,7 @@ class ClienteResource extends Resource
                             ->label('Nuevo Asesor')
                             ->required()
                             ->options(function () {
-                                return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                                return \App\Models\Asesor::where('estado_asesor', 'ACTIVO')
                                     ->with('persona')
                                     ->get()
                                     ->mapWithKeys(function ($asesor) {
@@ -492,9 +492,9 @@ class ClienteResource extends Resource
                     ->label('Activar')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn ($record) => $record->estado_cliente === 'Inactivo')
+                    ->visible(fn ($record) => $record->estado_cliente === 'INACTIVO')
                     ->action(function ($record) {
-                        $record->estado_cliente = 'Activo';
+                        $record->estado_cliente = 'ACTIVO';
                         $record->save();
                     })
                     ->requiresConfirmation()
@@ -514,8 +514,8 @@ class ClienteResource extends Resource
                             $count = 0;
                             $inactivos = 0;
                             $records->each(function ($record) use (&$count, &$inactivos) {
-                                if ($record->estado_cliente === 'Activo') {
-                                    $record->update(['estado_cliente' => 'Inactivo']);
+                                if ($record->estado_cliente === 'ACTIVO') {
+                                    $record->update(['estado_cliente' => 'INACTIVO']);
                                     $count++;
                                 } else {
                                     $inactivos++;
@@ -548,8 +548,8 @@ class ClienteResource extends Resource
                             $count = 0;
                             $activos = 0;
                             $records->each(function ($record) use (&$count, &$activos) {
-                                if ($record->estado_cliente === 'Inactivo') {
-                                    $record->update(['estado_cliente' => 'Activo']);
+                                if ($record->estado_cliente === 'INACTIVO') {
+                                    $record->update(['estado_cliente' => 'ACTIVO']);
                                     $count++;
                                 } else {
                                     $activos++;

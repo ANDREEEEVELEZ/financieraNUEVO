@@ -30,20 +30,10 @@ class Pago extends Model
         'saldo_pendiente' => 'decimal:2',
     ];
 
-    // Mutators para convertir automáticamente a mayúsculas
-    public function setTipoPagoAttribute($value)
-    {
-        $this->attributes['tipo_pago'] = strtoupper($value);
-    }
-
+    // Mutator solo para código de operación (mantener mayúsculas para códigos)
     public function setCodigoOperacionAttribute($value)
     {
         $this->attributes['codigo_operacion'] = strtoupper($value);
-    }
-
-    public function setEstadoPagoAttribute($value)
-    {
-        $this->attributes['estado_pago'] = strtoupper($value);
     }
 
     public function setObservacionesAttribute($value)
@@ -100,13 +90,11 @@ class Pago extends Model
 
    public function aprobar()
 {
-    $prestamo = $this->cuotaGrupal?->prestamo;
-    $estadosValidos = ['aprobado', 'parcialmente_retanqueado'];
-    if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
-        throw new \Exception('Solo se pueden aprobar pagos de préstamos aprobados.');
-    }
-
-    if (strtolower($this->estado_pago) !== 'pendiente') {
+            $prestamo = $this->cuotaGrupal?->prestamo;
+            $estadosValidos = ['activo', 'ejecutado'];
+            if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
+                throw new \Exception('Solo se pueden rechazar pagos de préstamos en estado Activo o Ejecutado.');
+            }    if ($this->estado_pago !== 'pendiente') {
         return;
     }
 
@@ -123,7 +111,7 @@ class Pago extends Model
 
         // Sumar pagos de mora previos (aprobados y distintos a este)
         $pagosMoraPrevios = $cuota->pagos()
-            ->where('estado_pago', 'Aprobado')
+            ->where('estado_pago', 'aprobado')
             ->where('id', '!=', $this->id)
             ->sum('monto_mora_pagada');
 
@@ -137,7 +125,7 @@ class Pago extends Model
         $montoRestanteParaCuota = max(0, $montoPagado - $moraPagadaEnEstePago);
 
         // Suma pagos válidos de cuota (solo lo que fue a cuota, incluyendo este pago)
-        $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->get();
+        $pagosAprobados = $cuota->pagos()->where('estado_pago', 'aprobado')->get();
         $totalPagadoCuota = 0;
         foreach ($pagosAprobados as $pago) {
             $totalPagadoCuota += max(0, $pago->monto_pagado - $pago->monto_mora_pagada);
@@ -181,23 +169,23 @@ class Pago extends Model
         {
 
             $prestamo = $this->cuotaGrupal?->prestamo;
-            $estadosValidos = ['aprobado', 'parcialmente_retanqueado'];
+            $estadosValidos = ['activo', 'ejecutado'];
             if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
-                throw new \Exception('Solo se pueden rechazar pagos de préstamos aprobados.');
+                throw new \Exception('Solo se pueden rechazar pagos de préstamos en estado Activo o Ejecutado.');
             }
 
-            if (strtolower($this->estado_pago) !== 'pendiente') {
+            if ($this->estado_pago !== 'pendiente') {
                 return;
             }
 
-            $this->estado_pago = 'Rechazado';
+            $this->estado_pago = 'rechazado';
             $this->save();
 
             $cuota = $this->cuotaGrupal;
             if ($cuota) {
 
                 $pagosValidos = $cuota->pagos()
-                    ->where('estado_pago', 'Aprobado')
+                    ->where('estado_pago', 'aprobado')
                     ->where('id', '!=', $this->id)
                     ->get();
 
@@ -208,7 +196,7 @@ class Pago extends Model
 
                 if ($pagosValidos->isEmpty()) {
 
-                    $cuota->estado_pago = 'Pendiente';
+                    $cuota->estado_pago = 'pendiente';
                     $cuota->saldo_pendiente = $totalAPagar;
                     $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
                     if ($cuota->mora) {
@@ -256,9 +244,9 @@ class Pago extends Model
 
             static::creating(function ($pago) {
                 $prestamo = $pago->cuotaGrupal?->prestamo;
-                $estadosValidos = ['aprobado', 'parcialmente_retanqueado'];
+                $estadosValidos = ['activo', 'ejecutado']; // Estados reales en la BD
                 if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
-                    throw new \Exception('No se pueden registrar pagos para préstamos que no estén aprobados.');
+                    throw new \Exception('No se pueden registrar pagos para préstamos que no estén en estado Activo o Ejecutado.');
                 }
             });
         }

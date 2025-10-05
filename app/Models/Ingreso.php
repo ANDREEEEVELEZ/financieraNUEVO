@@ -30,10 +30,7 @@ class Ingreso extends Model
         $this->attributes['descripcion'] = strtoupper($value);
     }
 
-    public function setTipoIngresoAttribute($value)
-    {
-        $this->attributes['tipo_ingreso'] = strtoupper($value);
-    }
+    // Mutator eliminado - tipo_ingreso es ENUM y debe mantenerse como está definido
 
     // Relación con el modelo Pago
     public function pago(): BelongsTo

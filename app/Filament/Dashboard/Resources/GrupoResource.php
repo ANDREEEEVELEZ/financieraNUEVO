@@ -34,7 +34,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
         $user = request()->user();
         $record = request()->route('record');
         $grupo = $record ? \App\Models\Grupo::find($record) : null;
-        $isInactivo = $grupo && $grupo->estado_grupo === 'Inactivo';
+        $isInactivo = $grupo && $grupo->estado_grupo === 'INACTIVO';
         return $form
             ->schema([
                 Forms\Components\Section::make('Datos del Grupo')
@@ -43,7 +43,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                         Forms\Components\Select::make('asesor_id')
                             ->label('Asesor')
                             ->options(function () {
-                                return \App\Models\Asesor::where('estado_asesor', 'Activo')
+                                return \App\Models\Asesor::where('estado_asesor', 'ACTIVO')
                                     ->with('persona')
                                     ->get()
                                     ->mapWithKeys(function ($asesor) {
@@ -367,14 +367,14 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             $count = 0;
                             $inactivos = 0;
                             $records->each(function ($record) use (&$count, &$inactivos) {
-                                if ($record->estado_grupo === 'Activo') {
+                                if ($record->estado_grupo === 'ACTIVO') {
                                     // Desactivar el grupo
-                                    $record->update(['estado_grupo' => 'Inactivo']);
+                                    $record->update(['estado_grupo' => 'INACTIVO']);
                                     
                                     // Actualizar estado_grupo_cliente en la tabla pivot para todos los integrantes
                                     $record->clientes()->updateExistingPivot(
                                         $record->clientes->pluck('id')->toArray(),
-                                        ['estado_grupo_cliente' => 'Inactivo']
+                                        ['estado_grupo_cliente' => 'INACTIVO']
                                     );
                                     
                                     $count++;

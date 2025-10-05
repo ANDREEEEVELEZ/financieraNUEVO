@@ -177,10 +177,10 @@ class AsesorResource extends Resource
                             Select::make('estado_asesor')
                                 ->prefixIcon('heroicon-o-check-circle')
                                 ->options([
-                                    'Activo' => 'Activo',
-                                    'Inactivo' => 'Inactivo'
+                                    'ACTIVO' => 'Activo',
+                                    'INACTIVO' => 'Inactivo'
                                 ])
-                                ->default('Activo')
+                                ->default('ACTIVO')
                                 ->required()
                                 ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                             ]),
@@ -200,9 +200,9 @@ class AsesorResource extends Resource
                 Tables\Columns\TextColumn::make('estado_asesor')
                     ->label('Estado')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Activo' => 'success',
-                        'Inactivo' => 'danger',
+                    ->color(fn (string $state): string => match (strtoupper($state)) {
+                        'ACTIVO' => 'success',
+                        'INACTIVO' => 'danger',
                         default => 'warning',
                     }),
                 Tables\Columns\TextColumn::make('fecha_ingreso')->label('Fecha de Ingreso') ->AlignLeft(),
@@ -211,10 +211,10 @@ class AsesorResource extends Resource
                 Tables\Filters\SelectFilter::make('estado_asesor')
                     ->label('Estado')
                     ->options([
-                        'Activo' => 'Activo',
-                        'Inactivo' => 'Inactivo',
+                        'ACTIVO' => 'Activo',
+                        'INACTIVO' => 'Inactivo',
                     ])
-                    ->default('Activo')
+                    ->default('ACTIVO')
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -225,9 +225,9 @@ class AsesorResource extends Resource
                     ->modalHeading('Activar Asesor')
                     ->modalDescription('¿Estás seguro de que quieres activar este asesor? Se reactivará su acceso al sistema.')
                     ->modalSubmitActionLabel('Sí, activar')
-                    ->hidden(fn ($record): bool => $record->estado_asesor === 'Activo')
+                    ->hidden(fn ($record): bool => $record->estado_asesor === 'ACTIVO')
                     ->after(function ($record) {                        // Activar el asesor y su cuenta de usuario
-                        $record->update(['estado_asesor' => 'Activo']);
+                        $record->update(['estado_asesor' => 'ACTIVO']);
 
                         if ($record->user) {
                             $record->user->update(['active' => true]);

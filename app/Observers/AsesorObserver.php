@@ -14,8 +14,8 @@ class AsesorObserver
      */
     public function updated(Asesor $asesor): void
     {
-        // Verificar si el estado del asesor cambió a Inactivo
-        if ($asesor->wasChanged('estado_asesor') && $asesor->estado_asesor === 'Inactivo') {
+        // Verificar si el estado del asesor cambió a INACTIVO
+        if ($asesor->wasChanged('estado_asesor') && $asesor->estado_asesor === 'INACTIVO') {
             $user = $asesor->user;
             
             if ($user) {

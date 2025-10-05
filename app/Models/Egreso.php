@@ -30,10 +30,7 @@ class Egreso extends Model
         $this->attributes['descripcion'] = strtoupper($value);
     }
 
-    public function setTipoEgresoAttribute($value)
-    {
-        $this->attributes['tipo_egreso'] = strtoupper($value);
-    }
+    // Mutator eliminado - tipo_egreso es ENUM y debe mantenerse como está definido
 
     // Relaciones
     public function prestamo()

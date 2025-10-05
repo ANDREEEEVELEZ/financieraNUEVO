@@ -442,7 +442,7 @@ class Prestamo extends Model
      */
     public function ejecutar()
     {
-        if (strtolower($this->estado) !== self::ESTADO_APROBADO || !$this->fecha_desembolso) {
+        if ($this->estado !== self::ESTADO_APROBADO || !$this->fecha_desembolso) {
             return false;
         }
 
@@ -467,7 +467,7 @@ class Prestamo extends Model
     public function rechazar()
     {
         // Se puede rechazar tanto desde Pendiente como desde Aprobado
-        if (!in_array(strtolower($this->estado), [self::ESTADO_PENDIENTE, self::ESTADO_APROBADO])) {
+        if (!in_array($this->estado, [self::ESTADO_PENDIENTE, self::ESTADO_APROBADO])) {
             return false;
         }
 
