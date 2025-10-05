@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 
-// ⚠️ Ruta temporal para limpiar cachés y rutas en producción (eliminar después de depurar)
+//  Ruta temporal para limpiar cachés y rutas en producción (eliminar después de depurar)
 Route::get('/fix-routes', function () {
     Artisan::call('route:clear');
     Artisan::call('config:clear');
