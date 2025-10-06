@@ -79,67 +79,147 @@ class EgresoExportController extends Controller
 
     private function exportCSV($egresos, $tipoEgreso, $fechaDesde, $fechaHasta)
     {
-        $filename = 'egresos_' . date('Y-m-d_H-i-s') . '.csv';
+        // Calcular totales para el resumen ejecutivo
+        $totalRegistros = $egresos->count();
+        $totalMonto = $egresos->sum('monto');
+        $totalDesembolsos = $egresos->where('tipo_egreso', 'desembolso')->sum('monto');
+        $totalGastos = $egresos->where('tipo_egreso', 'gasto')->sum('monto');
 
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
-            'Pragma' => 'public',
-        ];
+        // Generar HTML profesional para Excel
+        $html = '<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Reporte de Egresos</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+        .header { background: #dc2626; color: white; padding: 15px; text-align: center; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 18px; font-weight: bold; }
+        .header p { margin: 5px 0 0 0; font-size: 12px; opacity: 0.9; }
+        .summary { background: #fef2f2; border: 2px solid #dc2626; padding: 15px; margin-bottom: 20px; }
+        .summary h3 { margin: 0 0 10px 0; color: #dc2626; font-size: 14px; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .table th { background: #dc2626; color: white; padding: 12px 8px; text-align: left; font-weight: bold; font-size: 11px; border: 1px solid #dc2626; }
+        .table td { padding: 10px 8px; border: 1px solid #cbd5e0; font-size: 11px; }
+        .table tbody tr:nth-child(even) { background: #fef2f2; }
+        .table tbody tr:nth-child(odd) { background: white; }
+        .amount { text-align: right; font-weight: bold; color: #dc2626; }
+        .type-desembolso { background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 4px; text-align: center; font-weight: bold; }
+        .type-gasto { background: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; text-align: center; font-weight: bold; }
+        .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #6b7280; }
+        .totals { background: #dc2626; color: white; font-weight: bold; }
+        .no-data { text-align: center; padding: 40px; color: #6b7280; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>REPORTE DE EGRESOS</h1>
+        <p>Sistema de Control Financiero - Generado el ' . now()->format('d/m/Y H:i:s') . '</p>
+    </div>';
 
-        $callback = function() use ($egresos, $tipoEgreso, $fechaDesde, $fechaHasta) {
-            $file = fopen('php://output', 'w');
 
-            // BOM para UTF-8 (para que Excel abra correctamente los caracteres especiales)
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+        if ($egresos->isEmpty()) {
+            $html .= '<div class="no-data">
+                <h3>No se encontraron registros de egresos</h3>
+                <p>No hay datos que coincidan con los filtros aplicados</p>
+            </div>';
+        } else {
+            // Tabla de datos (SIN resumen ejecutivo arriba)
+            $html .= '<table class="table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Descripción</th>
+                        <th>Categoría</th>
+                        <th>Monto</th>
+                    </tr>
+                </thead>
+                <tbody>';
 
-            // Encabezado del reporte
-            fputcsv($file, ['REPORTE DE EGRESOS'], ';');
-            fputcsv($file, [''], ';'); // Línea vacía
-
-            // Información del filtro
-            if ($tipoEgreso !== 'todos') {
-                fputcsv($file, ['Tipo:', strtoupper($tipoEgreso === 'desembolso' ? 'DESEMBOLSOS' : 'GASTOS')], ';');
-            }
-            if ($fechaDesde) {
-                fputcsv($file, ['Fecha desde:', Carbon::parse($fechaDesde)->format('d/m/Y')], ';');
-            }
-            if ($fechaHasta) {
-                fputcsv($file, ['Fecha hasta:', Carbon::parse($fechaHasta)->format('d/m/Y')], ';');
-            }
-            fputcsv($file, ['Generado el:', now()->format('d/m/Y H:i:s')], ';');
-            fputcsv($file, [''], ';'); // Línea vacía
-
-            // Encabezados de las columnas
-            fputcsv($file, [
-                'Fecha',
-                'Tipo',
-                'Descripción',
-                'Monto'
-            ], ';');
-
-            // Datos
             foreach ($egresos as $egreso) {
-                fputcsv($file, [
-                    Carbon::parse($egreso->fecha)->format('d/m/Y'),
-                    ucfirst($egreso->tipo_egreso ?? 'N/A'),
-                    $egreso->descripcion ?? 'Sin descripción',
-                    'S/. ' . number_format($egreso->monto ?? 0, 2, ',', '.')
-                ], ';');
+                $fecha = Carbon::parse($egreso->fecha)->format('d/m/Y');
+                $tipo = $egreso->tipo_egreso ?? 'N/A';
+                $descripcion = $egreso->descripcion ?? 'Sin descripción';
+                $categoria = $egreso->categoria->nombre ?? ($egreso->subcategoria->nombre ?? 'Sin categoría');
+                $monto = $egreso->monto ?? 0;
+
+                $tipoClass = '';
+                $tipoTexto = '';
+
+                switch ($tipo) {
+                    case 'desembolso':
+                        $tipoClass = 'type-desembolso';
+                        $tipoTexto = 'DESEMBOLSO';
+                        break;
+                    case 'gasto':
+                        $tipoClass = 'type-gasto';
+                        $tipoTexto = 'GASTO';
+                        break;
+                    default:
+                        $tipoClass = 'type-gasto';
+                        $tipoTexto = strtoupper($tipo);
+                }
+
+                $html .= "<tr>
+                    <td>{$fecha}</td>
+                    <td><span class='{$tipoClass}'>{$tipoTexto}</span></td>
+                    <td>{$descripcion}</td>
+                    <td>{$categoria}</td>
+                    <td class='amount'>S/ " . number_format($monto, 2) . "</td>
+                </tr>";
             }
 
-            // Totales
-            $totalMonto = $egresos->sum('monto');
-            fputcsv($file, [''], ';'); // Línea vacía
-            fputcsv($file, ['TOTAL GENERAL:', 'S/. ' . number_format($totalMonto, 2, ',', '.')], ';');
-            fputcsv($file, ['Total de registros:', $egresos->count()], ';');
+            // Fila de totales
+            $html .= "<tr class='totals'>
+                <td colspan='4'><strong>TOTAL GENERAL</strong></td>
+                <td class='amount'><strong>S/ " . number_format($totalMonto, 2) . "</strong></td>
+            </tr>";
 
-            fclose($file);
-        };
+            $html .= '</tbody></table>';
 
-        return response()->stream($callback, 200, $headers);
+            // RESUMEN EJECUTIVO AL FINAL con formato horizontal
+            $html .= '<div class="summary" style="margin-top: 30px;">
+                <h3>RESUMEN EJECUTIVO</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #cbd5e0; background: #fef2f2; font-weight: bold; width: 200px;">Total Registros:</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e0; background: white; font-weight: bold; color: #dc2626;">' . number_format($totalRegistros) . '</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #cbd5e0; background: #fef2f2; font-weight: bold;">Total Desembolsos:</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e0; background: white; font-weight: bold; color: #92400e;">S/ ' . number_format($totalDesembolsos, 2) . '</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #cbd5e0; background: #fef2f2; font-weight: bold;">Total Gastos:</td>
+                        <td style="padding: 10px; border: 1px solid #cbd5e0; background: white; font-weight: bold; color: #991b1b;">S/ ' . number_format($totalGastos, 2) . '</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; border: 2px solid #dc2626; background: #dc2626; font-weight: bold; color: white;">TOTAL GENERAL:</td>
+                        <td style="padding: 12px; border: 2px solid #dc2626; background: #dc2626; font-weight: bold; color: white; font-size: 14px;">S/ ' . number_format($totalMonto, 2) . '</td>
+                    </tr>
+                </table>
+            </div>';
+        }
+
+        $html .= '<div class="footer">
+            <p><strong>Documento generado automáticamente el ' . now()->format('d/m/Y H:i:s') . '</strong></p>
+            <p>Información confidencial - Uso interno únicamente</p>
+        </div>
+    </body>
+    </html>';
+
+        $fechaActual = now()->format('Y-m-d_H-i-s');
+        $filename = "Reporte_Egresos_Profesional_{$totalRegistros}reg_{$fechaActual}.xls";
+
+        return response($html, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0'
+        ]);
     }
 
     private function exportPDF($egresos, $tipoEgreso, $fechaDesde, $fechaHasta)

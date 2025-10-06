@@ -149,7 +149,7 @@ class Pago extends Model
         }
 
         // Actualiza saldo y estado cuota
-        $cuota->saldo_pendiente = round($saldoTotalPendiente, 2);
+        $cuota->saldo_pendiente = $saldoTotalPendiente;
         if ($saldoTotalPendiente == 0) {
             $cuota->estado_pago = 'pagado';
             $cuota->estado_cuota_grupal = 'cancelada';

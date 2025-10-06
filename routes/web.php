@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ContratoGrupoController;
 use App\Http\Controllers\PagoPdfController;
-use App\Http\Controllers\PagoExportController;
+use App\Http\Controllers\PagoExportNuevoController;
 use App\Http\Controllers\MoraPdfController;
 use App\Http\Controllers\AsistenteController;
 use Illuminate\Support\Facades\Auth;
@@ -54,13 +54,74 @@ Route::middleware([
     'role:super_admin|Jefe de operaciones|Jefe de creditos|Asesor'
 ])->group(function () {
     Route::get('/pagos/exportar/pdf', [PagoPdfController::class, 'exportar'])->name('pagos.exportar.pdf');
-    Route::get('/pagos/exportar/excel', [\App\Http\Controllers\PagoExportController::class, 'export'])->name('pagos.exportar.excel');
-    Route::get('/pagos/exportar', [\App\Http\Controllers\PagoExportController::class, 'export'])->name('pagos.exportar');
+    Route::get('/pagos/exportar/excel', [\App\Http\Controllers\PagoExportNuevoController::class, 'export'])->name('pagos.exportar.excel');
+    Route::get('/pagos/exportar', [\App\Http\Controllers\PagoExportNuevoController::class, 'export'])->name('pagos.exportar');
     Route::get('/moras/exportar-pdf', [MoraPdfController::class, 'exportar'])->name('moras.exportar.pdf');
     Route::get('/moras/exportar/excel', [MoraPdfController::class, 'exportar'])->name('moras.exportar.excel');
     Route::get('/moras/exportar', [MoraPdfController::class, 'exportar'])->name('moras.exportar');
     Route::get('/egresos/exportar', [\App\Http\Controllers\EgresoExportController::class, 'export'])->name('egresos.exportar');
     Route::get('/ingresos/exportar', [\App\Http\Controllers\IngresoExportController::class, 'export'])->name('ingresos.exportar');
+
+    // Ruta temporal para debug: mostrar HTML del PDF en vez de descargar (usar mientras depuramos)
+    Route::get('/debug/pagos-html', function (Request $request) {
+        $user = $request->user();
+        $query = \App\Models\Pago::query();
+        $filtros = [];
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            if ($asesor) {
+                $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($asesor) {
+                    $q->where('asesor_id', $asesor->id);
+                });
+                $filtros[] = 'Asesor: ' . ($asesor->persona ? $asesor->persona->nombres . ' ' . $asesor->persona->apellidos : 'N/A');
+            } else {
+                $filtros[] = 'Error: No se encontró asesor asociado';
+            }
+        } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            $filtros[] = 'Error: No autorizado para ver todos los pagos';
+        } else {
+            $filtros[] = 'Acceso completo: ' . implode(', ', $user->getRoleNames()->toArray());
+        }
+
+        // Aplicar filtros simples de fecha/estado/grupo
+        if ($request->filled('grupo')) {
+            $grupo = \App\Models\Grupo::find($request->input('grupo'));
+            if ($grupo) {
+                $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($request) {
+                    $q->where('id', $request->input('grupo'));
+                });
+                $filtros[] = 'Grupo: ' . $grupo->nombre_grupo;
+            }
+        }
+
+        if ($request->filled('from')) {
+            $query->whereDate('fecha_pago', '>=', $request->input('from'));
+            $filtros[] = 'Desde: ' . \Carbon\Carbon::parse($request->input('from'))->format('d/m/Y');
+        }
+
+        if ($request->filled('until')) {
+            $query->whereDate('fecha_pago', '<=', $request->input('until'));
+            $filtros[] = 'Hasta: ' . \Carbon\Carbon::parse($request->input('until'))->format('d/m/Y');
+        }
+
+        if ($request->filled('estado_pago') && $request->input('estado_pago') !== '' && $request->input('estado_pago') !== 'Todos los estados') {
+            $query->where('estado_pago', $request->input('estado_pago'));
+            $filtros[] = 'Estado: ' . $request->input('estado_pago');
+        }
+
+        $pagos = $query->with(['cuotaGrupal.prestamo.grupo'])->orderBy('fecha_pago', 'desc')->get();
+
+        $service = app(\App\Services\ReporteProfesionalService::class);
+        $html = $service->generarReportePagos($pagos, $filtros);
+
+        // Si $html es instancia de DomPDF, sacar output; si es string, retornarlo
+        if (is_object($html) && method_exists($html, 'output')) {
+            return response($html->output(), 200)->header('Content-Type', 'text/html');
+        }
+
+        return response($html->output(), 200)->header('Content-Type', 'text/html');
+    })->name('debug.pagos.html');
 });
 
 // Ruta para cerrar sesión (opcional si no usas el logout de Filament)

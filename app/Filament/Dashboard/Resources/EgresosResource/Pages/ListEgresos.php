@@ -33,7 +33,7 @@ class ListEgresos extends ListRecords
                                         ->label('Formato de Exportación')
                                         ->options([
                                             'pdf' => '� PDF',
-                                            'excel' => '� Excel (.csv)'
+                                            'excel' => '� Excel '
                                         ])
                                         ->default('pdf')
                                         ->required()

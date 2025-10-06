@@ -379,7 +379,7 @@ class ListPagos extends ListRecords
                 ->color('primary')
                 ->form([
                     Forms\Components\Section::make('Configuración de Exportación')
-                        ->description('Seleccione el formato y filtros para la exportación')
+                        ->description('Seleccione el formato y filtros para la exportación. ✨ Nuevas opciones de formato profesional disponibles.')
                         ->schema([
                             Forms\Components\Grid::make(2)
                                 ->schema([
@@ -387,9 +387,9 @@ class ListPagos extends ListRecords
                                         ->label('Formato de Exportación')
                                         ->options([
                                             'pdf' => '📄 PDF',
-                                            'excel' => '📊 Excel (.csv)'
+                                            'excel' => '📊 Excel'
                                         ])
-                                        ->default('pdf')
+                                        ->default('excel')
                                         ->required()
                                         ->native(false),
 

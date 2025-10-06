@@ -32,8 +32,8 @@ class ListIngresos extends ListRecords
                                     Forms\Components\Select::make('formato')
                                         ->label('Formato de Exportación')
                                         ->options([
-                                            'pdf' => '� PDF',
-                                            'excel' => '� Excel (.csv)'
+                                            'pdf' => 'PDF',
+                                            'excel' => 'Excel '
                                         ])
                                         ->default('pdf')
                                         ->required()

@@ -134,6 +134,59 @@
         @endforeach
             </tbody>
         </table>
+
+        @php
+            // Calcular totales para el resumen ejecutivo
+            $totalRegistros = $cuotas_mora->count();
+            $totalMontoCuotas = $cuotas_mora->sum('monto_cuota_grupal');
+            $totalSaldoPendiente = $cuotas_mora->sum(function($cuota) {
+                return $cuota->getSaldoCuotaPendiente();
+            });
+            $totalMoraPendiente = $cuotas_mora->sum(function($cuota) {
+                return $cuota->getSaldoMoraPendiente();
+            });
+            $totalMoraPagada = $cuotas_mora->sum(function($cuota) {
+                return $cuota->getMoraPagada();
+            });
+            $totalGeneral = $totalSaldoPendiente + $totalMoraPendiente;
+        @endphp
+
+        <!-- Resumen Ejecutivo al Final -->
+        <div style="margin-top: 20px; background: #f8fafc; border: 1px solid #3b82f6; padding: 8px;">
+            <h3 style="margin: 0 0 8px 0; color: #1e40af; font-size: 11px; text-align: center;">RESUMEN EJECUTIVO</h3>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 0;">
+                <tr>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: #f8fafc; font-weight: bold; width: 50%; font-size: 8px;">Total Registros:</td>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: white; font-weight: bold; color: #1e40af; font-size: 8px;">{{ number_format($totalRegistros) }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: #f8fafc; font-weight: bold; font-size: 8px;">Monto Total Cuotas:</td>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: white; font-weight: bold; color: #059669; font-size: 8px;">S/ {{ number_format($totalMontoCuotas, 2) }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: #f8fafc; font-weight: bold; font-size: 8px;">Saldo Pendiente:</td>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: white; font-weight: bold; color: #d97706; font-size: 8px;">S/ {{ number_format($totalSaldoPendiente, 2) }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: #f8fafc; font-weight: bold; font-size: 8px;">Mora Pendiente:</td>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: white; font-weight: bold; color: #dc2626; font-size: 8px;">S/ {{ number_format($totalMoraPendiente, 2) }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: #f8fafc; font-weight: bold; font-size: 8px;">Mora Pagada:</td>
+                    <td style="padding: 4px; border: 1px solid #cbd5e0; background: white; font-weight: bold; color: #059669; font-size: 8px;">S/ {{ number_format($totalMoraPagada, 2) }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #1e40af; background: #1e40af; font-weight: bold; color: white; font-size: 9px;">TOTAL GENERAL:</td>
+                    <td style="padding: 5px; border: 1px solid #1e40af; background: #1e40af; font-weight: bold; color: white; font-size: 9px;">S/ {{ number_format($totalGeneral, 2) }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="margin-top: 10px; text-align: center; font-size: 7px; color: #6b7280;">
+            <p style="margin: 0;"><strong>Documento generado automáticamente el {{ now()->format('d/m/Y H:i:s') }}</strong></p>
+            <p style="margin: 0;">Información confidencial - Uso interno únicamente</p>
+        </div>
     </main>
 </body>
 </html>

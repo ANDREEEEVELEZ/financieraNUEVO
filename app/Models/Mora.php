@@ -117,7 +117,7 @@ class Mora extends Model
             $fechaAtraso = $this->fecha_atraso ? Carbon::parse($this->fecha_atraso)->startOfDay() : now()->startOfDay();
 
             if ($fechaAtraso->greaterThan($fechaVencimiento)) {
-                $this->fecha_atraso = $fechaAtraso;
+                $this->fecha_atraso = $fechaAtraso->toDateString();
                 $this->save();
             }
         }
@@ -126,7 +126,7 @@ class Mora extends Model
     public function congelarMora()
     {
         if ($this->estado_mora === 'pagada' && !$this->fecha_atraso) {
-            $this->fecha_atraso = now();
+            $this->fecha_atraso = now()->toDateString();
             $this->save();
         }
     }
