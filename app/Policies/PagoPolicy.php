@@ -23,17 +23,7 @@ class PagoPolicy
      */
     public function view(User $user, Pago $pago): bool
     {
-        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            return true;
-        }
-
-        if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-            $grupo = optional($pago->cuotaGrupal?->prestamo?->grupo);
-            return $asesor && $grupo && $grupo->asesor_id === $asesor->id;
-        }
-
-        return false;
+        return $user->can('view_pago');
     }
 
     /**
@@ -46,28 +36,10 @@ class PagoPolicy
 
     /**
      * Determine whether the user can update the model.
-     *
-     * En este método permitimos que:
-     * - Los asesores puedan acceder a la pantalla de edición (para ver el registro)
-     *   siempre que pertenezcan al grupo, sin importar el estado. La restricción real para editar
-     *   se impone en la lógica de la página (que deshabilita el formulario si el pago no está pendiente).
-     * - Los jefes y super_admin puedan ver el registro.
      */
     public function update(User $user, Pago $pago): bool
     {
-        // Para asesores: si pertenece al grupo, le permitimos acceder a la pantalla
-        if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-            $grupo = optional($pago->cuotaGrupal?->prestamo?->grupo);
-            return $asesor && $grupo && $grupo->asesor_id === $asesor->id;
-        }
-
-        // Para jefes y super_admin (acceso para ver la pantalla, sin edición en el formulario)
-        if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            return true;
-        }
-
-        return false;
+        return $user->can('update_pago');
     }
 
     /**
@@ -87,7 +59,7 @@ class PagoPolicy
     }
 
     /**
-     * Determine whether the user can permanently delete the model.
+     * Determine whether the user can permanently delete.
      */
     public function forceDelete(User $user, Pago $pago): bool
     {
@@ -103,7 +75,7 @@ class PagoPolicy
     }
 
     /**
-     * Determine whether the user can restore the model.
+     * Determine whether the user can restore.
      */
     public function restore(User $user, Pago $pago): bool
     {
@@ -119,7 +91,7 @@ class PagoPolicy
     }
 
     /**
-     * Determine whether the user can replicate the model.
+     * Determine whether the user can replicate.
      */
     public function replicate(User $user, Pago $pago): bool
     {
@@ -127,7 +99,7 @@ class PagoPolicy
     }
 
     /**
-     * Determine whether the user can reorder models.
+     * Determine whether the user can reorder.
      */
     public function reorder(User $user): bool
     {

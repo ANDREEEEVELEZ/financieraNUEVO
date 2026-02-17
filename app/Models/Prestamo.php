@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class Prestamo extends Model
 {
@@ -15,6 +16,10 @@ class Prestamo extends Model
     // Constantes para estados del préstamo
     public const ESTADO_PENDIENTE = 'Pendiente';
     public const ESTADO_APROBADO = 'Aprobado';
+    public const ESTADO_POR_FIRMAR = 'Por Firmar';
+    public const ESTADO_FIRMADO = 'Firmado';
+    public const ESTADO_POR_DESEMBOLSAR = 'Por Desembolsar';
+    public const ESTADO_DESEMBOLSADO = 'Desembolsado'; // Equivalente a Ejecutado/Activo inicial
     public const ESTADO_EJECUTADO = 'Ejecutado';
     public const ESTADO_ACTIVO = 'Activo';
     public const ESTADO_RECHAZADO = 'Rechazado';
@@ -68,6 +73,40 @@ class Prestamo extends Model
     public function egresos()
     {
         return $this->hasMany(Egreso::class);
+    }
+
+    // Nuevas relaciones del modelo ERP
+    public function producto()
+    {
+        return $this->belongsTo(ProductoFinanciero::class, 'producto_id');
+    }
+
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class, 'cliente_id');
+    }
+
+    public function cuotasIndividuales()
+    {
+        return $this->hasMany(CuotaIndividual::class, 'prestamo_id');
+    }
+
+    public function movimientos()
+    {
+        return $this->morphMany(MovimientoFinanciero::class, 'referencia');
+    }
+
+    /**
+     * Determina si el préstamo es grupal o individual.
+     */
+    public function esGrupal(): bool
+    {
+        return !is_null($this->grupo_id);
+    }
+
+    public function esIndividual(): bool
+    {
+        return is_null($this->grupo_id) && !is_null($this->cliente_id);
     }
 
     // Relaciones para retanqueos
@@ -221,7 +260,7 @@ class Prestamo extends Model
             ->with('cliente.persona')
             ->where('monto_prestado_individual', '>', 0)
             ->get()
-            ->map(function($prestamoIndividual) {
+            ->map(function ($prestamoIndividual) {
                 return [
                     'cliente' => $prestamoIndividual->cliente,
                     'persona' => $prestamoIndividual->cliente->persona,
@@ -237,10 +276,11 @@ class Prestamo extends Model
      */
     public function generarDescripcionRetanqueo()
     {
-        if (!$this->grupo) return $this->descripcion;
+        if (!$this->grupo)
+            return $this->descripcion;
 
         // Contar cuántos retanqueos previos ha tenido este grupo
-        $numeroRetanqueo = self::whereHas('grupo', function($query) {
+        $numeroRetanqueo = self::whereHas('grupo', function ($query) {
             $query->where('id', $this->grupo_id);
         })->where('es_retanqueo', true)->count();
 
@@ -336,7 +376,7 @@ class Prestamo extends Model
 
                     if ($prestamoIndividual) {
                         // También verificar que el monto a devolver sea mayor a 0
-                        $montoDevolver = (float)$prestamoIndividual->monto_devolver_individual;
+                        $montoDevolver = (float) $prestamoIndividual->monto_devolver_individual;
                         if ($montoDevolver > 0) {
                             \Illuminate\Support\Facades\Log::info('Integrante que no retanqueó aún tiene deuda pendiente', [
                                 'prestamo_id' => $this->id,
@@ -402,7 +442,7 @@ class Prestamo extends Model
 
             DB::beginTransaction();
 
-            $this->estado = self::ESTADO_APROBADO;
+            $this->estado = self::ESTADO_POR_FIRMAR;
             $guardado = $this->save();
 
             if (!$guardado) {
@@ -417,7 +457,7 @@ class Prestamo extends Model
             // Actualizar el estado de los préstamos individuales
             $actualizados = $this->prestamoIndividual()->update(['estado' => self::ESTADO_APROBADO]);
 
-            \Illuminate\Support\Facades\Log::info('Préstamo aprobado exitosamente', [
+            \Illuminate\Support\Facades\Log::info('Préstamo aprobado exitosamente (Por Firmar)', [
                 'prestamo_id' => $this->id,
                 'nuevo_estado' => $this->estado,
                 'prestamos_individuales_actualizados' => $actualizados
@@ -486,12 +526,179 @@ class Prestamo extends Model
     }
 
     /**
-     * Verifica si el préstamo puede ser ejecutado
+     * Método para firmar contrato (Por Firmar → Firmado)
+     */
+    public function firmar(): bool
+    {
+        if ($this->estado !== self::ESTADO_POR_FIRMAR) {
+            return false;
+        }
+
+        DB::beginTransaction();
+        try {
+            $this->estado = self::ESTADO_FIRMADO;
+            $this->save();
+
+            // Actualizar préstamos individuales
+            $this->prestamoIndividual()->update(['estado' => self::ESTADO_FIRMADO]);
+
+            Log::info('Contrato firmado exitosamente', [
+                'prestamo_id' => $this->id,
+                'usuario_id' => auth()->id(),
+            ]);
+
+            DB::commit();
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al firmar contrato', [
+                'prestamo_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Método para marcar como listo para desembolsar (Firmado → Por Desembolsar)
+     */
+    public function marcarParaDesembolsar(): bool
+    {
+        if ($this->estado !== self::ESTADO_FIRMADO) {
+            return false;
+        }
+
+        DB::beginTransaction();
+        try {
+            $this->estado = self::ESTADO_POR_DESEMBOLSAR;
+            $this->save();
+
+            // Actualizar préstamos individuales
+            $this->prestamoIndividual()->update(['estado' => self::ESTADO_POR_DESEMBOLSAR]);
+
+            Log::info('Préstamo marcado para desembolsar', [
+                'prestamo_id' => $this->id,
+            ]);
+
+            DB::commit();
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al marcar para desembolsar', [
+                'prestamo_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Método para desembolsar un préstamo (Por Desembolsar → Desembolsado)
+     */
+    public function desembolsar(?string $fechaDesembolso = null): bool
+    {
+        if ($this->estado !== self::ESTADO_POR_DESEMBOLSAR) {
+            return false;
+        }
+
+        DB::beginTransaction();
+        try {
+            $this->estado = self::ESTADO_DESEMBOLSADO;
+            if ($fechaDesembolso) {
+                $this->fecha_desembolso = \Carbon\Carbon::parse($fechaDesembolso);
+            }
+            $this->save();
+
+            // Actualizar préstamos individuales
+            $this->prestamoIndividual()->update(['estado' => self::ESTADO_DESEMBOLSADO]);
+
+            Log::info('Préstamo desembolsado exitosamente', [
+                'prestamo_id' => $this->id,
+                'fecha_desembolso' => $this->fecha_desembolso,
+            ]);
+
+            DB::commit();
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al desembolsar préstamo', [
+                'prestamo_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Reduce el monto del préstamo de forma proporcional.
+     * Permitido en estados 'Por Firmar' y 'Firmado'.
+     */
+    public function reducirMonto(float $nuevoMontoTotal, string $justificacion): bool
+    {
+        // Solo permitido en estados Por Firmar o Firmado
+        if (!in_array($this->estado, [self::ESTADO_POR_FIRMAR, self::ESTADO_FIRMADO])) {
+            return false;
+        }
+
+        // No permitir aumento (solo reducción)
+        if ($nuevoMontoTotal >= (float) $this->monto_prestado_total) {
+            return false;
+        }
+
+        DB::beginTransaction();
+        try {
+            $factor = $nuevoMontoTotal / (float) $this->monto_prestado_total;
+
+            // Actualizar cada préstamo individual proporcionalmente
+            foreach ($this->prestamoIndividual as $pi) {
+                $nuevoMonto = round((float) $pi->monto_prestado_individual * $factor, 2);
+                $nuevoInteres = round((float) $pi->interes * $factor, 2);
+                $nuevoSeguro = round((float) $pi->seguro * $factor, 2);
+
+                $pi->update([
+                    'monto_prestado_individual' => $nuevoMonto,
+                    'interes' => $nuevoInteres,
+                    'seguro' => $nuevoSeguro,
+                    'monto_devolver_individual' => $nuevoMonto + $nuevoInteres + $nuevoSeguro,
+                ]);
+            }
+
+            // Sincronizar montos del préstamo grupal
+            $this->sincronizarMontosTotal();
+
+            // Registrar en log
+            Log::info('Monto de préstamo reducido', [
+                'prestamo_id' => $this->id,
+                'monto_anterior' => $this->getOriginal('monto_prestado_total'),
+                'monto_nuevo' => $nuevoMontoTotal,
+                'factor' => $factor,
+                'justificacion' => $justificacion,
+                'usuario_id' => auth()->id(),
+            ]);
+
+            DB::commit();
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al reducir monto', [
+                'prestamo_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Verifica si el préstamo puede ser ejecutado (DEPRECATED - usar desembolsar)
      */
     public function puedeSerEjecutado(): bool
     {
         return $this->estado === self::ESTADO_APROBADO &&
-               $this->fecha_desembolso !== null;
+            $this->fecha_desembolso !== null;
     }
 
     /**
@@ -503,11 +710,43 @@ class Prestamo extends Model
     }
 
     /**
+     * Verifica si el préstamo puede ser firmado
+     */
+    public function puedeFirmar(): bool
+    {
+        return $this->estado === self::ESTADO_POR_FIRMAR;
+    }
+
+    /**
+     * Verifica si el préstamo puede ser marcado para desembolsar
+     */
+    public function puedeMarcarParaDesembolsar(): bool
+    {
+        return $this->estado === self::ESTADO_FIRMADO;
+    }
+
+    /**
+     * Verifica si el préstamo puede ser desembolsado
+     */
+    public function puedeDesembolsar(): bool
+    {
+        return $this->estado === self::ESTADO_POR_DESEMBOLSAR;
+    }
+
+    /**
+     * Verifica si se puede reducir el monto
+     */
+    public function puedeReducirMonto(): bool
+    {
+        return in_array($this->estado, [self::ESTADO_POR_FIRMAR, self::ESTADO_FIRMADO]);
+    }
+
+    /**
      * Verifica si el préstamo puede ser rechazado
      */
     public function puedeSerRechazado(): bool
     {
-        return in_array($this->estado, [self::ESTADO_PENDIENTE, self::ESTADO_APROBADO]);
+        return $this->estado === self::ESTADO_PENDIENTE;
     }
 
     // Método para sincronizar los montos totales basándose en los préstamos individuales

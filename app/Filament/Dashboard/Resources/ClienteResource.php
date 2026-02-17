@@ -25,7 +25,7 @@ use App\Services\DeclaracionJuradaService;
 class ClienteResource extends Resource
 {
     protected static ?string $model = Cliente::class;
-  protected static ?string $navigationIcon = 'heroicon-o-user-plus';
+    protected static ?string $navigationIcon = 'heroicon-o-user-plus';
 
 
 
@@ -47,7 +47,7 @@ class ClienteResource extends Resource
                                     ->rule('regex:/^[0-9]{8}$/')
                                     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                                     ->mask('99999999')
-                                    ->reactive()
+                                    ->live(debounce: 800)  // Optimizado: debounce para reducir peticiones
                                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                         // Limpiar cualquier error previo
                                         $set('dni_error', '');
@@ -62,21 +62,21 @@ class ClienteResource extends Resource
                                             });
                                         }
                                     })
-                                    ->helperText(fn (callable $get) => $get('dni_error') ?: 'Ingrese 8 dígitos')
-                                    ->extraAttributes(fn (callable $get) => $get('dni_error') ? ['style' => 'border-color: #ef4444;'] : [])
-                                    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->helperText(fn(callable $get) => $get('dni_error') ?: 'Ingrese 8 dígitos')
+                                    ->extraAttributes(fn(callable $get) => $get('dni_error') ? ['style' => 'border-color: #ef4444;'] : [])
+                                    ->disabled(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 TextInput::make('persona.nombre')
                                     ->label('Nombre')
                                     ->required()
                                     ->prefixIcon('heroicon-o-user')
                                     ->rule('regex:/^[\pL\s\ñÑ]+$/u')
-                                    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->disabled(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 TextInput::make('persona.apellidos')
                                     ->label('Apellidos')
                                     ->required()
                                     ->prefixIcon('heroicon-o-user')
                                     ->rule('regex:/^[\pL\s\ñÑ]+$/u')
-                                    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->disabled(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 Select::make('persona.sexo')
                                     ->label('Sexo')
                                     ->required()
@@ -87,12 +87,12 @@ class ClienteResource extends Resource
                                     ])
                                     ->default('Femenino')
                                     ->native(false)
-                                    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->disabled(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 DatePicker::make('persona.fecha_nacimiento')
                                     ->label('Fecha de Nacimiento')
                                     ->required()
                                     ->prefixIcon('heroicon-o-calendar')
-                                    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                    ->disabled(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 TextInput::make('persona.celular')
                                     ->label('Celular')
                                     ->maxLength(9)
@@ -103,7 +103,7 @@ class ClienteResource extends Resource
                                     ->rule('regex:/^[0-9]{9}$/')
                                     ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
                                     ->mask('999999999')
-                                    ->reactive()
+                                    ->live(debounce: 800)  // Optimizado: debounce para reducir peticiones
                                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                         // Limpiar cualquier error previo
                                         $set('celular_error', '');
@@ -118,14 +118,14 @@ class ClienteResource extends Resource
                                             });
                                         }
                                     })
-                                    ->helperText(fn (callable $get) => $get('celular_error') ?: 'Ingrese 9 dígitos')
-                                    ->extraAttributes(fn (callable $get) => $get('celular_error') ? ['style' => 'border-color: #ef4444;'] : []),
+                                    ->helperText(fn(callable $get) => $get('celular_error') ?: 'Ingrese 9 dígitos')
+                                    ->extraAttributes(fn(callable $get) => $get('celular_error') ? ['style' => 'border-color: #ef4444;'] : []),
                                 TextInput::make('persona.correo')
                                     ->label('Correo Electrónico')
                                     ->email()
                                     ->required()
                                     ->prefixIcon('heroicon-o-envelope')
-                                    ->reactive()
+                                    ->live(debounce: 800)  // Optimizado: debounce para reducir peticiones
                                     ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                         // Limpiar cualquier error previo
                                         $set('correo_error', '');
@@ -140,8 +140,8 @@ class ClienteResource extends Resource
                                             });
                                         }
                                     })
-                                    ->helperText(fn (callable $get) => $get('correo_error') ?: 'Ejemplo: usuario@gmail.com')
-                                    ->extraAttributes(fn (callable $get) => $get('correo_error') ? ['style' => 'border-color: #ef4444;'] : []),
+                                    ->helperText(fn(callable $get) => $get('correo_error') ?: 'Ejemplo: usuario@gmail.com')
+                                    ->extraAttributes(fn(callable $get) => $get('correo_error') ? ['style' => 'border-color: #ef4444;'] : []),
                                 TextInput::make('persona.direccion')
                                     ->label('Dirección')
                                     ->required()
@@ -169,6 +169,7 @@ class ClienteResource extends Resource
                                         'Casado' => 'Casado',
                                         'Divorciado' => 'Divorciado',
                                         'Viudo' => 'Viudo',
+                                        'Conviviente' => 'Conviviente',
                                     ])
                                     ->native(false)
                                     ->required(),
@@ -250,8 +251,8 @@ class ClienteResource extends Resource
                                             });
                                     })
                                     ->searchable()
-                                    ->required(fn () => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
-                                    ->visible(fn () => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                                    ->required(fn() => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                                    ->visible(fn() => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                                     ->helperText('Seleccione el asesor responsable para este cliente.')
                                     ->prefixIcon('heroicon-o-user-group'),
                             ])->columns(2),
@@ -271,14 +272,14 @@ class ClienteResource extends Resource
             Tables\Columns\TextColumn::make('estado_cliente')
                 ->label('Estado')
                 ->badge()
-                ->color(fn (string $state): string => match (strtoupper($state)) {
+                ->color(fn(string $state): string => match (strtoupper($state)) {
                     'ACTIVO' => 'success',
                     'INACTIVO' => 'danger',
                     default => 'warning',
                 }),
             Tables\Columns\TextColumn::make('grupos')
                 ->label('Grupos Pertenecientes')
-                ->formatStateUsing(fn ($record) => $record->grupos->pluck('nombre_grupo')->implode(' - ') ?: '-')
+                ->formatStateUsing(fn($record) => $record->grupos->pluck('nombre_grupo')->implode(' - ') ?: '-')
                 ->searchable(false),
         ];
 
@@ -286,7 +287,8 @@ class ClienteResource extends Resource
         if (\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
                 ->label('Asesor')
-                ->formatStateUsing(fn ($record) =>
+                ->formatStateUsing(
+                    fn($record) =>
                     $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-'
                 )
                 ->sortable()
@@ -319,7 +321,7 @@ class ClienteResource extends Resource
                                 return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
                             });
                     })
-                    ->visible(fn () => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                    ->visible(fn() => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when($data['value'], function (Builder $query, $value) {
                             return $query->where('asesor_id', $value);
@@ -368,7 +370,7 @@ class ClienteResource extends Resource
                     ->label('Declaración Jurada')
                     ->icon('heroicon-o-document-text')
                     ->color('info')
-                    ->visible(fn ($record) => in_array($record->condicion_personal, ['Capacitado', 'Iletrado']))
+                    ->visible(fn($record) => in_array($record->condicion_personal, ['Capacitado', 'Iletrado']))
                     ->action(function ($record) {
                         try {
                             $service = app(DeclaracionJuradaService::class);
@@ -399,7 +401,7 @@ class ClienteResource extends Resource
                     ->label('Trasladar Cliente')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('warning')
-                    ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                    ->visible(fn() => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                     ->form([
                         Forms\Components\Select::make('nuevo_asesor_id')
                             ->label('Nuevo Asesor')
@@ -437,32 +439,32 @@ class ClienteResource extends Resource
                                             ->label('Sí, trasladar todo el grupo')
                                             ->button()
                                             ->action(function () use ($grupo, $nuevoAsesorId, $nombreNuevoAsesor) {
-                                                // Trasladar grupo completo
-                                                $grupo->asesor_id = $nuevoAsesorId;
-                                                $grupo->save();
+                                    // Trasladar grupo completo
+                                    $grupo->asesor_id = $nuevoAsesorId;
+                                    $grupo->save();
 
-                                                // Trasladar todos los clientes del grupo
-                                                $clientesGrupo = $grupo->clientes;
-                                                foreach ($clientesGrupo as $clienteGrupo) {
-                                                    $clienteGrupo->asesor_id = $nuevoAsesorId;
-                                                    $clienteGrupo->save();
-                                                }
+                                    // Trasladar todos los clientes del grupo
+                                    $clientesGrupo = $grupo->clientes;
+                                    foreach ($clientesGrupo as $clienteGrupo) {
+                                        $clienteGrupo->asesor_id = $nuevoAsesorId;
+                                        $clienteGrupo->save();
+                                    }
 
-                                                \Filament\Notifications\Notification::make()
-                                                    ->success()
-                                                    ->title('Grupo Trasladado Exitosamente')
-                                                    ->body("El grupo '{$grupo->nombre_grupo}' y todos sus {$clientesGrupo->count()} integrantes han sido trasladados al asesor {$nombreNuevoAsesor}.")
-                                                    ->send();
-                                            }),
+                                    \Filament\Notifications\Notification::make()
+                                        ->success()
+                                        ->title('Grupo Trasladado Exitosamente')
+                                        ->body("El grupo '{$grupo->nombre_grupo}' y todos sus {$clientesGrupo->count()} integrantes han sido trasladados al asesor {$nombreNuevoAsesor}.")
+                                        ->send();
+                                }),
                                         \Filament\Notifications\Actions\Action::make('cancel')
                                             ->label('Cancelar')
                                             ->action(function () {
-                                                \Filament\Notifications\Notification::make()
-                                                    ->info()
-                                                    ->title('Traslado Cancelado')
-                                                    ->body('El traslado ha sido cancelado.')
-                                                    ->send();
-                                            })
+                                    \Filament\Notifications\Notification::make()
+                                        ->info()
+                                        ->title('Traslado Cancelado')
+                                        ->body('El traslado ha sido cancelado.')
+                                        ->send();
+                                })
                                     ])
                                     ->persistent()
                                     ->send();
@@ -486,13 +488,13 @@ class ClienteResource extends Resource
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Confirmar Traslado de Cliente')
-                    ->modalDescription(fn ($record) => "¿Está seguro de que desea trasladar al cliente {$record->persona->nombre} {$record->persona->apellidos} a otro asesor?")
+                    ->modalDescription(fn($record) => "¿Está seguro de que desea trasladar al cliente {$record->persona->nombre} {$record->persona->apellidos} a otro asesor?")
                     ->modalSubmitActionLabel('Sí, trasladar'),
                 Tables\Actions\Action::make('activar')
                     ->label('Activar')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn ($record) => $record->estado_cliente === 'INACTIVO')
+                    ->visible(fn($record) => $record->estado_cliente === 'INACTIVO')
                     ->action(function ($record) {
                         $record->estado_cliente = 'ACTIVO';
                         $record->save();
@@ -571,7 +573,7 @@ class ClienteResource extends Resource
                             }
                         })
                         ->deselectRecordsAfterCompletion(),
-                        // ->hidden(fn ($records) => !$records || !$records->contains('estado_cliente', 'Inactivo')), // Removido para permitir siempre la reactivación
+                    // ->hidden(fn ($records) => !$records || !$records->contains('estado_cliente', 'Inactivo')), // Removido para permitir siempre la reactivación
                 ]),
             ]);
     }
@@ -581,13 +583,21 @@ class ClienteResource extends Resource
     {
         $user = request()->user();
 
-        $query = parent::getEloquentQuery();
+        // Eager loading de relaciones para evitar N+1 queries
+        $query = parent::getEloquentQuery()
+            ->with([
+                'persona:id,nombre,apellidos,DNI,celular,correo',
+                'grupos:id,nombre_grupo,estado_grupo',
+                'asesor:id,persona_id,user_id',
+                'asesor.persona:id,nombre,apellidos',
+            ]);
 
         if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            // Usar CacheService para obtener el asesor (evita query repetida)
+            $asesor = \App\Services\CacheService::getAsesorByUserId($user->id);
 
             if ($asesor) {
-                $query->where('asesor_id', $asesor->id); // Filtrar registros por el ID del asesor correspondiente
+                $query->where('asesor_id', $asesor->id);
             }
         }
 

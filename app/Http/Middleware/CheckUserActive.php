@@ -23,16 +23,16 @@ class CheckUserActive
     {
         if (Auth::check()) {
             $user = Auth::user();
-            
+
             // Verificar si el usuario es un asesor y está inactivo
-            $asesor = Asesor::where('user_id', $user->id)->first();
+            $asesor = \App\Services\CacheService::getAsesorByUserId($user->id);
             if ($asesor && $asesor->estado_asesor === 'Inactivo') {
                 Auth::logout();
-                
+
                 if ($request->expectsJson()) {
                     return response()->json(['message' => '¡ASESOR INACTIVO! No tienes permiso para acceder al sistema. Por favor, contacta al administrador.'], 403);
                 }
-                
+
                 return redirect('/dashboard/login')
                     ->with('notification', [
                         'title' => '¡ASESOR INACTIVO!',
@@ -40,15 +40,15 @@ class CheckUserActive
                         'status' => 'danger',
                     ]);
             }
-            
+
             // Verificar si la cuenta está inactiva en general
             if (!$user->active) {
                 Auth::logout();
-                
+
                 if ($request->expectsJson()) {
                     return response()->json(['message' => 'Tu cuenta está inactiva.'], 403);
                 }
-                
+
                 return redirect('/dashboard/login')
                     ->with('notification', [
                         'title' => 'Cuenta Inactiva',

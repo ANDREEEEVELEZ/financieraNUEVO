@@ -28,16 +28,16 @@ class PrestamoResource extends Resource
         $record = request()->route('record');
         $prestamo = $record ? \App\Models\Prestamo::with('prestamoIndividual.cliente.persona')->find($record) : null;
         $user = request()->user();
-        
+
         // Si el préstamo existe y su estado NO es 'Pendiente', bloquear todo
         $prestamoNoPendiente = $prestamo && $prestamo->estado !== 'Pendiente';
-        
+
         // NUEVA VALIDACIÓN: Si es un retanqueo, bloquear edición desde este módulo
         $esRetanqueo = $prestamo && $prestamo->es_retanqueo;
-        
+
         // Determinar si el usuario puede editar campos
         $puedeEditarCampos = false;
-        
+
         if (!$prestamoNoPendiente && !$esRetanqueo) { // Solo si el préstamo está en estado Pendiente y NO es retanqueo
             if ($user->hasRole('Asesor')) {
                 // Asesor solo puede editar si es creador y está en estado Pendiente
@@ -60,7 +60,7 @@ class PrestamoResource extends Resource
                 }
             }
         }
-        
+
         // Solo jefes pueden cambiar el estado Y solo si el préstamo está en estado Pendiente Y NO es retanqueo
         $puedeEditarEstado = $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']) && !$prestamoNoPendiente && !$esRetanqueo;
 
@@ -162,7 +162,7 @@ class PrestamoResource extends Resource
                 })
                 ->searchable()
                 ->required()
-                ->reactive()
+                ->live(onBlur: true)  // Optimizado: solo actualiza al salir del campo
                 ->afterStateUpdated(function ($state, callable $set) {
                     $grupo = \App\Models\Grupo::with('clientes.persona')->find($state);
                     $set('clientes_grupo', $grupo ? $grupo->clientes->map(function ($c) {
@@ -178,7 +178,7 @@ class PrestamoResource extends Resource
                 })
                 ->disabled(fn() => !$puedeEditarCampos),
 
-            Forms\Components\Hidden::make('clientes_grupo')->dehydrateStateUsing(fn($state) => $state)->reactive(),
+            Forms\Components\Hidden::make('clientes_grupo')->dehydrateStateUsing(fn($state) => $state)->live(),
 
             Forms\Components\Repeater::make('clientes_grupo')
                 ->label('Integrantes del Grupo')
@@ -197,19 +197,19 @@ class PrestamoResource extends Resource
                             return \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($ciclo);
                         })
                         ->required()
-                        ->reactive()
+                        ->live(onBlur: true)  // Optimizado: solo actualiza al seleccionar
                         ->placeholder('Selecciona un monto')
                         ->rules([
                             function (callable $get) {
                                 return function (string $attribute, $value, \Closure $fail) use ($get) {
                                     $ciclo = \App\Helpers\CicloHelper::normalize($get('ciclo') ?? 'I');
-                                    
+
                                     // Validar que el monto sea válido
                                     if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $ciclo)) {
                                         $fail('El monto seleccionado no es válido para el ciclo ' . $ciclo);
                                         return;
                                     }
-                                    
+
                                     // Validación adicional: verificar acceso por ciclo
                                     if (!\App\Helpers\CicloHelper::puedeAccederAMonto($value, $ciclo)) {
                                         $cicloMinimo = \App\Helpers\CicloHelper::getCicloPorMonto($value);
@@ -228,7 +228,7 @@ class PrestamoResource extends Resource
                                     ->send();
                                 return;
                             }
-                            
+
                             // Actualizar totales del préstamo
                             $cs = $get('../../clientes_grupo') ?? [];
                             $t = array_sum(array_map(fn($c) => floatval($c['monto'] ?? 0), $cs));
@@ -246,8 +246,7 @@ class PrestamoResource extends Resource
             Forms\Components\Repeater::make('prestamo_individual')
                 ->label('Detalle del préstamo por integrante')
                 ->relationship('prestamoIndividual')
-                ->live()
-                ->reactive()
+                ->live(debounce: 300)  // Optimizado: debounce de 300ms
                 ->schema([
                     Forms\Components\Placeholder::make('nombre')
                         ->label('Nombre')
@@ -263,7 +262,7 @@ class PrestamoResource extends Resource
                             if (!$record || !$record->cliente || !$record->cliente->ciclo) {
                                 return 'Monto prestado';
                             }
-                            
+
                             try {
                                 $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
                                 return 'Monto prestado (Ciclo ' . $ciclo . ')';
@@ -280,16 +279,16 @@ class PrestamoResource extends Resource
                             if (!$record || !$record->cliente || !$record->cliente->ciclo) {
                                 return [];
                             }
-                            
+
                             try {
                                 $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
                                 $opciones = \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($ciclo);
-                                
+
                                 // Validar que opciones sea un array
                                 if (!is_array($opciones)) {
                                     $opciones = [];
                                 }
-                                
+
                                 return $opciones;
                             } catch (\Exception $e) {
                                 \Illuminate\Support\Facades\Log::error('Error en options de monto_prestado_individual', [
@@ -300,32 +299,32 @@ class PrestamoResource extends Resource
                             }
                         })
                         ->required()
-                        ->reactive()
+                        ->live(onBlur: true)  // Optimizado: solo al salir del campo
                         ->searchable()
                         ->placeholder('Selecciona un monto')
                         ->formatStateUsing(function ($state) {
                             // FORZAR que siempre use el formato entero
-                            return $state ? (int)$state : null;
+                            return $state ? (int) $state : null;
                         })
                         ->default(function ($record) {
                             // Validación robusta del valor por defecto
                             if (!$record || !isset($record->monto_prestado_individual)) {
                                 return null;
                             }
-                            
+
                             // Validar que sea un número válido
                             $monto = $record->monto_prestado_individual;
                             if (!is_numeric($monto) || $monto <= 0) {
                                 return null;
                             }
-                            
+
                             // Convertir a entero para consistencia con las opciones
-                            return (int)$monto;
+                            return (int) $monto;
                         })
                         ->afterStateUpdated(function ($state, $set) {
                             // Asegurar que el valor se guarde como entero
                             if (is_numeric($state)) {
-                                $set('monto_prestado_individual', (int)$state);
+                                $set('monto_prestado_individual', (int) $state);
                             }
                         })
                         ->rules([
@@ -336,21 +335,21 @@ class PrestamoResource extends Resource
                                         $fail('No se puede validar el monto: datos del cliente incompletos.');
                                         return;
                                     }
-                                    
+
                                     if (!is_numeric($value) || $value <= 0) {
                                         $fail('El monto debe ser un número válido mayor a 0.');
                                         return;
                                     }
-                                    
+
                                     try {
                                         $ciclo = \App\Helpers\CicloHelper::normalize($record->cliente->ciclo);
-                                        
+
                                         // Validar que el monto sea válido para el ciclo
                                         if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $ciclo)) {
                                             $fail('El monto seleccionado no es válido para el ciclo ' . $ciclo);
                                             return;
                                         }
-                                        
+
                                         // Validación adicional: verificar acceso por ciclo
                                         if (!\App\Helpers\CicloHelper::puedeAccederAMonto($value, $ciclo)) {
                                             $cicloMinimo = \App\Helpers\CicloHelper::getCicloPorMonto($value);
@@ -369,15 +368,16 @@ class PrestamoResource extends Resource
                         ])
                         ->disabled(fn() => !$puedeEditarCampos)
                         ->afterStateUpdated(function ($state, callable $set, callable $get, $record) {
-                            if (!$state || !$record) return;
-                            
+                            if (!$state || !$record)
+                                return;
+
                             $monto = floatval($state);
                             $tasaInteres = $record->prestamo->tasa_interes ?? 17;
                             $numCuotas = $record->prestamo->cantidad_cuotas ?? 1;
-                            
+
                             // Calcular seguro según el monto exacto y tabla oficial
                             $montoInt = (int) $monto;
-                            
+
                             if ($montoInt === 400) {
                                 $seguro = 7;  // Ciclo I
                             } elseif ($montoInt === 500 || $montoInt === 600) {
@@ -390,27 +390,27 @@ class PrestamoResource extends Resource
                                 // Fallback para montos no estándar
                                 $seguro = 7;
                             }
-                            
+
                             // Calcular interés
                             $interes = $monto * ($tasaInteres / 100);
-                            
+
                             // Calcular monto total a devolver individual
                             $montoDevolver = $monto + $interes + $seguro;
-                            
+
                             // Calcular cuota individual
                             $cuotaIndividual = $montoDevolver / $numCuotas;
-                            
+
                             // Actualizar campos individuales con valores numéricos exactos
                             $set('seguro', round($seguro, 2));
                             $set('interes', round($interes, 2));
                             $set('monto_devolver_individual', round($montoDevolver, 2));
                             $set('monto_cuota_prestamo_individual', round($cuotaIndividual, 2));
-                            
+
                             // Recalcular totales inmediatamente
                             $allItems = $get('../../prestamo_individual') ?? [];
                             $montoTotalPrestado = 0;
                             $montoTotalDevolver = 0;
-                            
+
                             foreach ($allItems as $index => $item) {
                                 if (isset($item['id']) && $item['id'] == $record->id) {
                                     // Usar los valores actualizados para este item
@@ -422,7 +422,7 @@ class PrestamoResource extends Resource
                                     $montoTotalDevolver += floatval($item['monto_devolver_individual'] ?? 0);
                                 }
                             }
-                            
+
                             // Actualizar los campos totales con valores numéricos exactos
                             $set('../../monto_prestado_total', round($montoTotalPrestado, 2));
                             $set('../../monto_devolver', round($montoTotalDevolver, 2));
@@ -431,40 +431,40 @@ class PrestamoResource extends Resource
                         ->label('Seguro')
                         ->prefix('S/.')
                         ->disabled()
-                        ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
+                        ->formatStateUsing(fn($state) => number_format((float) $state, 2)),
                     TextInput::make('interes')
                         ->label('Interés')
                         ->prefix('S/.')
                         ->disabled()
-                        ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
+                        ->formatStateUsing(fn($state) => number_format((float) $state, 2)),
                     TextInput::make('monto_devolver_individual')
                         ->label('Total a devolver')
                         ->prefix('S/.')
                         ->disabled()
-                        ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
+                        ->formatStateUsing(fn($state) => number_format((float) $state, 2)),
                     TextInput::make('monto_cuota_prestamo_individual')
                         ->label('Cuota individual')
                         ->prefix('S/.')
                         ->disabled()
-                        ->formatStateUsing(fn ($state) => number_format((float)$state, 2)),
+                        ->formatStateUsing(fn($state) => number_format((float) $state, 2)),
                 ])
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
                     // Recalcular totales cuando cambie cualquier cosa en el repeater
                     $montoTotalPrestado = 0;
                     $montoTotalDevolver = 0;
-                    
+
                     if (is_array($state)) {
                         foreach ($state as $item) {
                             $montoTotalPrestado += floatval($item['monto_prestado_individual'] ?? 0);
                             $montoTotalDevolver += floatval($item['monto_devolver_individual'] ?? 0);
                         }
                     }
-                    
+
                     // Actualizar ambos campos con valores numéricos exactos
                     $set('monto_prestado_total', round($montoTotalPrestado, 2));
                     $set('monto_devolver', round($montoTotalDevolver, 2));
                 })
-                ->visible(fn (callable $get) => $get('id') !== null)
+                ->visible(fn(callable $get) => $get('id') !== null)
                 ->grid(2)
                 ->columnSpanFull()
                 ->columns(4),
@@ -477,20 +477,18 @@ class PrestamoResource extends Resource
                 ->required()
                 ->numeric()
                 ->readOnly()
-                ->live()
-                ->reactive()
-                ->formatStateUsing(fn ($state) => $state ? number_format((float)$state, 2, '.', '') : '0.00')
-                ->dehydrateStateUsing(fn ($state) => (float)str_replace(',', '', $state))
+                ->live()  // Optimizado: eliminado duplicate reactive()
+                ->formatStateUsing(fn($state) => $state ? number_format((float) $state, 2, '.', '') : '0.00')
+                ->dehydrateStateUsing(fn($state) => (float) str_replace(',', '', $state))
                 ->disabled(fn() => !$puedeEditarCampos),
 
             TextInput::make('monto_devolver')
                 ->label('Monto devolver')
                 ->prefix('S/.')
                 ->readOnly()
-                ->live()
-                ->reactive()
-                ->formatStateUsing(fn ($state) => $state ? number_format((float)$state, 2, '.', '') : '0.00')
-                ->dehydrateStateUsing(fn ($state) => (float)str_replace(',', '', $state))
+                ->live()  // Optimizado: eliminado duplicate reactive()
+                ->formatStateUsing(fn($state) => $state ? number_format((float) $state, 2, '.', '') : '0.00')
+                ->dehydrateStateUsing(fn($state) => (float) str_replace(',', '', $state))
                 ->extraInputAttributes(['id' => 'monto_devolver_field'])
                 ->disabled(fn() => !$puedeEditarCampos),
 
@@ -501,15 +499,15 @@ class PrestamoResource extends Resource
                 ])
                 ->default('semanal')
                 ->disabled()
-                ->dehydrateStateUsing(fn () => 'semanal')
+                ->dehydrateStateUsing(fn() => 'semanal')
                 ->helperText(' La frecuencia está fija en semanal para todos los préstamos'),
-                
+
 
             TextInput::make('cantidad_cuotas')
                 ->label('Cantidad de Cuotas')
                 ->default(4)
                 ->disabled()
-                ->dehydrateStateUsing(fn () => 4)
+                ->dehydrateStateUsing(fn() => 4)
                 ->helperText(' Fijo en 4 cuotas semanales para todos los préstamos'),
 
             // La fecha_prestamo siempre será la fecha actual y no editable
@@ -519,7 +517,7 @@ class PrestamoResource extends Resource
                 ->required()
                 ->disabled()
                 ->helperText('Fecha asignada automáticamente'),
-                
+
 
             // Campo Estado oculto - siempre se crea como Pendiente
             Forms\Components\Hidden::make('estado')->default('Pendiente'),
@@ -534,15 +532,15 @@ class PrestamoResource extends Resource
                         ->required()
                         ->placeholder('Seleccione la fecha de desembolso')
                         ->helperText('📅 Fecha en que se realizará el desembolso del préstamo')
-                        ->minDate(fn () => today())
-                        ->maxDate(fn () => today()->addDays(7))
+                        ->minDate(fn() => today())
+                        ->maxDate(fn() => today()->addDays(7))
                         ->rules([
                             function () {
                                 return function (string $attribute, $value, \Closure $fail) {
                                     // Convertir tanto la fecha de préstamo como la de desembolso a objetos Carbon
                                     $fechaDesembolso = \Carbon\Carbon::parse($value)->startOfDay();
                                     $fechaPrestamo = \Carbon\Carbon::parse(request()->input('data.fecha_prestamo'))->startOfDay();
-                                    
+
                                     // La fecha de desembolso debe ser igual o posterior a la fecha del préstamo
                                     if ($fechaDesembolso->lt($fechaPrestamo)) {
                                         $fail("La fecha de desembolso no puede ser anterior a la fecha del préstamo.");
@@ -609,17 +607,17 @@ class PrestamoResource extends Resource
     {
         $user = \Illuminate\Support\Facades\Auth::user();
         $record = request()->route('record');
-        
+
         // Si es un préstamo existente, verificar su estado y si es retanqueo
         if ($record) {
             $prestamo = \App\Models\Prestamo::find($record);
-            
+
             // Si el préstamo existe y NO está en estado Pendiente, no permitir ningún cambio
             if ($prestamo && $prestamo->estado !== 'Pendiente') {
                 // Retornar los datos originales sin cambios
                 return $prestamo->toArray();
             }
-            
+
             // NUEVA VALIDACIÓN: Si es un retanqueo, no permitir cambios desde este módulo
             if ($prestamo && $prestamo->es_retanqueo) {
                 \Filament\Notifications\Notification::make()
@@ -628,17 +626,17 @@ class PrestamoResource extends Resource
                     ->warning()
                     ->persistent()
                     ->send();
-                    
+
                 // Retornar los datos originales sin cambios
                 return $prestamo->toArray();
             }
         }
-        
+
         // Solo los jefes pueden modificar el estado (y solo si está en Pendiente y no es retanqueo)
         if (!($user && $user->roles->pluck('name')->intersect(['Jefe de operaciones', 'Jefe de creditos', 'super_admin'])->isNotEmpty())) {
             unset($data['estado']);
         }
-        
+
         // Los asesores solo pueden editar si el préstamo está en estado Pendiente y no es retanqueo
         if ($user && $user->roles->pluck('name')->contains('Asesor')) {
             if ($record) {
@@ -649,21 +647,21 @@ class PrestamoResource extends Resource
                 }
             }
         }
-        
+
         // Si hay cambios en prestamo_individual, recalcular totales
         if (isset($data['prestamo_individual']) && is_array($data['prestamo_individual'])) {
             $montoTotalPrestado = 0;
             $montoTotalDevolver = 0;
-            
+
             foreach ($data['prestamo_individual'] as $pi) {
                 $montoTotalPrestado += floatval($pi['monto_prestado_individual'] ?? 0);
                 $montoTotalDevolver += floatval($pi['monto_devolver_individual'] ?? 0);
             }
-            
+
             $data['monto_prestado_total'] = round($montoTotalPrestado, 2);
             $data['monto_devolver'] = round($montoTotalDevolver, 2);
         }
-        
+
         unset($data['nuevo_rol']);
         return $data;
     }
@@ -677,7 +675,7 @@ class PrestamoResource extends Resource
                 // Recalcular los montos totales basados en los préstamos individuales
                 $montoTotal = $prestamo->prestamoIndividual->sum('monto_prestado_individual');
                 $montoDevolver = $prestamo->prestamoIndividual->sum('monto_devolver_individual');
-                
+
                 if ($montoTotal > 0) {
                     $data['monto_prestado_total'] = $montoTotal;
                 }
@@ -686,7 +684,7 @@ class PrestamoResource extends Resource
                 }
             }
         }
-        
+
         return $data;
     }
 
@@ -705,7 +703,7 @@ class PrestamoResource extends Resource
                 ->searchable()
                 ->sortable()
                 ->wrap(),
-                
+
             TextColumn::make('monto_prestado_total')->label('Monto Prestado')->money('PEN')->sortable(),
             TextColumn::make('monto_devolver')->label('Monto a Devolver')->money('PEN')->sortable(),
             TextColumn::make('cantidad_cuotas')->label('N° Cuotas')->sortable(),
@@ -720,25 +718,29 @@ class PrestamoResource extends Resource
                 ->formatStateUsing(fn($state, $record) => $record->estado_visible)
                 ->badge()
                 ->color(fn(string $state) => match (strtolower($state)) {
-                    'pendiente' => 'warning',
-                    'aprobado' => 'info',
+                    'pendiente' => 'gray',
+                    'aprobado' => 'warning',
+                    'por firmar' => 'warning',
+                    'firmado' => 'info',
+                    'por desembolsar' => 'info',
+                    'desembolsado' => 'success',
                     'ejecutado' => 'success',
-                    'activo' => 'success',
-                    'parcialmente_retanqueado' => 'info',
-                    'parcialmente retanqueado' => 'info',
+                    'activo' => 'primary',
+                    'parcialmente_retanqueado' => 'warning',
+                    'parcialmente retanqueado' => 'warning',
                     'rechazado' => 'danger',
-                    'finalizado' => 'primary',
-                    default => 'warning',
+                    'finalizado' => 'success',
+                    default => 'gray',
                 })
                 ->sortable(),
-                
+
             TextColumn::make('titular_cuenta_desembolso')
                 ->label('Titular de Cuenta')
                 ->searchable()
                 ->wrap()
                 ->placeholder('No especificado')
                 ->toggleable(),
-                
+
             TextColumn::make('numero_cuenta_desembolso')
                 ->label('N° de Cuenta')
                 ->searchable()
@@ -757,8 +759,8 @@ class PrestamoResource extends Resource
                     $html = '<ul style="padding-left: 1em;">';
                     foreach ($detalles as $detalle) {
                         $nombre = $detalle->cliente->persona->nombre . ' ' . $detalle->cliente->persona->apellidos;
-                        $monto = number_format((float)$detalle->monto_prestado_individual, 2);
-                        $devolver = number_format((float)$detalle->monto_devolver_individual, 2);
+                        $monto = number_format((float) $detalle->monto_prestado_individual, 2);
+                        $devolver = number_format((float) $detalle->monto_devolver_individual, 2);
                         $html .= "<li><b>$nombre</b>: Prestado S/ $monto | A devolver S/ $devolver</li>";
                     }
                     $html .= '</ul>';
@@ -783,13 +785,18 @@ class PrestamoResource extends Resource
                         }
                         return $query;
                     }),
-                    
+
                 // Filtro por Estado (visible para todos los roles)
                 Tables\Filters\SelectFilter::make('estado')
                     ->label('Estado del Préstamo')
                     ->options([
                         'Pendiente' => 'Pendiente',
                         'Aprobado' => 'Aprobado',
+                        'Por Firmar' => 'Por Firmar',
+                        'Firmado' => 'Firmado',
+                        'Por Desembolsar' => 'Por Desembolsar',
+                        'Desembolsado' => 'Desembolsado',
+                        'Ejecutado' => 'Ejecutado',
                         'Activo' => 'Activo',
                         'Parcialmente_Retanqueado' => 'Parcialmente Retanqueado',
                         'Rechazado' => 'Rechazado',
@@ -801,7 +808,7 @@ class PrestamoResource extends Resource
                         }
                         return $query;
                     }),
-                
+
                 // Filtro por Asesor (visible solo para roles administrativos, NO para Asesor)
                 Tables\Filters\SelectFilter::make('asesor')
                     ->label('Asesor')
@@ -821,7 +828,7 @@ class PrestamoResource extends Resource
                         }
                         return $query;
                     })
-                    ->visible(fn () => request()->user() && !request()->user()->hasRole('Asesor')),
+                    ->visible(fn() => request()->user() && !request()->user()->hasRole('Asesor')),
             ])
             ->actions([
                 ActionGroup::make([
@@ -839,9 +846,9 @@ class PrestamoResource extends Resource
                         ->color('success')
                         ->requiresConfirmation()
                         ->modalHeading('¿Aprobar este préstamo?')
-                        ->modalDescription('Al aprobar el préstamo, se podrá descargar el contrato para las firmas.')
+                        ->modalDescription('Al aprobar el préstamo, pasará al estado "Por Firmar" para la firma del contrato.')
                         ->modalSubmitActionLabel('Sí, aprobar')
-                        ->action(function($record) {
+                        ->action(function ($record) {
                             // Refrescar el registro desde la base de datos
                             $record = $record->fresh();
 
@@ -879,7 +886,7 @@ class PrestamoResource extends Resource
                         ->modalHeading('¿Ejecutar este préstamo?')
                         ->modalDescription('Al ejecutar el préstamo, se confirma que los contratos están firmados y se procederá con el desembolso.')
                         ->modalSubmitActionLabel('Sí, ejecutar')
-                        ->action(function($record) {
+                        ->action(function ($record) {
                             if (!$record->fecha_desembolso) {
                                 Notification::make()
                                     ->title('Error al ejecutar el préstamo')
@@ -906,7 +913,7 @@ class PrestamoResource extends Resource
                         ->modalHeading('¿Rechazar este préstamo?')
                         ->modalDescription('Esta acción no se puede deshacer. El préstamo quedará anulado.')
                         ->modalSubmitActionLabel('Sí, rechazar')
-                        ->action(function($record) {
+                        ->action(function ($record) {
                             if ($record->rechazar()) {
                                 Notification::make()
                                     ->title('Préstamo rechazado')
@@ -916,11 +923,143 @@ class PrestamoResource extends Resource
                         })
                         ->visible(fn($record) => !$record->es_retanqueo && $record->puedeSerRechazado()),
 
+                    // NUEVA ACCIÓN: Contrato Firmado (Por Firmar → Firmado)
+                    Tables\Actions\Action::make('firmar_contrato')
+                        ->label('Contrato Firmado')
+                        ->icon('heroicon-o-pencil-square')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Confirmar firma de contrato?')
+                        ->modalDescription('Confirme que el contrato ha sido firmado por todos los clientes. El préstamo pasará al estado "Firmado".')
+                        ->modalSubmitActionLabel('Sí, contrato firmado')
+                        ->action(function ($record) {
+                            if ($record->firmar()) {
+                                Notification::make()
+                                    ->title('Contrato firmado exitosamente')
+                                    ->body('El préstamo ahora está en estado "Firmado".')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Error al firmar contrato')
+                                    ->body('No se pudo firmar el contrato. Verifique el estado del préstamo.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeFirmar()),
+
+                    // NUEVA ACCIÓN: Marcar para Desembolsar (Firmado → Por Desembolsar)
+                    Tables\Actions\Action::make('marcar_para_desembolsar')
+                        ->label('Listo para Desembolsar')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('info')
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Marcar como listo para desembolsar?')
+                        ->modalDescription('El préstamo pasará al estado "Por Desembolsar" y estará listo para el desembolso.')
+                        ->modalSubmitActionLabel('Sí, marcar')
+                        ->action(function ($record) {
+                            if ($record->marcarParaDesembolsar()) {
+                                Notification::make()
+                                    ->title('Préstamo marcado para desembolsar')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Error')
+                                    ->body('No se pudo marcar el préstamo. Verifique el estado.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeMarcarParaDesembolsar()),
+
+
+                    // ACCIÓN: Reducir Monto (JC/JO en estado Por Firmar o Firmado)
+                    Tables\Actions\Action::make('reducir_monto')
+                        ->label('Reducir Monto')
+                        ->icon('heroicon-o-arrow-trending-down')
+                        ->color('warning')
+                        ->form([
+                            Forms\Components\TextInput::make('nuevo_monto')
+                                ->label('Nuevo Monto Total')
+                                ->prefix('S/')
+                                ->numeric()
+                                ->required()
+                                ->helperText('El monto será reducido proporcionalmente para todos los clientes')
+                                ->rule(fn($record) => 'lt:' . $record->monto_prestado_total),
+                            Forms\Components\Textarea::make('justificacion')
+                                ->label('Justificación')
+                                ->required()
+                                ->placeholder('Explique el motivo de la reducción del monto')
+                                ->rows(3),
+                        ])
+                        ->action(function ($record, array $data) {
+                            if ($record->reducirMonto($data['nuevo_monto'], $data['justificacion'])) {
+                                Notification::make()
+                                    ->title('Monto reducido exitosamente')
+                                    ->body("Monto anterior: S/ {$record->getOriginal('monto_prestado_total')} → Nuevo: S/ {$data['nuevo_monto']}")
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Error al reducir monto')
+                                    ->body('No se pudo reducir el monto. Verifique el estado del préstamo.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
+                        ->visible(
+                            fn($record) =>
+                            !$record->es_retanqueo &&
+                            $record->puedeReducirMonto() &&
+                            auth()->user()->can('reducirMonto', $record)
+                        ),
+
+                    // ACCIÓN: Desembolsar (JO en estado Por Desembolsar)
+                    Tables\Actions\Action::make('desembolsar')
+                        ->label('Desembolsar')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('success')
+                        ->form([
+                            Forms\Components\DatePicker::make('fecha_desembolso')
+                                ->label('Fecha de Desembolso')
+                                ->default(now())
+                                ->required()
+                                ->maxDate(now())
+                                ->helperText('Fecha en que se entregó el dinero'),
+                        ])
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Confirmar desembolso?')
+                        ->modalDescription('Al desembolsar se crearán automáticamente las cuotas del préstamo. Esta acción no se puede deshacer.')
+                        ->modalSubmitActionLabel('Sí, desembolsar')
+                        ->action(function ($record, array $data) {
+                            if ($record->desembolsar($data['fecha_desembolso'])) {
+                                Notification::make()
+                                    ->title('Préstamo desembolsado exitosamente')
+                                    ->body('Las cuotas han sido creadas automáticamente.')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Error al desembolsar')
+                                    ->body('No se pudo desembolsar el préstamo. Verifique el estado.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
+                        ->visible(
+                            fn($record) =>
+                            !$record->es_retanqueo &&
+                            $record->puedeDesembolsar() &&
+                            auth()->user()->can('desembolsar', $record)
+                        ),
+
                     Tables\Actions\Action::make('ir_a_retanqueo')
                         ->label('Gestionar en Retanqueos')
                         ->icon('heroicon-o-arrow-top-right-on-square')
                         ->color('warning')
-                        ->url(function($record) {
+                        ->url(function ($record) {
                             if ($record->retanqueoComoNuevo) {
                                 return route('filament.dashboard.resources.retanqueos.view', $record->retanqueoComoNuevo->id);
                             }
@@ -942,15 +1081,15 @@ class PrestamoResource extends Resource
                         ->icon('heroicon-o-printer')
                         ->color('success')
                         ->url(fn($record) => route('contratos.prestamo.imprimir', $record->id))
-                        ->visible(fn($record) => $record->grupo_id !== null && 
-                            in_array(strtolower($record->estado), ['aprobado', 'ejecutado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
+                        ->visible(fn($record) => $record->grupo_id !== null &&
+                            in_array(strtolower($record->estado), ['por firmar', 'firmado', 'por desembolsar', 'desembolsado', 'ejecutado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
 
                     Tables\Actions\Action::make('imprimir_cartilla')
                         ->label('Imprimir Cartilla')
                         ->icon('heroicon-o-identification')
                         ->color('info')
                         ->url(fn($record) => route('cartilla.prestamo.imprimir', $record->id))
-                        ->visible(fn($record) => $record->grupo_id !== null && 
+                        ->visible(fn($record) => $record->grupo_id !== null &&
                             in_array(strtolower($record->estado), ['ejecutado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
                 ]),
             ])
@@ -970,10 +1109,20 @@ class PrestamoResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = request()->user();
-        $query = parent::getEloquentQuery();
+
+        // Eager loading de relaciones para evitar N+1 queries
+        $query = parent::getEloquentQuery()
+            ->with([
+                'grupo:id,nombre_grupo,asesor_id,estado_grupo',
+                'prestamoIndividual:id,prestamo_id,cliente_id,monto_prestado_individual,monto_devolver_individual',
+                'prestamoIndividual.cliente:id,persona_id,ciclo',
+                'prestamoIndividual.cliente.persona:id,nombre,apellidos,DNI',
+                'cuotasGrupales:id,prestamo_id,numero_cuota,estado_pago',
+            ]);
 
         if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            // Usar CacheService para obtener el asesor (evita query repetida)
+            $asesor = \App\Services\CacheService::getAsesorByUserId($user->id);
             if ($asesor) {
                 $query->whereHas('grupo', fn($q) => $q->where('asesor_id', $asesor->id));
             }
@@ -992,14 +1141,15 @@ class PrestamoResource extends Resource
         if ($record->es_retanqueo) {
             return false;
         }
-        
+
         // Solo se pueden editar préstamos en estado Pendiente
         if ($record->estado !== 'Pendiente') {
             return false;
         }
-        
+
         $user = request()->user();
-        if (!$user) return false;
+        if (!$user)
+            return false;
 
         // Los asesores solo pueden editar sus propios préstamos
         if ($user->hasRole('Asesor')) {
@@ -1017,7 +1167,8 @@ class PrestamoResource extends Resource
     public static function canView($record): bool
     {
         $user = request()->user();
-        if (!$user) return false;
+        if (!$user)
+            return false;
 
         // Los asesores solo pueden ver sus propios préstamos
         if ($user->hasRole('Asesor')) {
@@ -1044,7 +1195,7 @@ class PrestamoResource extends Resource
         if ($record->es_retanqueo) {
             return false;
         }
-        
+
         // Solo super_admin puede eliminar préstamos
         $user = request()->user();
         return $user && $user->hasRole('super_admin');

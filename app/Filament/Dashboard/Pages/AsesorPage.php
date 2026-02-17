@@ -12,7 +12,7 @@ use App\Models\CuotasGrupales;
 
 use App\Models\Asesor as AsesorModel;
 
-class AsesorPage  extends Page
+class AsesorPage extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static string $view = 'filament.dashboard.pages.asesor';
@@ -28,6 +28,13 @@ class AsesorPage  extends Page
 
         $clientesQuery = Cliente::query();
         $prestamosQuery = Prestamo::query();
+
+        // Cachear asesor al inicio para evitar queries repetidas
+        $asesor = null;
+        if ($user->hasRole('Asesor')) {
+            $asesor = AsesorModel::where('user_id', $user->id)->first();
+        }
+
         if ($desde) {
             $clientesQuery->whereDate('created_at', '>=', $desde);
         }
@@ -48,18 +55,17 @@ class AsesorPage  extends Page
 
 
 
-        if ($user->hasRole('Asesor')) {
-            $asesor = AsesorModel::where('user_id', $user->id)->first();
-            if ($asesor) {
-                $clientesQuery->where('asesor_id', $asesor->id);
-                $gruposQuery->whereHas('clientes', function ($q) use ($asesor) {
-                    $q->where('asesor_id', $asesor->id);
-                });
-                $prestamosQuery->whereHas('grupo.clientes', function ($q) use ($asesor) {
-                    $q->where('asesor_id', $asesor->id);
-                });
-            }
+
+        if ($asesor) {
+            $clientesQuery->where('asesor_id', $asesor->id);
+            $gruposQuery->whereHas('clientes', function ($q) use ($asesor) {
+                $q->where('asesor_id', $asesor->id);
+            });
+            $prestamosQuery->whereHas('grupo.clientes', function ($q) use ($asesor) {
+                $q->where('asesor_id', $asesor->id);
+            });
         }
+
 
 
         if ($desde) {
@@ -88,9 +94,15 @@ class AsesorPage  extends Page
         }
 
 
-        $cuotasVigentes = (clone $cuotasQuery)->where('estado_cuota_grupal', 'vigente')->count();
-        $cuotasEnMora = (clone $cuotasQuery)->where('estado_cuota_grupal', 'mora')->count();
-        $cuotasCanceladas = (clone $cuotasQuery)->where('estado_cuota_grupal', 'cancelada')->count();
+        // Optimización: una sola query para contar estados de cuotas
+        $cuotasEstados = (clone $cuotasQuery)
+            ->selectRaw('estado_cuota_grupal, COUNT(*) as total')
+            ->groupBy('estado_cuota_grupal')
+            ->pluck('total', 'estado_cuota_grupal');
+
+        $cuotasVigentes = $cuotasEstados['vigente'] ?? 0;
+        $cuotasEnMora = $cuotasEstados['mora'] ?? 0;
+        $cuotasCanceladas = $cuotasEstados['cancelada'] ?? 0;
 
 
         $cuotasConMora = (clone $cuotasQuery)->with('mora')
@@ -112,10 +124,16 @@ class AsesorPage  extends Page
             $q->whereIn('prestamo_id', $prestamoIds);
         });
 
-        $totalPagosRegistrados = $pagosQuery->count();
-        $pagosAprobados = (clone $pagosQuery)->where('estado_pago', 'Aprobado')->count();
-        $pagosPendientes = (clone $pagosQuery)->where('estado_pago', 'Pendiente')->count();
-        $pagosRechazados = (clone $pagosQuery)->where('estado_pago', 'Rechazado')->count();
+        // Optimización: una sola query para contar estados de pagos
+        $pagosEstados = (clone $pagosQuery)
+            ->selectRaw('estado_pago, COUNT(*) as total')
+            ->groupBy('estado_pago')
+            ->pluck('total', 'estado_pago');
+
+        $totalPagosRegistrados = $pagosEstados->sum();
+        $pagosAprobados = $pagosEstados['Aprobado'] ?? 0;
+        $pagosPendientes = $pagosEstados['Pendiente'] ?? 0;
+        $pagosRechazados = $pagosEstados['Rechazado'] ?? 0;
 
 
         $cuotasEstadosBar = [
@@ -137,7 +155,7 @@ class AsesorPage  extends Page
             ->groupBy('fecha')
             ->orderBy('fecha')
             ->pluck('total', 'fecha')
-            ->map(function($monto) {
+            ->map(function ($monto) {
                 return (float) $monto;
             });
 
@@ -145,20 +163,17 @@ class AsesorPage  extends Page
 
         // Filtrar grupos en mora por asesor si corresponde
         $gruposEnMoraQuery = Grupo::query();
-        if ($user->hasRole('Asesor')) {
-            $asesor = AsesorModel::where('user_id', $user->id)->first();
-            if ($asesor) {
-                $gruposEnMoraQuery->whereHas('clientes', function ($q) use ($asesor) {
-                    $q->where('asesor_id', $asesor->id);
-                });
-            }
+        if ($asesor) {
+            $gruposEnMoraQuery->whereHas('clientes', function ($q) use ($asesor) {
+                $q->where('asesor_id', $asesor->id);
+            });
         }
         $gruposEnMoraQuery = $gruposEnMoraQuery->with([
             'clientes',
-            'prestamos' => function($query) {
+            'prestamos' => function ($query) {
                 $query->orderByDesc('id');
             },
-            'prestamos.cuotasGrupales' => function($query) use ($desde, $hasta) {
+            'prestamos.cuotasGrupales' => function ($query) use ($desde, $hasta) {
                 if ($desde) {
                     $query->whereDate('fecha_vencimiento', '>=', $desde);
                 }
@@ -169,10 +184,10 @@ class AsesorPage  extends Page
             'prestamos.cuotasGrupales.mora'
         ]);
 
-        $gruposEnMora = $gruposEnMoraQuery->get()->filter(function($grupo) use ($desde, $hasta) {
+        $gruposEnMora = $gruposEnMoraQuery->get()->filter(function ($grupo) use ($desde, $hasta) {
             $prestamoPrincipal = $grupo->prestamos->first();
             if ($prestamoPrincipal) {
-                $tieneCuotaEnMora = $prestamoPrincipal->cuotasGrupales->contains(function($cuota) use ($desde, $hasta) {
+                $tieneCuotaEnMora = $prestamoPrincipal->cuotasGrupales->contains(function ($cuota) use ($desde, $hasta) {
                     if ($cuota->estado_cuota_grupal !== 'mora') {
                         return false;
                     }
@@ -187,7 +202,7 @@ class AsesorPage  extends Page
                 return $tieneCuotaEnMora;
             }
             return false;
-        })->map(function($grupo) use ($desde, $hasta) {
+        })->map(function ($grupo) use ($desde, $hasta) {
             $numeroIntegrantes = $grupo->clientes->count();
             $prestamoPrincipal = $grupo->prestamos->first();
             $montoMoraGrupo = 0;
@@ -213,21 +228,24 @@ class AsesorPage  extends Page
                 'estado' => 'En mora',
                 'monto_mora' => $montoMoraGrupo,
             ];
-        })->filter(function($grupo) {
+        })->filter(function ($grupo) {
             return $grupo['monto_mora'] > 0;
         })->sortByDesc('monto_mora');
 
 
-        $moraPorGrupo = $gruposQueryBase->with(['prestamos.cuotasGrupales' => function($query) use ($desde, $hasta) {
+        $moraPorGrupo = $gruposQueryBase->with([
+            'prestamos.cuotasGrupales' => function ($query) use ($desde, $hasta) {
                 if ($desde) {
                     $query->whereDate('fecha_vencimiento', '>=', $desde);
                 }
                 if ($hasta) {
                     $query->whereDate('fecha_vencimiento', '<=', $hasta);
                 }
-            }, 'prestamos.cuotasGrupales.mora'])
+            },
+            'prestamos.cuotasGrupales.mora'
+        ])
             ->get()
-            ->mapWithKeys(function($grupo) use ($desde, $hasta) {
+            ->mapWithKeys(function ($grupo) use ($desde, $hasta) {
                 $mora = 0;
                 foreach ($grupo->prestamos as $prestamo) {
                     foreach ($prestamo->cuotasGrupales as $cuota) {
@@ -249,10 +267,10 @@ class AsesorPage  extends Page
                 }
                 return [$grupo->nombre_grupo => $mora];
             })
-            ->filter(function($mora) {
+            ->filter(function ($mora) {
                 return $mora > 0;
             })
-            ->sortByDesc(function($value) {
+            ->sortByDesc(function ($value) {
                 return $value;
             })
             ->take(10);

@@ -9,40 +9,53 @@ use App\Models\Asesor;
 use App\Models\Mora;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class NotificationService
 {
     /**
-     * Obtiene todas las notificaciones para el usuario actual
+     * Obtiene todas las notificaciones para el usuario actual (con cache)
      */
     public function getNotifications()
     {
         $user = Auth::user();
+
+        if (!$user) {
+            Log::debug('NotificationService: Usuario no autenticado');
+            return [];
+        }
+
+        return Cache::remember(
+            'ec_notifications_user_' . $user->id,
+            60, // 1 minuto de cache
+            function () use ($user) {
+                Log::debug('NotificationService: Cargando notificaciones (cache miss)', [
+                    'user_id' => $user->id,
+                ]);
+                return $this->loadNotifications($user);
+            }
+        );
+    }
+
+    /**
+     * Carga notificaciones sin cache (método interno)
+     */
+    private function loadNotifications($user)
+    {
         $notifications = [];
 
         try {
-            if (!$user) {
-                Log::warning('NotificationService: Usuario no autenticado');
-                return $notifications;
-            }
-
-            Log::info('NotificationService: Cargando notificaciones para usuario', [
-                'user_id' => $user->id,
-                'user_name' => $user->name,
-                'user_roles' => $user->roles ? $user->roles->pluck('name')->toArray() : []
-            ]);
-
             if ($user && $user->hasRole('Asesor')) {
                 $asesorNotifications = $this->getAsesorNotifications($user);
                 $notifications = array_merge($notifications, $asesorNotifications);
-                Log::info('NotificationService: Notificaciones de asesor cargadas', ['count' => count($asesorNotifications)]);
+                Log::debug('NotificationService: Notificaciones de asesor cargadas', ['count' => count($asesorNotifications)]);
             }
 
             if ($user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
                 $supervisorNotifications = $this->getSupervisorNotifications($user);
                 $notifications = array_merge($notifications, $supervisorNotifications);
-                Log::info('NotificationService: Notificaciones de supervisor cargadas', ['count' => count($supervisorNotifications)]);
+                Log::debug('NotificationService: Notificaciones de supervisor cargadas', ['count' => count($supervisorNotifications)]);
             }
 
             // Ordenar por fecha más reciente
@@ -50,8 +63,8 @@ class NotificationService
                 return $b['created_at']->timestamp - $a['created_at']->timestamp;
             });
 
-            Log::info('NotificationService: Total de notificaciones', ['total' => count($notifications)]);
-            
+            Log::debug('NotificationService: Total de notificaciones', ['total' => count($notifications)]);
+
         } catch (\Exception $e) {
             Log::error('NotificationService: Error al obtener notificaciones', [
                 'error' => $e->getMessage(),
@@ -76,12 +89,13 @@ class NotificationService
         }
 
         // Préstamos aprobados o rechazados del asesor
-        $prestamosRespondidos = Prestamo::whereHas('grupo', function ($query) use ($asesor) {
-            $query->where('asesor_id', $asesor->id);
-        })
-        ->whereIn('estado', ['Aprobado', 'Rechazado'])
-        ->where('updated_at', '>=', Carbon::now()->subDays(7)) // Últimos 7 días
-        ->get();
+        $prestamosRespondidos = Prestamo::with(['grupo.asesor.persona'])
+            ->whereHas('grupo', function ($query) use ($asesor) {
+                $query->where('asesor_id', $asesor->id);
+            })
+            ->whereIn('estado', ['Aprobado', 'Rechazado'])
+            ->where('updated_at', '>=', Carbon::now()->subDays(7)) // Últimos 7 días
+            ->get();
 
         foreach ($prestamosRespondidos as $prestamo) {
             $notifications[] = [
@@ -124,7 +138,7 @@ class NotificationService
                 'color' => 'success',
                 'created_at' => Carbon::now(),
             ];
-            
+
             $notifications[] = [
                 'id' => 'test_notification_2',
                 'type' => 'test',
@@ -144,13 +158,13 @@ class NotificationService
             'count' => $prestamosPendientes->count(),
             'estados_buscados' => $estadosPendientes
         ]);
-        
+
         foreach ($prestamosPendientes as $prestamo) {
             $notifications[] = [
                 'id' => 'prestamo_pendiente_' . $prestamo->id,
                 'type' => 'prestamo_pendiente',
                 'title' => 'Préstamo pendiente de aprobación',
-                'description' => "Préstamo #{$prestamo->id} por S/ " . number_format((float)$prestamo->monto_prestado_total, 2),
+                'description' => "Préstamo #{$prestamo->id} por S/ " . number_format((float) $prestamo->monto_prestado_total, 2),
                 'url' => "/dashboard/prestamos/{$prestamo->id}/edit",
                 'icon' => '⏳',
                 'color' => 'warning',
@@ -160,13 +174,13 @@ class NotificationService
 
         // Pagos pendientes de validación
         $pagosPendientes = Pago::where('estado_pago', 'pendiente')->get();
-        
+
         foreach ($pagosPendientes as $pago) {
             $notifications[] = [
                 'id' => 'pago_pendiente_' . $pago->id,
                 'type' => 'pago_pendiente',
                 'title' => 'Pago pendiente de validación',
-                'description' => "Pago de S/ " . number_format((float)$pago->monto_pago, 2) . " pendiente",
+                'description' => "Pago de S/ " . number_format((float) $pago->monto_pago, 2) . " pendiente",
                 'url' => "/dashboard/pagos/{$pago->id}/edit",
                 'icon' => '💰',
                 'color' => 'info',
@@ -176,7 +190,7 @@ class NotificationService
 
         // Grupos/moras pendientes
         $morasPendientes = $this->getMorasPendientes();
-        
+
         foreach ($morasPendientes as $mora) {
             $notifications[] = [
                 'id' => 'mora_pendiente_' . $mora['id'],
@@ -199,7 +213,7 @@ class NotificationService
     private function getMorasPendientes()
     {
         $morasPendientes = [];
-        
+
         // Obtener moras activas (pendientes)
         $moras = Mora::where('estado_mora', 'pendiente')
             ->with(['cuotaGrupal.prestamo.grupo'])
@@ -209,7 +223,7 @@ class NotificationService
             if ($mora->cuotaGrupal && $mora->cuotaGrupal->prestamo && $mora->cuotaGrupal->prestamo->grupo) {
                 $grupo = $mora->cuotaGrupal->prestamo->grupo;
                 $diasAtraso = $mora->dias_atraso;
-                
+
                 $morasPendientes[] = [
                     'id' => $mora->id,
                     'grupo_id' => $grupo->id,
@@ -254,5 +268,15 @@ class NotificationService
             default:
                 return "/dashboard";
         }
+    }
+
+    /**
+     * Invalida el cache de notificaciones de un usuario
+     * Llamar cuando se crea/actualiza un préstamo, pago o mora
+     */
+    public static function invalidateNotificationsCache(int $userId): void
+    {
+        Cache::forget('ec_notifications_user_' . $userId);
+        Log::debug("NotificationService: Invalidated notifications cache for user {$userId}");
     }
 }

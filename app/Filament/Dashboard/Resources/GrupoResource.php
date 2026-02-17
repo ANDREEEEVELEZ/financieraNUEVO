@@ -25,7 +25,7 @@ class GrupoResource extends Resource
     protected static ?string $model = Grupo::class;
 
 
-protected static ?string $navigationIcon = 'heroicon-o-user-group';
+    protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
 
 
@@ -52,19 +52,19 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             })
                             ->searchable()
                             ->required()
-                            ->reactive()
-                            ->visible(fn () => $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones']))
-                            ->disabled(fn () => $isInactivo),
+                            ->live(onBlur: true)  // Optimizado: solo actualiza al salir del campo
+                            ->visible(fn() => $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                            ->disabled(fn() => $isInactivo),
                         Forms\Components\TextInput::make('nombre_grupo')
                             ->maxLength(255)
                             ->prefixIcon('heroicon-o-tag')
                             ->required()
-                            ->disabled(fn () => $isInactivo),
+                            ->disabled(fn() => $isInactivo),
                         Forms\Components\DatePicker::make('fecha_registro')
                             ->required()
                             ->prefixIcon('heroicon-o-calendar')
                             ->default(now()->format('Y-m-d'))
-                            ->disabled(fn () => $isInactivo),
+                            ->disabled(fn() => $isInactivo),
                         Forms\Components\Select::make('calificacion_grupo')
                             ->prefixIcon('heroicon-o-star')
                             ->options([
@@ -81,7 +81,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             ])
                             ->native(false)
                             ->rules(['numeric', 'between:1,10'])
-                            ->disabled(fn () => $isInactivo),
+                            ->disabled(fn() => $isInactivo),
                         Forms\Components\TextInput::make('estado_grupo')
                             ->prefixIcon('heroicon-o-check-circle')
                             ->default('ACTIVO')
@@ -114,7 +114,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                             ->with(['persona'])
                                                             ->whereDoesntHave('grupos', function ($query) use ($grupoActual) {
                                                                 $query->where('estado_grupo', 'Activo')
-                                                                      ->whereNull('grupo_cliente.fecha_salida');
+                                                                    ->whereNull('grupo_cliente.fecha_salida');
                                                                 // Si estamos editando, excluir el grupo actual del filtro
                                                                 if ($grupoActual) {
                                                                     $query->where('grupos.id', '!=', $grupoActual->id);
@@ -125,7 +125,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                             ->orderBy('personas.apellidos')
                                                             ->select('clientes.*')
                                                             ->get()
-                                                            ->mapWithKeys(function($cliente) {
+                                                            ->mapWithKeys(function ($cliente) {
                                                                 return [$cliente->id => " {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                                                             });
                                                     }
@@ -138,7 +138,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                             ->with(['persona'])
                                                             ->whereDoesntHave('grupos', function ($query) use ($grupoActual) {
                                                                 $query->where('estado_grupo', 'Activo')
-                                                                      ->whereNull('grupo_cliente.fecha_salida');
+                                                                    ->whereNull('grupo_cliente.fecha_salida');
                                                                 // Si estamos editando, excluir el grupo actual del filtro
                                                                 if ($grupoActual) {
                                                                     $query->where('grupos.id', '!=', $grupoActual->id);
@@ -149,7 +149,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                             ->orderBy('personas.apellidos')
                                                             ->select('clientes.*')
                                                             ->get()
-                                                            ->mapWithKeys(function($cliente) {
+                                                            ->mapWithKeys(function ($cliente) {
                                                                 return [$cliente->id => " {$cliente->persona->nombre} {$cliente->persona->apellidos} (DNI: {$cliente->persona->DNI})"];
                                                             });
                                                     }
@@ -157,25 +157,24 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                 }
                                                 return [];
                                             })
-                                            ->searchable()
                                             ->preload()
                                             ->required()
-                                            ->reactive()
+                                            ->live(onBlur: true)  // Optimizado: solo actualiza al confirmar selección
                                             ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                                // Limitar automáticamente a máximo 6 integrantes
-                                // Validación eliminada - Ya no hay límite de integrantes
-
-                                // Actualizar el contador
-                                $contador = is_array($state) ? count($state) : 0;
-                                $set('numero_integrantes', $contador);
-                            })
-                                            ->disabled(fn () => $isInactivo),
+                                                // Limitar automáticamente a máximo 6 integrantes
+                                                // Validación eliminada - Ya no hay límite de integrantes
+                                    
+                                                // Actualizar el contador
+                                                $contador = is_array($state) ? count($state) : 0;
+                                                $set('numero_integrantes', $contador);
+                                            })
+                                            ->disabled(fn() => $isInactivo),
                                         Forms\Components\TextInput::make('numero_integrantes')
                                             ->label('Numero de Integrantes')
                                             ->prefixIcon('heroicon-o-hashtag')
                                             ->disabled()
                                             ->dehydrated(false)
-                                            ->reactive()
+                                            ->live()  // Optimizado: removido duplicate reactive
                                             ->afterStateHydrated(function ($component, $state, $record) {
                                                 if ($record) {
                                                     $component->state($record->clientes()->count());
@@ -197,7 +196,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                                     ->orderBy('personas.apellidos')
                                                     ->select('clientes.*')
                                                     ->get()
-                                                    ->mapWithKeys(function($cliente) {
+                                                    ->mapWithKeys(function ($cliente) {
                                                         return [$cliente->id => '👑 ' . $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . ' (DNI: ' . $cliente->persona->DNI . ')'];
                                                     })
                                                     ->toArray();
@@ -205,7 +204,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                             ->required()
                                             ->searchable()
                                             ->visible(fn(callable $get) => !empty($get('clientes')))
-                                            ->disabled(fn () => $isInactivo),
+                                            ->disabled(fn() => $isInactivo),
                                         Forms\Components\Placeholder::make('info_lider')
                                             ->label('Información del Líder')
                                             ->content('👑 El líder grupal será el responsable principal del grupo y aparecerá destacado en las listas.')
@@ -219,7 +218,8 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                             ->extraAttributes(['class' => 'text-blue-600 font-medium', 'style' => 'white-space: pre-line;']),
                     ])
                     ->collapsible()
-                    ->collapsed(false),
+                    ->collapsed(false)
+                    ->persistCollapsed(),  // Optimizado: recuerda estado del usuario
                 Forms\Components\Section::make('Restricciones y Ex-integrantes')
                     ->schema([
                         Forms\Components\Placeholder::make('restriccion_prestamos')
@@ -230,23 +230,24 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                                 }
                                 return '✅ Este grupo no tiene préstamos activos. Se pueden realizar cambios en los integrantes usando las acciones de la tabla.';
                             })
-                            ->visible(fn ($record) => $record !== null)
+                            ->visible(fn($record) => $record !== null)
                             ->extraAttributes(['class' => 'font-semibold']),
                         Forms\Components\Placeholder::make('ex_integrantes_info')
                             ->label('Ex-integrantes')
                             ->content(function ($record) {
-                                if (!$record) return 'Ninguno';
+                                if (!$record)
+                                    return 'Ninguno';
                                 $exIntegrantes = $record->exIntegrantes;
                                 if ($exIntegrantes->isEmpty()) {
                                     return 'Ninguno';
                                 }
-                                return $exIntegrantes->map(function($cliente) {
+                                return $exIntegrantes->map(function ($cliente) {
                                     $fechaSalida = $cliente->pivot->fecha_salida ?
                                         ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
                                     return '• ' . $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
                                 })->implode("\n");
                             })
-                            ->visible(fn ($record) => $record !== null)
+                            ->visible(fn($record) => $record !== null)
                             ->extraAttributes(['style' => 'white-space: pre-line;']),
                     ]),
             ]);
@@ -274,24 +275,24 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                 ->tooltip(fn($record) => $record->integrantes_nombres),
             Tables\Columns\TextColumn::make('lider_grupal')
                 ->label('Líder Grupal')
-                ->getStateUsing(function($record) {
+                ->getStateUsing(function ($record) {
                     $lider = $record->clientes()->wherePivot('rol', 'Líder Grupal')->with('persona')->first();
                     return $lider ? ($lider->persona->nombre . ' ' . $lider->persona->apellidos) : '-';
                 }),
             Tables\Columns\TextColumn::make('ex_integrantes')
                 ->label('Ex-integrantes')
-                ->getStateUsing(function($record) {
+                ->getStateUsing(function ($record) {
                     $count = $record->exIntegrantes()->count();
                     return $count > 0 ? $count . ' ex-integrantes' : '-';
                 })
                 ->badge()
                 ->color(fn($state) => $state === '-' ? 'gray' : 'warning')
-                ->tooltip(function($record) {
+                ->tooltip(function ($record) {
                     $exIntegrantes = $record->exIntegrantes()->with('persona')->get();
                     if ($exIntegrantes->isEmpty()) {
                         return 'No hay ex-integrantes';
                     }
-                    return $exIntegrantes->map(function($cliente) {
+                    return $exIntegrantes->map(function ($cliente) {
                         $fechaSalida = $cliente->pivot->fecha_salida ?
                             ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
                         return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
@@ -305,7 +306,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                 ->falseIcon('heroicon-o-lock-open')
                 ->trueColor('danger')
                 ->falseColor('success')
-                ->tooltip(function($record) {
+                ->tooltip(function ($record) {
                     return $record->tienePrestamosActivos() ?
                         'Grupo con préstamos activos - No se pueden modificar integrantes' :
                         'Grupo sin préstamos activos - Se pueden modificar integrantes';
@@ -317,7 +318,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
         if ($user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
             $columns[] = Tables\Columns\TextColumn::make('asesor.persona.nombre')
                 ->label('Asesor')
-                ->formatStateUsing(fn ($record) =>
+                ->formatStateUsing(fn($record) =>
                     $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-')
                 ->sortable()
                 ->searchable();
@@ -351,7 +352,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                         }
                         return $query;
                     })
-                    ->visible(fn () => request()->user() && !request()->user()->hasRole('Asesor')),
+                    ->visible(fn() => request()->user() && !request()->user()->hasRole('Asesor')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
@@ -400,7 +401,7 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
                     Tables\Actions\BulkAction::make('cambiar_asesor')
                         ->label('Cambiar Asesor')
                         ->icon('heroicon-o-user')
-                        ->visible(fn () => (request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones'])))
+                        ->visible(fn() => (request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones'])))
                         ->form([
                             Forms\Components\Select::make('asesor_id')
                                 ->label('Nuevo Asesor')
@@ -440,21 +441,24 @@ protected static ?string $navigationIcon = 'heroicon-o-user-group';
     {
         $user = request()->user();
 
-
-        $query = parent::getEloquentQuery();
-
+        // Eager loading de relaciones para evitar N+1 queries
+        $query = parent::getEloquentQuery()
+            ->with([
+                'asesor:id,persona_id,user_id,estado_asesor',
+                'asesor.persona:id,nombre,apellidos',
+                'clientes:id,persona_id,ciclo,estado_cliente',
+                'clientes.persona:id,nombre,apellidos,DNI',
+            ])
+            ->withCount('clientes');  // Para número de integrantes
 
         if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-
+            // Usar CacheService para obtener el asesor (evita query repetida)
+            $asesor = \App\Services\CacheService::getAsesorByUserId($user->id);
 
             if ($asesor) {
-                // Filtrar grupos directamente por asesor_id, no por clientes activos
-                // Esto permite ver todos los grupos del asesor, incluso los que no tienen integrantes
                 $query->where('asesor_id', $asesor->id);
             }
         }
-
 
         return $query->orderBy('created_at', 'desc');
     }

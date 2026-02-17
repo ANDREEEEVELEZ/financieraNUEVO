@@ -31,13 +31,13 @@ class RetanqueoResource extends Resource
     protected static ?string $model = Retanqueo::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
-    
+
     protected static ?string $navigationLabel = 'Retanqueos';
-    
+
     protected static ?string $modelLabel = 'Retanqueo';
-    
+
     protected static ?string $pluralModelLabel = 'Retanqueos';
-    
+
     protected static ?int $navigationSort = 4; // Después de Préstamos
 
     public static function form(Form $form): Form
@@ -69,7 +69,7 @@ class RetanqueoResource extends Resource
                         </div>'
                     ))
                     ->columnSpanFull(),
-                    
+
                 Section::make('Información de la Solicitud')
                     ->description('Detalles generales del retanqueo')
                     ->icon('heroicon-o-information-circle')
@@ -94,7 +94,7 @@ class RetanqueoResource extends Resource
                                                 ->where('estado', 'Aprobado')
                                                 ->whereHas('cuotasGrupales', function ($q) {
                                                     $q->where('estado_pago', '!=', 'pagado')
-                                                      ->where('saldo_pendiente', '>', 0);
+                                                        ->where('saldo_pendiente', '>', 0);
                                                 })
                                                 ->first();
 
@@ -196,7 +196,7 @@ class RetanqueoResource extends Resource
                                 ));
                             })
                     ])
-                    ->visible(fn (callable $get) => !empty($get('estado_prestamo_info')))
+                    ->visible(fn(callable $get) => !empty($get('estado_prestamo_info')))
                     ->collapsible(),
 
                 Section::make('Configuración de Participantes')
@@ -213,14 +213,14 @@ class RetanqueoResource extends Resource
                                             ->label('Seleccionar Cliente')
                                             ->options(function (callable $get) {
                                                 $user = request()->user();
-                                                
+
                                                 // Obtener el asesor actual
                                                 $asesorId = null;
                                                 if ($user->hasRole('Asesor')) {
                                                     $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
                                                     $asesorId = $asesor ? $asesor->id : null;
                                                 }
-                                                
+
                                                 if (!$asesorId && !$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
                                                     return []; // Solo asesores o admins pueden ver clientes
                                                 }
@@ -229,9 +229,9 @@ class RetanqueoResource extends Resource
                                                 $query = \App\Models\Cliente::with('persona')
                                                     ->whereHas('persona')
                                                     ->whereDoesntHave('grupos', function ($q) {
-                                                        $q->whereNull('grupo_cliente.fecha_salida') // Cliente activo en el grupo
-                                                          ->where('estado_grupo', 'Activo'); // Y el grupo está activo
-                                                    });
+                                                    $q->whereNull('grupo_cliente.fecha_salida') // Cliente activo en el grupo
+                                                        ->where('estado_grupo', 'Activo'); // Y el grupo está activo
+                                                });
 
                                                 // Filtrar por asesor si es necesario
                                                 if ($asesorId) {
@@ -244,7 +244,7 @@ class RetanqueoResource extends Resource
                                                             $cliente->id => $cliente->persona->nombre . ' ' . $cliente->persona->apellidos
                                                         ];
                                                     });
-                                                    
+
                                                 return $clientesDisponibles;
                                             })
                                             ->searchable()
@@ -256,7 +256,7 @@ class RetanqueoResource extends Resource
                                                         // Validar que no se duplique el cliente
                                                         $todosLosParticipantes = $get('../../participantes') ?? [];
                                                         $clientesSeleccionados = array_filter(array_column($todosLosParticipantes, 'cliente_id'));
-                                                        
+
                                                         if (count(array_keys($clientesSeleccionados, $value)) > 1) {
                                                             $cliente = \App\Models\Cliente::with('persona')->find($value);
                                                             $nombre = $cliente ? $cliente->persona->nombre . ' ' . $cliente->persona->apellidos : 'Cliente';
@@ -269,7 +269,7 @@ class RetanqueoResource extends Resource
                                                             ->whereNull('grupo_cliente.fecha_salida') // Cliente activo en el grupo
                                                             ->where('estado_grupo', 'Activo') // Y el grupo está activo
                                                             ->exists();
-                                                            
+
                                                         if ($enGrupoActivo) {
                                                             $cliente = \App\Models\Cliente::with('persona')->find($value);
                                                             $nombre = $cliente ? $cliente->persona->nombre . ' ' . $cliente->persona->apellidos : 'Cliente';
@@ -291,20 +291,20 @@ class RetanqueoResource extends Resource
                                                     }
                                                 }
                                             })
-                                            ->visible(fn (callable $get) => empty($get('nombre_completo'))), // Solo visible si no hay nombre (nuevo elemento)
+                                            ->visible(fn(callable $get) => empty($get('nombre_completo'))), // Solo visible si no hay nombre (nuevo elemento)
 
                                         Placeholder::make('nombre_completo')
                                             ->label('Cliente')
-                                            ->content(fn (callable $get) => $get('nombre_completo') ?? 'Seleccione un cliente')
-                                            ->visible(fn (callable $get) => !empty($get('nombre_completo'))), // Solo visible si hay nombre (elemento existente)
+                                            ->content(fn(callable $get) => $get('nombre_completo') ?? 'Seleccione un cliente')
+                                            ->visible(fn(callable $get) => !empty($get('nombre_completo'))), // Solo visible si hay nombre (elemento existente)
 
                                         Placeholder::make('ciclo')
                                             ->label('Ciclo')
-                                            ->content(fn (callable $get) => $get('ciclo') ?? 'I'),
+                                            ->content(fn(callable $get) => $get('ciclo') ?? 'I'),
 
                                         Placeholder::make('monto_maximo')
                                             ->label('Monto Máximo')
-                                            ->content(fn (callable $get) => 'S/ ' . number_format($get('monto_maximo') ?? 400, 0)),
+                                            ->content(fn(callable $get) => 'S/ ' . number_format($get('monto_maximo') ?? 400, 0)),
 
                                         Select::make('participacion_tipo')
                                             ->label('Participación')
@@ -334,32 +334,32 @@ class RetanqueoResource extends Resource
                                                 return \App\Helpers\CicloHelper::getMontosPermitidosParaSelect($cicloNormalizado);
                                             })
                                             ->reactive()
-                                            ->disabled(fn (callable $get) => $get('participacion_tipo') === 'no_retanquea')
-                                            ->required(fn (callable $get) => $get('participacion_tipo') !== 'no_retanquea') // Solo requerido si participa
+                                            ->disabled(fn(callable $get) => $get('participacion_tipo') === 'no_retanquea')
+                                            ->required(fn(callable $get) => $get('participacion_tipo') !== 'no_retanquea') // Solo requerido si participa
                                             ->placeholder('Selecciona un monto')
                                             ->rules([
                                                 function (callable $get) {
                                                     return function (string $attribute, $value, \Closure $fail) use ($get) {
                                                         $participacionTipo = $get('participacion_tipo');
-                                                        
+
                                                         // Si no retanquea, no validar el monto (puede ser 0 o vacío)
                                                         if ($participacionTipo === 'no_retanquea') {
                                                             return;
                                                         }
-                                                        
+
                                                         $ciclo = $get('ciclo');
                                                         if (!$ciclo) {
                                                             return;
                                                         }
-                                                        
+
                                                         $cicloNormalizado = \App\Helpers\CicloHelper::normalize($ciclo);
-                                                        
+
                                                         // Validar que el monto sea válido solo si participa
                                                         if (!\App\Helpers\CicloHelper::validarMontoExacto($value, $cicloNormalizado)) {
                                                             $fail('El monto seleccionado no es válido para el ciclo ' . $cicloNormalizado);
                                                             return;
                                                         }
-                                                        
+
                                                         // Validación adicional: verificar acceso por ciclo
                                                         if (!\App\Helpers\CicloHelper::puedeAccederAMonto($value, $cicloNormalizado)) {
                                                             $cicloMinimo = \App\Helpers\CicloHelper::getCicloPorMonto($value);
@@ -386,7 +386,7 @@ class RetanqueoResource extends Resource
                             ->collapsed(false)
                             ->cloneable(false)
                     ])
-                    ->visible(fn (callable $get) => !empty($get('participantes')))
+                    ->visible(fn(callable $get) => !empty($get('participantes')))
                     ->collapsible(),
 
                 Section::make('Resumen de Cálculos')
@@ -399,7 +399,7 @@ class RetanqueoResource extends Resource
                                 $participantes = $get('participantes') ?? [];
                                 $estadoInfo = $get('estado_prestamo_info');
                                 $prestamoId = $get('prestamo_id');
-                                
+
                                 if (empty($participantes) || (!$estadoInfo && !$prestamoId)) {
                                     return 'Configure los participantes para ver el resumen';
                                 }
@@ -423,7 +423,7 @@ class RetanqueoResource extends Resource
                                     if ($prestamoAntiguo) {
                                         $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()->where('saldo_pendiente', '>', 0)->count();
                                         $totalCobertura = 0;
-                                        
+
                                         foreach ($participantes as $participante) {
                                             if ($participante['participacion_tipo'] === 'retanquea') {
                                                 // Buscar el préstamo individual del participante
@@ -468,7 +468,7 @@ class RetanqueoResource extends Resource
                                 ));
                             })
                     ])
-                    ->visible(fn (callable $get) => !empty($get('participantes')))
+                    ->visible(fn(callable $get) => !empty($get('participantes')))
                     ->collapsible(),
 
                 // Campos de cuenta de desembolso
@@ -537,7 +537,7 @@ class RetanqueoResource extends Resource
                     })
                     ->searchable()
                     ->sortable()
-                    ->visible(fn () => !request()->user()->hasRole('Asesor')),
+                    ->visible(fn() => !request()->user()->hasRole('Asesor')),
 
                 TextColumn::make('monto_retanqueo')
                     ->label('Nuevo Préstamo')
@@ -566,7 +566,7 @@ class RetanqueoResource extends Resource
                         'primary' => 'ejecutado',
                         'danger' => 'rechazado',
                     ])
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'solicitud_pendiente' => 'Pendiente',
                         'aprobado' => 'Aprobado',
                         'ejecutado' => 'Ejecutado',
@@ -607,11 +607,11 @@ class RetanqueoResource extends Resource
                         return $query
                             ->when(
                                 $data['created_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
                             )
                             ->when(
                                 $data['created_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
                     }),
             ])
@@ -622,14 +622,14 @@ class RetanqueoResource extends Resource
 
                     Tables\Actions\EditAction::make()
                         ->icon('heroicon-m-pencil-square')
-                        ->visible(fn ($record) => $record->esSolicitudPendiente()),
+                        ->visible(fn($record) => $record->esSolicitudPendiente()),
 
                     Action::make('aprobar')
                         ->label('Aprobar')
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(fn ($record) => $record->esSolicitudPendiente() && 
-                                  request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn($record) => $record->esSolicitudPendiente() &&
+                            request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
                         ->requiresConfirmation()
                         ->modalHeading('Aprobar Retanqueo')
                         ->modalDescription('¿Está seguro de que desea aprobar este retanqueo?')
@@ -637,7 +637,7 @@ class RetanqueoResource extends Resource
                             try {
                                 $retanqueoService = new RetanqueoService();
                                 $retanqueoService->aprobarRetanqueo($record->id);
-                                
+
                                 Notification::make()
                                     ->title('Retanqueo Aprobado')
                                     ->body('El retanqueo ha sido aprobado exitosamente.')
@@ -656,8 +656,8 @@ class RetanqueoResource extends Resource
                         ->label('Rechazar')
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn ($record) => $record->esSolicitudPendiente() && 
-                                  request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn($record) => $record->esSolicitudPendiente() &&
+                            request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
                         ->requiresConfirmation()
                         ->modalHeading('Rechazar Retanqueo')
                         ->modalDescription('¿Está seguro de que desea rechazar este retanqueo?')
@@ -665,7 +665,7 @@ class RetanqueoResource extends Resource
                             try {
                                 $retanqueoService = new RetanqueoService();
                                 $retanqueoService->rechazarRetanqueo($record->id);
-                                
+
                                 Notification::make()
                                     ->title('Retanqueo Rechazado')
                                     ->body('El retanqueo ha sido rechazado.')
@@ -684,19 +684,19 @@ class RetanqueoResource extends Resource
                         ->label('Ejecutar')
                         ->icon('heroicon-m-play')
                         ->color('primary')
-                        ->visible(fn ($record) => $record->estaAprobado() && 
-                                  request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn($record) => $record->estaAprobado() &&
+                            request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
                         ->form(function ($record) {
                             // Verificar si ya existe un préstamo pendiente con datos
-                            $tienePrestamoPendiente = $record->prestamo_nuevo_id && 
+                            $tienePrestamoPendiente = $record->prestamo_nuevo_id &&
                                 \App\Models\Prestamo::where('id', $record->prestamo_nuevo_id)
                                     ->where('estado', 'Pendiente')
                                     ->exists();
 
                             if ($tienePrestamoPendiente) {
                                 $prestamoPendiente = \App\Models\Prestamo::find($record->prestamo_nuevo_id);
-                                $tieneDatosCuenta = $prestamoPendiente && 
-                                    !empty($prestamoPendiente->titular_cuenta_desembolso) && 
+                                $tieneDatosCuenta = $prestamoPendiente &&
+                                    !empty($prestamoPendiente->titular_cuenta_desembolso) &&
                                     !empty($prestamoPendiente->numero_cuenta_desembolso);
 
                                 if ($tieneDatosCuenta) {
@@ -746,7 +746,7 @@ class RetanqueoResource extends Resource
                         ->action(function ($record, array $data) {
                             try {
                                 $retanqueoService = new RetanqueoService();
-                                
+
                                 // SEGURO: Preparar datos de cuenta con validación
                                 $datosCuenta = [];
                                 if (!empty($data['titular_cuenta_desembolso'])) {
@@ -755,9 +755,9 @@ class RetanqueoResource extends Resource
                                 if (!empty($data['numero_cuenta_desembolso'])) {
                                     $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
                                 }
-                                
+
                                 $retanqueoService->ejecutarRetanqueo($record->id, $datosCuenta);
-                                
+
                                 Notification::make()
                                     ->title('Retanqueo Ejecutado')
                                     ->body('El retanqueo ha sido ejecutado exitosamente. Se ha creado el nuevo préstamo.')
@@ -776,7 +776,7 @@ class RetanqueoResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn () => request()->user()->hasAnyRole(['super_admin']))
+                        ->visible(fn() => request()->user()->hasAnyRole(['super_admin']))
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
@@ -785,7 +785,19 @@ class RetanqueoResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = request()->user();
-        return parent::getEloquentQuery()->visiblePorUsuario($user)->orderBy('created_at', 'desc');
+        return parent::getEloquentQuery()
+            ->with([
+                'prestamoAntiguo',
+                'prestamoAntiguo.grupo',
+                'prestamoAntiguo.grupo.asesor',
+                'prestamoAntiguo.grupo.asesor.persona',
+                'nuevoPrestamo',
+                'retanqueosIndividuales',
+                'retanqueosIndividuales.cliente',
+                'retanqueosIndividuales.cliente.persona',
+            ])
+            ->visiblePorUsuario($user)
+            ->orderBy('created_at', 'desc');
     }
 
     public static function getRelations(): array
@@ -820,7 +832,8 @@ class RetanqueoResource extends Resource
     public static function canEdit($record): bool
     {
         $user = request()->user();
-        if (!$user) return false;
+        if (!$user)
+            return false;
 
         // Solo se pueden editar solicitudes pendientes
         if (!$record->esSolicitudPendiente()) {
