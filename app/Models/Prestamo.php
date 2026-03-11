@@ -13,18 +13,29 @@ class Prestamo extends Model
 
     protected $table = 'prestamos';
 
-    // Constantes para estados del préstamo
+    // ─── Constantes para los 10 estados funcionales del préstamo ──────
     public const ESTADO_PENDIENTE = 'Pendiente';
     public const ESTADO_APROBADO = 'Aprobado';
-    public const ESTADO_POR_FIRMAR = 'Por Firmar';
     public const ESTADO_FIRMADO = 'Firmado';
-    public const ESTADO_POR_DESEMBOLSAR = 'Por Desembolsar';
-    public const ESTADO_DESEMBOLSADO = 'Desembolsado'; // Equivalente a Ejecutado/Activo inicial
-    public const ESTADO_EJECUTADO = 'Ejecutado';
     public const ESTADO_ACTIVO = 'Activo';
+    public const ESTADO_AL_DIA = 'Al_Día';
+    public const ESTADO_EN_MORA = 'En_Mora';
     public const ESTADO_RECHAZADO = 'Rechazado';
+    public const ESTADO_REFORMULADO = 'Reformulado';
     public const ESTADO_FINALIZADO = 'Finalizado';
-    public const ESTADO_PARCIALMENTE_RETANQUEADO = 'Parcialmente_Retanqueado';
+    public const ESTADO_CANCELADO = 'Cancelado';
+
+    // Aliases deprecados — mantener por compatibilidad con código existente
+    /** @deprecated Usar ESTADO_APROBADO — 'Por Firmar' ya no existe como estado */
+    public const ESTADO_POR_FIRMAR = 'Aprobado';
+    /** @deprecated Usar ESTADO_FIRMADO — 'Por Desembolsar' ya no existe como estado */
+    public const ESTADO_POR_DESEMBOLSAR = 'Firmado';
+    /** @deprecated Usar ESTADO_ACTIVO — 'Desembolsado' fue absorbido en Activo */
+    public const ESTADO_DESEMBOLSADO = 'Activo';
+    /** @deprecated Usar ESTADO_ACTIVO — 'Ejecutado' fue absorbido en Activo */
+    public const ESTADO_EJECUTADO = 'Activo';
+    /** @deprecated Usar campo boolean 'es_parcialmente_retanqueado' */
+    public const ESTADO_PARCIALMENTE_RETANQUEADO = 'Activo';
 
     protected $fillable = [
         'grupo_id',
@@ -416,51 +427,44 @@ class Prestamo extends Model
     }
 
     /**
-     * Método para aprobar un préstamo
+     * Aprueba un préstamo: Pendiente → Aprobado (solo JC).
      */
     public function aprobar()
     {
         try {
-            \Illuminate\Support\Facades\Log::info('Intentando aprobar préstamo', [
+            Log::info('Intentando aprobar préstamo', [
                 'prestamo_id' => $this->id,
                 'estado_actual' => $this->estado,
-                'estado_esperado' => self::ESTADO_PENDIENTE
             ]);
 
-            // Refrescar el modelo desde la base de datos
             $this->refresh();
 
-            // Verificar el estado actual (sin strtolower)
             if ($this->estado !== self::ESTADO_PENDIENTE) {
-                \Illuminate\Support\Facades\Log::warning('No se puede aprobar: Estado incorrecto', [
+                Log::warning('No se puede aprobar: estado incorrecto', [
                     'prestamo_id' => $this->id,
                     'estado_actual' => $this->estado,
-                    'estado_esperado' => self::ESTADO_PENDIENTE
                 ]);
                 return false;
             }
 
             DB::beginTransaction();
 
-            $this->estado = self::ESTADO_POR_FIRMAR;
+            $this->estado = self::ESTADO_APROBADO;
             $guardado = $this->save();
 
             if (!$guardado) {
                 throw new \Exception('Error al guardar el estado del préstamo');
             }
 
-            // Actualizar el estado del grupo asociado
             if ($this->grupo) {
                 $this->grupo->update(['estado_grupo' => 'Activo']);
             }
 
-            // Actualizar el estado de los préstamos individuales
-            $actualizados = $this->prestamoIndividual()->update(['estado' => self::ESTADO_APROBADO]);
+            $this->prestamoIndividual()->update(['estado' => self::ESTADO_APROBADO]);
 
-            \Illuminate\Support\Facades\Log::info('Préstamo aprobado exitosamente (Por Firmar)', [
+            Log::info('Préstamo aprobado exitosamente', [
                 'prestamo_id' => $this->id,
                 'nuevo_estado' => $this->estado,
-                'prestamos_individuales_actualizados' => $actualizados
             ]);
 
             DB::commit();
@@ -468,37 +472,12 @@ class Prestamo extends Model
 
         } catch (\Exception $e) {
             DB::rollBack();
-            \Illuminate\Support\Facades\Log::error('Error al aprobar préstamo', [
+            Log::error('Error al aprobar préstamo', [
                 'prestamo_id' => $this->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
             ]);
             return false;
         }
-    }
-
-    /**
-     * Método para ejecutar un préstamo
-     */
-    public function ejecutar()
-    {
-        if ($this->estado !== self::ESTADO_APROBADO || !$this->fecha_desembolso) {
-            return false;
-        }
-
-        $this->estado = self::ESTADO_EJECUTADO;
-        $this->save();
-
-        // Actualizar el estado de los préstamos individuales
-        $this->prestamoIndividual()->update(['estado' => self::ESTADO_EJECUTADO]);
-
-        // Crear las cuotas grupales si no existen
-        if ($this->cuotasGrupales()->count() === 0) {
-            // Aquí iría la lógica de creación de cuotas
-            // que ya debe existir en otro lugar del código
-        }
-
-        return true;
     }
 
     /**
@@ -526,11 +505,11 @@ class Prestamo extends Model
     }
 
     /**
-     * Método para firmar contrato (Por Firmar → Firmado)
+     * Firma el contrato: Aprobado → Firmado (solo Asesor).
      */
     public function firmar(): bool
     {
-        if ($this->estado !== self::ESTADO_POR_FIRMAR) {
+        if ($this->estado !== self::ESTADO_APROBADO) {
             return false;
         }
 
@@ -539,7 +518,6 @@ class Prestamo extends Model
             $this->estado = self::ESTADO_FIRMADO;
             $this->save();
 
-            // Actualizar préstamos individuales
             $this->prestamoIndividual()->update(['estado' => self::ESTADO_FIRMADO]);
 
             Log::info('Contrato firmado exitosamente', [
@@ -561,9 +539,9 @@ class Prestamo extends Model
     }
 
     /**
-     * Método para marcar como listo para desembolsar (Firmado → Por Desembolsar)
+     * Desembolsa un préstamo: Firmado → Activo (solo JO, atómico).
      */
-    public function marcarParaDesembolsar(): bool
+    public function desembolsar(?string $fechaDesembolso = null): bool
     {
         if ($this->estado !== self::ESTADO_FIRMADO) {
             return false;
@@ -571,50 +549,15 @@ class Prestamo extends Model
 
         DB::beginTransaction();
         try {
-            $this->estado = self::ESTADO_POR_DESEMBOLSAR;
+            $this->estado = self::ESTADO_ACTIVO;
+            $this->fecha_desembolso = $fechaDesembolso
+                ? \Carbon\Carbon::parse($fechaDesembolso)
+                : now();
             $this->save();
 
-            // Actualizar préstamos individuales
-            $this->prestamoIndividual()->update(['estado' => self::ESTADO_POR_DESEMBOLSAR]);
+            $this->prestamoIndividual()->update(['estado' => self::ESTADO_ACTIVO]);
 
-            Log::info('Préstamo marcado para desembolsar', [
-                'prestamo_id' => $this->id,
-            ]);
-
-            DB::commit();
-            return true;
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error al marcar para desembolsar', [
-                'prestamo_id' => $this->id,
-                'error' => $e->getMessage(),
-            ]);
-            return false;
-        }
-    }
-
-    /**
-     * Método para desembolsar un préstamo (Por Desembolsar → Desembolsado)
-     */
-    public function desembolsar(?string $fechaDesembolso = null): bool
-    {
-        if ($this->estado !== self::ESTADO_POR_DESEMBOLSAR) {
-            return false;
-        }
-
-        DB::beginTransaction();
-        try {
-            $this->estado = self::ESTADO_DESEMBOLSADO;
-            if ($fechaDesembolso) {
-                $this->fecha_desembolso = \Carbon\Carbon::parse($fechaDesembolso);
-            }
-            $this->save();
-
-            // Actualizar préstamos individuales
-            $this->prestamoIndividual()->update(['estado' => self::ESTADO_DESEMBOLSADO]);
-
-            Log::info('Préstamo desembolsado exitosamente', [
+            Log::info('Préstamo desembolsado y activado', [
                 'prestamo_id' => $this->id,
                 'fecha_desembolso' => $this->fecha_desembolso,
             ]);
@@ -630,6 +573,70 @@ class Prestamo extends Model
             ]);
             return false;
         }
+    }
+
+    // ─── Nuevos métodos de transición de estado ─────────────────────
+
+    /**
+     * Marca préstamo como Al Día: Activo/En_Mora → Al_Día (Sistema).
+     */
+    public function marcarAlDia(): bool
+    {
+        if (!in_array($this->estado, [self::ESTADO_ACTIVO, self::ESTADO_EN_MORA])) {
+            return false;
+        }
+        $this->estado = self::ESTADO_AL_DIA;
+        return $this->save();
+    }
+
+    /**
+     * Marca préstamo como En Mora: Activo/Al_Día → En_Mora (Sistema).
+     */
+    public function marcarEnMora(): bool
+    {
+        if (!in_array($this->estado, [self::ESTADO_ACTIVO, self::ESTADO_AL_DIA])) {
+            return false;
+        }
+        $this->estado = self::ESTADO_EN_MORA;
+        return $this->save();
+    }
+
+    /**
+     * Cancela un préstamo: Al_Día/En_Mora → Cancelado (solo JO).
+     */
+    public function cancelar(): bool
+    {
+        if (!in_array($this->estado, [self::ESTADO_AL_DIA, self::ESTADO_EN_MORA])) {
+            return false;
+        }
+        $this->estado = self::ESTADO_CANCELADO;
+        $this->prestamoIndividual()->update(['estado' => self::ESTADO_CANCELADO]);
+        return $this->save();
+    }
+
+    /**
+     * Reformula solicitud rechazada: Rechazado → Reformulado (solo Asesor).
+     */
+    public function reformular(): bool
+    {
+        if ($this->estado !== self::ESTADO_RECHAZADO) {
+            return false;
+        }
+        $this->estado = self::ESTADO_REFORMULADO;
+        return $this->save();
+    }
+
+    /**
+     * Reenvía solicitud reformulada: Reformulado → Pendiente (solo Asesor).
+     */
+    public function reenviar(): bool
+    {
+        if ($this->estado !== self::ESTADO_REFORMULADO) {
+            return false;
+        }
+        $this->estado = self::ESTADO_PENDIENTE;
+        $this->prestamoIndividual()->update(['estado' => self::ESTADO_PENDIENTE]);
+        return $this->save();
     }
 
     /**
@@ -693,16 +700,7 @@ class Prestamo extends Model
     }
 
     /**
-     * Verifica si el préstamo puede ser ejecutado (DEPRECATED - usar desembolsar)
-     */
-    public function puedeSerEjecutado(): bool
-    {
-        return $this->estado === self::ESTADO_APROBADO &&
-            $this->fecha_desembolso !== null;
-    }
-
-    /**
-     * Verifica si el préstamo puede ser aprobado
+     * Verifica si el préstamo puede ser aprobado (Pendiente → Aprobado).
      */
     public function puedeSerAprobado(): bool
     {
@@ -710,35 +708,43 @@ class Prestamo extends Model
     }
 
     /**
-     * Verifica si el préstamo puede ser firmado
+     * Verifica si el préstamo puede ser firmado (Aprobado → Firmado).
      */
     public function puedeFirmar(): bool
     {
-        return $this->estado === self::ESTADO_POR_FIRMAR;
+        return $this->estado === self::ESTADO_APROBADO;
     }
 
     /**
-     * Verifica si el préstamo puede ser marcado para desembolsar
+     * Verifica si el préstamo puede ser desembolsado (Firmado → Activo).
      */
-    public function puedeMarcarParaDesembolsar(): bool
+    public function puedeDesembolsar(): bool
     {
         return $this->estado === self::ESTADO_FIRMADO;
     }
 
     /**
-     * Verifica si el préstamo puede ser desembolsado
-     */
-    public function puedeDesembolsar(): bool
-    {
-        return $this->estado === self::ESTADO_POR_DESEMBOLSAR;
-    }
-
-    /**
-     * Verifica si se puede reducir el monto
+     * Verifica si se puede reducir el monto (solo en Aprobado o Firmado).
      */
     public function puedeReducirMonto(): bool
     {
-        return in_array($this->estado, [self::ESTADO_POR_FIRMAR, self::ESTADO_FIRMADO]);
+        return in_array($this->estado, [self::ESTADO_APROBADO, self::ESTADO_FIRMADO]);
+    }
+
+    /**
+     * Verifica si puede ser reformulado (Rechazado → Reformulado).
+     */
+    public function puedeReformular(): bool
+    {
+        return $this->estado === self::ESTADO_RECHAZADO;
+    }
+
+    /**
+     * Verifica si puede ser cancelado (Al_Día o En_Mora → Cancelado).
+     */
+    public function puedeCancelar(): bool
+    {
+        return in_array($this->estado, [self::ESTADO_AL_DIA, self::ESTADO_EN_MORA]);
     }
 
     /**
