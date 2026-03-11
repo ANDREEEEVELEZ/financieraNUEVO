@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
@@ -29,24 +30,22 @@ return new class extends Migration {
     /**
      * Reverse the migrations.
      *
-     * BUGFIX: dropIndex(['col']) genera nombres incorrectos para índices
-     * compuestos. Se especifican los nombres exactos que Laravel/MySQL crean
-     * automáticamente en up() con el formato: {tabla}_{columnas}_index.
+     * BUGFIX v2: Se usa DB::statement con "DROP INDEX IF EXISTS" de MySQL
+     * porque dropIndex() falla si el índice no existe en la BD.
+     * Esto puede ocurrir si el up() falló parcialmente en entornos previos.
      */
     public function down(): void
     {
-        Schema::table('retanqueos', function (Blueprint $table) {
-            $table->dropIndex('retanqueos_estado_retanqueo_index');
-            $table->dropIndex('retanqueos_fecha_aceptacion_index');
-            $table->dropIndex('retanqueos_prestamo_id_estado_retanqueo_index');
-            $table->dropIndex('retanqueos_created_at_index');
-        });
+        // Índices de tabla 'retanqueos'
+        DB::statement('ALTER TABLE `retanqueos` DROP INDEX IF EXISTS `retanqueos_estado_retanqueo_index`');
+        DB::statement('ALTER TABLE `retanqueos` DROP INDEX IF EXISTS `retanqueos_fecha_aceptacion_index`');
+        DB::statement('ALTER TABLE `retanqueos` DROP INDEX IF EXISTS `retanqueos_prestamo_id_estado_retanqueo_index`');
+        DB::statement('ALTER TABLE `retanqueos` DROP INDEX IF EXISTS `retanqueos_created_at_index`');
 
-        Schema::table('retanqueos_individual', function (Blueprint $table) {
-            $table->dropIndex('retanqueos_individual_participacion_tipo_index');
-            $table->dropIndex('retanqueos_individual_estado_retanqueo_individual_index');
-            $table->dropIndex('retanqueos_individual_retanqueo_id_participacion_tipo_index');
-            $table->dropIndex('retanqueos_individual_cliente_id_participacion_tipo_index');
-        });
+        // Índices de tabla 'retanqueos_individual'
+        DB::statement('ALTER TABLE `retanqueos_individual` DROP INDEX IF EXISTS `retanqueos_individual_participacion_tipo_index`');
+        DB::statement('ALTER TABLE `retanqueos_individual` DROP INDEX IF EXISTS `retanqueos_individual_estado_retanqueo_individual_index`');
+        DB::statement('ALTER TABLE `retanqueos_individual` DROP INDEX IF EXISTS `retanqueos_individual_retanqueo_id_participacion_tipo_index`');
+        DB::statement('ALTER TABLE `retanqueos_individual` DROP INDEX IF EXISTS `retanqueos_individual_cliente_id_participacion_tipo_index`');
     }
 };
