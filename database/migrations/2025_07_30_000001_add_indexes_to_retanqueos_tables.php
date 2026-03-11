@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -29,21 +28,25 @@ return new class extends Migration
 
     /**
      * Reverse the migrations.
+     *
+     * BUGFIX: dropIndex(['col']) genera nombres incorrectos para índices
+     * compuestos. Se especifican los nombres exactos que Laravel/MySQL crean
+     * automáticamente en up() con el formato: {tabla}_{columnas}_index.
      */
     public function down(): void
     {
         Schema::table('retanqueos', function (Blueprint $table) {
-            $table->dropIndex(['estado_retanqueo']);
-            $table->dropIndex(['fecha_aceptacion']);
-            $table->dropIndex(['prestamo_id', 'estado_retanqueo']);
-            $table->dropIndex(['created_at']);
+            $table->dropIndex('retanqueos_estado_retanqueo_index');
+            $table->dropIndex('retanqueos_fecha_aceptacion_index');
+            $table->dropIndex('retanqueos_prestamo_id_estado_retanqueo_index');
+            $table->dropIndex('retanqueos_created_at_index');
         });
 
         Schema::table('retanqueos_individual', function (Blueprint $table) {
-            $table->dropIndex(['participacion_tipo']);
-            $table->dropIndex(['estado_retanqueo_individual']);
-            $table->dropIndex(['retanqueo_id', 'participacion_tipo']);
-            $table->dropIndex(['cliente_id', 'participacion_tipo']);
+            $table->dropIndex('retanqueos_individual_participacion_tipo_index');
+            $table->dropIndex('retanqueos_individual_estado_retanqueo_individual_index');
+            $table->dropIndex('retanqueos_individual_retanqueo_id_participacion_tipo_index');
+            $table->dropIndex('retanqueos_individual_cliente_id_participacion_tipo_index');
         });
     }
 };
