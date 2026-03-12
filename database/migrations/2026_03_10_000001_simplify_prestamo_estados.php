@@ -69,7 +69,29 @@ return new class extends Migration {
 
     public function down(): void
     {
-        // Restaurar enum original con todos los estados legacy
+        // Paso 1: Expandir ENUM para incluir todos los estados posibles
+        // (nuevos + legacy) antes de migrar datos — evita error de valor inválido
+        DB::statement("
+            ALTER TABLE prestamos MODIFY COLUMN estado ENUM(
+                'Pendiente', 'Aprobado', 'Por Firmar', 'Firmado',
+                'Por Desembolsar', 'Desembolsado', 'Ejecutado',
+                'Activo', 'Al_Día', 'En_Mora', 'Rechazado', 'Reformulado',
+                'Finalizado', 'Cancelado', 'Parcialmente_Retanqueado'
+            ) NOT NULL DEFAULT 'Pendiente'
+        ");
+
+        // Paso 2: Revertir estados nuevos a sus equivalentes legacy
+        DB::table('prestamos')->where('estado', 'En_Mora')->update(['estado' => 'Activo']);
+        DB::table('prestamos')->where('estado', 'Al_Día')->update(['estado' => 'Activo']);
+        DB::table('prestamos')->where('estado', 'Reformulado')->update(['estado' => 'Rechazado']);
+        DB::table('prestamos')->where('estado', 'Cancelado')->update(['estado' => 'Finalizado']);
+
+        // Paso 3: Restaurar Parcialmente_Retanqueado desde el flag boolean
+        DB::table('prestamos')
+            ->where('es_parcialmente_retanqueado', true)
+            ->update(['estado' => 'Parcialmente_Retanqueado']);
+
+        // Paso 4: Restaurar ENUM legacy original
         DB::statement("
             ALTER TABLE prestamos MODIFY COLUMN estado ENUM(
                 'Pendiente', 'Aprobado', 'Por Firmar', 'Firmado',
@@ -79,14 +101,11 @@ return new class extends Migration {
             ) NOT NULL DEFAULT 'Pendiente'
         ");
 
-        // Restaurar Parcialmente_Retanqueado desde el flag
-        DB::table('prestamos')
-            ->where('es_parcialmente_retanqueado', true)
-            ->update(['estado' => 'Parcialmente_Retanqueado']);
-
-        // Remover columna boolean
-        Schema::table('prestamos', function (Blueprint $table) {
-            $table->dropColumn('es_parcialmente_retanqueado');
-        });
+        // Paso 5: Remover columna boolean (si existe)
+        if (Schema::hasColumn('prestamos', 'es_parcialmente_retanqueado')) {
+            Schema::table('prestamos', function (Blueprint $table) {
+                $table->dropColumn('es_parcialmente_retanqueado');
+            });
+        }
     }
 };
