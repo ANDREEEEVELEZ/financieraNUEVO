@@ -39,12 +39,10 @@ class ListPrestamo extends ListRecords
                         
                     Select::make('estado_prestamos')
                         ->label('Seleccionar Estado de Préstamos')
-                        ->options([
-                            'Aprobado' => 'Aprobado',
-                            'Activo' => 'Activo',
-                            'Parcialmente_Retanqueado' => 'Parcialmente Retanqueado',
-                            'Finalizado' => 'Finalizado',
-                        ])
+                        ->options(array_combine(
+                            Prestamo::ESTADOS,
+                            array_map(fn($e) => str_replace('_', ' ', $e), Prestamo::ESTADOS)
+                        ))
                         ->required()
                         ->placeholder('Seleccione el estado de los préstamos')
                         ->helperText('Se descargarán TODOS los contratos con el estado seleccionado en el rango de fechas'),

@@ -717,21 +717,7 @@ class PrestamoResource extends Resource
                 ->label('Estado')
                 ->formatStateUsing(fn($state, $record) => $record->estado_visible)
                 ->badge()
-                ->color(fn(string $state) => match (strtolower($state)) {
-                    'pendiente' => 'gray',
-                    'aprobado' => 'warning',
-                    'por firmar' => 'warning',
-                    'firmado' => 'info',
-                    'por desembolsar' => 'info',
-                    'desembolsado' => 'success',
-                    'ejecutado' => 'success',
-                    'activo' => 'primary',
-                    'parcialmente_retanqueado' => 'warning',
-                    'parcialmente retanqueado' => 'warning',
-                    'rechazado' => 'danger',
-                    'finalizado' => 'success',
-                    default => 'gray',
-                })
+                ->color(fn(string $state, $record) => $record->estado_badge_color)
                 ->sortable(),
 
             TextColumn::make('titular_cuenta_desembolso')
@@ -786,22 +772,13 @@ class PrestamoResource extends Resource
                         return $query;
                     }),
 
-                // Filtro por Estado (visible para todos los roles)
+                // Filtro por Estado — 10 estados funcionales
                 Tables\Filters\SelectFilter::make('estado')
                     ->label('Estado del Préstamo')
-                    ->options([
-                        'Pendiente' => 'Pendiente',
-                        'Aprobado' => 'Aprobado',
-                        'Por Firmar' => 'Por Firmar',
-                        'Firmado' => 'Firmado',
-                        'Por Desembolsar' => 'Por Desembolsar',
-                        'Desembolsado' => 'Desembolsado',
-                        'Ejecutado' => 'Ejecutado',
-                        'Activo' => 'Activo',
-                        'Parcialmente_Retanqueado' => 'Parcialmente Retanqueado',
-                        'Rechazado' => 'Rechazado',
-                        'Finalizado' => 'Finalizado',
-                    ])
+                    ->options(array_combine(
+                        Prestamo::ESTADOS,
+                        array_map(fn($e) => str_replace('_', ' ', $e), Prestamo::ESTADOS)
+                    ))
                     ->query(function (Builder $query, array $data) {
                         if (!empty($data['value'])) {
                             $query->where('estado', $data['value']);
@@ -846,7 +823,7 @@ class PrestamoResource extends Resource
                         ->color('success')
                         ->requiresConfirmation()
                         ->modalHeading('¿Aprobar este préstamo?')
-                        ->modalDescription('Al aprobar el préstamo, pasará al estado "Por Firmar" para la firma del contrato.')
+                        ->modalDescription('Al aprobar el préstamo, pasará al estado "Aprobado" y el asesor podrá proceder con la firma del contrato.')
                         ->modalSubmitActionLabel('Sí, aprobar')
                         ->action(function ($record) {
                             // Refrescar el registro desde la base de datos
@@ -875,34 +852,9 @@ class PrestamoResource extends Resource
                                     ->send();
                             }
                         })
-                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeSerAprobado()),
+                        ->visible(fn($record) => !$record->es_retanqueo && auth()->user()?->can('aprobar', $record)),
 
-                    // Ejecutar Préstamo (desde Aprobado)
-                    Tables\Actions\Action::make('ejecutar_prestamo')
-                        ->label('Ejecutar Préstamo')
-                        ->icon('heroicon-o-banknotes')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->modalHeading('¿Ejecutar este préstamo?')
-                        ->modalDescription('Al ejecutar el préstamo, se confirma que los contratos están firmados y se procederá con el desembolso.')
-                        ->modalSubmitActionLabel('Sí, ejecutar')
-                        ->action(function ($record) {
-                            if (!$record->fecha_desembolso) {
-                                Notification::make()
-                                    ->title('Error al ejecutar el préstamo')
-                                    ->body('Debe especificar la fecha de desembolso antes de ejecutar el préstamo.')
-                                    ->danger()
-                                    ->send();
-                                return;
-                            }
-                            if ($record->ejecutar()) {
-                                Notification::make()
-                                    ->title('Préstamo ejecutado correctamente')
-                                    ->success()
-                                    ->send();
-                            }
-                        })
-                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeSerEjecutado()),
+
 
                     // Rechazar Préstamo (desde Pendiente o Aprobado)
                     Tables\Actions\Action::make('rechazar_prestamo')
@@ -921,9 +873,9 @@ class PrestamoResource extends Resource
                                     ->send();
                             }
                         })
-                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeSerRechazado()),
+                        ->visible(fn($record) => !$record->es_retanqueo && auth()->user()?->can('rechazar', $record)),
 
-                    // NUEVA ACCIÓN: Contrato Firmado (Por Firmar → Firmado)
+                    // ACCIÓN: Contrato Firmado (Aprobado → Firmado)
                     Tables\Actions\Action::make('firmar_contrato')
                         ->label('Contrato Firmado')
                         ->icon('heroicon-o-pencil-square')
@@ -947,35 +899,10 @@ class PrestamoResource extends Resource
                                     ->send();
                             }
                         })
-                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeFirmar()),
-
-                    // NUEVA ACCIÓN: Marcar para Desembolsar (Firmado → Por Desembolsar)
-                    Tables\Actions\Action::make('marcar_para_desembolsar')
-                        ->label('Listo para Desembolsar')
-                        ->icon('heroicon-o-check-badge')
-                        ->color('info')
-                        ->requiresConfirmation()
-                        ->modalHeading('¿Marcar como listo para desembolsar?')
-                        ->modalDescription('El préstamo pasará al estado "Por Desembolsar" y estará listo para el desembolso.')
-                        ->modalSubmitActionLabel('Sí, marcar')
-                        ->action(function ($record) {
-                            if ($record->marcarParaDesembolsar()) {
-                                Notification::make()
-                                    ->title('Préstamo marcado para desembolsar')
-                                    ->success()
-                                    ->send();
-                            } else {
-                                Notification::make()
-                                    ->title('Error')
-                                    ->body('No se pudo marcar el préstamo. Verifique el estado.')
-                                    ->danger()
-                                    ->send();
-                            }
-                        })
-                        ->visible(fn($record) => !$record->es_retanqueo && $record->puedeMarcarParaDesembolsar()),
+                        ->visible(fn($record) => !$record->es_retanqueo && auth()->user()?->can('firmar', $record)),
 
 
-                    // ACCIÓN: Reducir Monto (JC/JO en estado Por Firmar o Firmado)
+                    // ACCIÓN: Reducir Monto (JC/JO en estado Aprobado o Firmado)
                     Tables\Actions\Action::make('reducir_monto')
                         ->label('Reducir Monto')
                         ->icon('heroicon-o-arrow-trending-down')
@@ -1013,7 +940,7 @@ class PrestamoResource extends Resource
                             fn($record) =>
                             !$record->es_retanqueo &&
                             $record->puedeReducirMonto() &&
-                            auth()->user()->can('reducirMonto', $record)
+                            auth()->user()?->can('reducirMonto', $record)
                         ),
 
                     // ACCIÓN: Desembolsar (JO en estado Por Desembolsar)
@@ -1051,9 +978,87 @@ class PrestamoResource extends Resource
                         ->visible(
                             fn($record) =>
                             !$record->es_retanqueo &&
-                            $record->puedeDesembolsar() &&
-                            auth()->user()->can('desembolsar', $record)
+                            auth()->user()?->can('desembolsar', $record)
                         ),
+
+                    // ACCIÓN: Reformular (Rechazado → Reformulado) — Asesor/JC
+                    Tables\Actions\Action::make('reformular')
+                        ->label('Reformular')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Reformular este préstamo?')
+                        ->modalDescription('El préstamo pasará a estado "Reformulado" para que el asesor pueda ajustar los datos y reenviar la solicitud.')
+                        ->modalSubmitActionLabel('Sí, reformular')
+                        ->action(function ($record) {
+                            if ($record->reformular()) {
+                                Notification::make()
+                                    ->title('Préstamo reformulado')
+                                    ->body('Ahora puede editar los datos y reenviar la solicitud.')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Error al reformular')
+                                    ->body('No se pudo reformular. Verifique que el préstamo esté en estado Rechazado.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn($record) => !$record->es_retanqueo && auth()->user()?->can('reformular', $record)),
+
+                    // ACCIÓN: Reenviar (Reformulado → Pendiente) — Asesor
+                    Tables\Actions\Action::make('reenviar')
+                        ->label('Reenviar Solicitud')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('primary')
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Reenviar la solicitud?')
+                        ->modalDescription('El préstamo será reenviado para revisión y volverá al estado "Pendiente".')
+                        ->modalSubmitActionLabel('Sí, reenviar')
+                        ->action(function ($record) {
+                            if ($record->reenviar()) {
+                                Notification::make()
+                                    ->title('Solicitud reenviada')
+                                    ->body('El préstamo ha sido reenviado para revisión.')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Error al reenviar')
+                                    ->body('No se pudo reenviar. Verifique que el préstamo esté en estado Reformulado.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn($record) => !$record->es_retanqueo && $record->estado === Prestamo::ESTADO_REFORMULADO
+                            && auth()->user()?->hasAnyRole(['Asesor', 'super_admin'])),
+
+                    // ACCIÓN: Cancelar Préstamo (Activo/Al_Día/En_Mora → Cancelado) — JC
+                    Tables\Actions\Action::make('cancelar_prestamo')
+                        ->label('Cancelar Préstamo')
+                        ->icon('heroicon-o-no-symbol')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('⚠️ ¿Cancelar este préstamo?')
+                        ->modalDescription('Esta acción terminará el préstamo de forma permanente. Los pagos pendientes se marcarán como cancelados. Esta acción NO se puede deshacer.')
+                        ->modalSubmitActionLabel('Sí, cancelar préstamo')
+                        ->action(function ($record) {
+                            if ($record->cancelar()) {
+                                Notification::make()
+                                    ->title('Préstamo cancelado')
+                                    ->body('El préstamo y sus préstamos individuales han sido cancelados.')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Error al cancelar')
+                                    ->body('No se pudo cancelar. Solo se pueden cancelar préstamos en estado Activo, Al Día o En Mora.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
+                        ->visible(fn($record) => !$record->es_retanqueo && auth()->user()?->can('cancelar', $record)),
 
                     Tables\Actions\Action::make('ir_a_retanqueo')
                         ->label('Gestionar en Retanqueos')
@@ -1082,7 +1087,14 @@ class PrestamoResource extends Resource
                         ->color('success')
                         ->url(fn($record) => route('contratos.prestamo.imprimir', $record->id))
                         ->visible(fn($record) => $record->grupo_id !== null &&
-                            in_array(strtolower($record->estado), ['por firmar', 'firmado', 'por desembolsar', 'desembolsado', 'ejecutado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
+                            in_array($record->estado, [
+                                Prestamo::ESTADO_APROBADO,
+                                Prestamo::ESTADO_FIRMADO,
+                                Prestamo::ESTADO_ACTIVO,
+                                Prestamo::ESTADO_AL_DIA,
+                                Prestamo::ESTADO_EN_MORA,
+                                Prestamo::ESTADO_FINALIZADO,
+                            ])),
 
                     Tables\Actions\Action::make('imprimir_cartilla')
                         ->label('Imprimir Cartilla')
@@ -1090,7 +1102,7 @@ class PrestamoResource extends Resource
                         ->color('info')
                         ->url(fn($record) => route('cartilla.prestamo.imprimir', $record->id))
                         ->visible(fn($record) => $record->grupo_id !== null &&
-                            in_array(strtolower($record->estado), ['ejecutado', 'activo', 'parcialmente_retanqueado', 'finalizado'])),
+                            in_array($record->estado, Prestamo::ESTADOS_ACTIVOS)),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

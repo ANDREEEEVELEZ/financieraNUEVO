@@ -62,7 +62,7 @@ class PagoResource extends Resource
                             }
 
                             $query = \App\Models\Grupo::whereHas('prestamos', function ($q) {
-                                $q->whereIn('estado', ['Activo', 'Ejecutado']);
+                                $q->whereIn('estado', \App\Models\Prestamo::ESTADOS_ACTIVOS);
                             })->orderBy('nombre_grupo', 'asc');
 
                             if ($user->hasRole('Asesor')) {
@@ -79,7 +79,7 @@ class PagoResource extends Resource
                             // Modificar para mostrar nombres diferenciados
                             $grupos = $query->with([
                                 'prestamos' => function ($q) {
-                                $q->whereIn('estado', ['Activo', 'Ejecutado']);
+                                $q->whereIn('estado', \App\Models\Prestamo::ESTADOS_ACTIVOS);
                             }
                             ])->get();
 
@@ -158,7 +158,7 @@ class PagoResource extends Resource
                             $prestamo = \App\Models\Prestamo::find($prestamoId);
 
                             // Para préstamos parcialmente retanqueados, usar lógica especial
-                            if ($prestamo && $prestamo->estado === 'Ejecutado') {
+                            if ($prestamo->es_parcialmente_retanqueado) {
                                 // Buscar todas las cuotas que no estén completamente pagadas
                                 $todasLasCuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
                                     $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
@@ -244,7 +244,7 @@ class PagoResource extends Resource
                             // Auto-llenar observaciones si hay retanqueo
                             [$grupoIdReal, $prestamoId] = explode('_', $state, 2);
                             $prestamo = \App\Models\Prestamo::find($prestamoId);
-                            if ($prestamo && $prestamo->estado === 'Ejecutado') {
+                            if ($prestamo->es_parcialmente_retanqueado) {
                                 $mensajeRetanqueo = $prestamo->generarMensajeRetanqueoPago();
                                 $observacionesActuales = $get('observaciones') ?? '';
 
@@ -379,7 +379,7 @@ class PagoResource extends Resource
                                     $prestamo = \App\Models\Prestamo::find($prestamoId);
 
                                     // Para préstamos parcialmente retanqueados, usar lógica especial
-                                    if ($prestamo && $prestamo->estado === 'Ejecutado') {
+                                    if ($prestamo->es_parcialmente_retanqueado) {
                                         // Buscar todas las cuotas que no estén completamente pagadas
                                         $todasLasCuotas = CuotasGrupales::whereHas('prestamo', function ($query) use ($grupoId, $prestamoId) {
                                             $query->where('grupo_id', $grupoId)->where('id', $prestamoId);
@@ -448,7 +448,7 @@ class PagoResource extends Resource
                             if ($grupoEstado && str_contains($grupoEstado, '_')) {
                                 [$grupoIdReal, $prestamoId] = explode('_', $grupoEstado, 2);
                                 $prestamo = \App\Models\Prestamo::find($prestamoId);
-                                if ($prestamo && $prestamo->estado === 'Ejecutado') {
+                                if ($prestamo->es_parcialmente_retanqueado) {
                                     $mensajeRetanqueo = $prestamo->generarMensajeRetanqueoPago();
                                     $observacionesActuales = $get('observaciones') ?? '';
 
@@ -568,7 +568,7 @@ class PagoResource extends Resource
                             [$grupoIdReal, $prestamoId] = explode('_', $grupoId, 2);
                             $prestamo = \App\Models\Prestamo::find($prestamoId);
 
-                            if ($prestamo && $prestamo->estado === 'Ejecutado') {
+                            if ($prestamo->es_parcialmente_retanqueado) {
                                 return $prestamo->generarMensajeRetanqueoPago();
                             }
 
@@ -975,13 +975,38 @@ class PagoResource extends Resource
                         ->label('Rechazar')
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                        ->visible(fn($record) => strtolower($record->estado_pago) === 'pendiente' && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                         ->action(function ($record) {
                             $record->rechazar();
                             \Filament\Notifications\Notification::make()
                                 ->title('Pago rechazado')
                                 ->danger()
                                 ->send();
+                        }),
+
+                    Action::make('revertir')
+                        ->label('Revertir Aprobación')
+                        ->icon('heroicon-m-arrow-uturn-left')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('¿Revertir este pago aprobado?')
+                        ->modalDescription('El pago volverá al estado "Pendiente" y los saldos de la cuota serán recalculados. Use esta opción solo si la aprobación fue un error.')
+                        ->modalSubmitActionLabel('Sí, revertir')
+                        ->visible(fn($record) => strtolower($record->estado_pago) === 'aprobado' && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                        ->action(function ($record) {
+                            if ($record->revertir()) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Pago revertido')
+                                    ->body('El pago ha sido revertido a estado Pendiente y los saldos fueron recalculados.')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Error al revertir')
+                                    ->body('No se pudo revertir el pago. Solo se pueden revertir pagos aprobados.')
+                                    ->danger()
+                                    ->send();
+                            }
                         }),
                 ]),
             ]);

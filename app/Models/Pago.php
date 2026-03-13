@@ -88,13 +88,13 @@ class Pago extends Model
         return $this->fecha_pago ? $this->fecha_pago->format('d/m/Y H:i') : null;
     }
 
-   public function aprobar()
-{
-            $prestamo = $this->cuotaGrupal?->prestamo;
-            $estadosValidos = ['activo', 'ejecutado'];
-            if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
-                throw new \Exception('Solo se pueden rechazar pagos de préstamos en estado Activo o Ejecutado.');
-            }    if ($this->estado_pago !== 'pendiente') {
+    public function aprobar()
+    {
+        $prestamo = $this->cuotaGrupal?->prestamo;
+        if (!$prestamo || !in_array($prestamo->estado, Prestamo::ESTADOS_ACTIVOS)) {
+            throw new \Exception('Solo se pueden aprobar pagos de préstamos en estado Activo, Al Día o En Mora.');
+        }
+        if ($this->estado_pago !== 'pendiente') {
         return;
     }
 
@@ -165,14 +165,12 @@ class Pago extends Model
             $prestamo->verificarYActualizarEstado();
         }
     }
-}        public function rechazar()
-        {
-
-            $prestamo = $this->cuotaGrupal?->prestamo;
-            $estadosValidos = ['activo', 'ejecutado'];
-            if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
-                throw new \Exception('Solo se pueden rechazar pagos de préstamos en estado Activo o Ejecutado.');
-            }
+}    public function rechazar()
+    {
+        $prestamo = $this->cuotaGrupal?->prestamo;
+        if (!$prestamo || !in_array($prestamo->estado, Prestamo::ESTADOS_ACTIVOS)) {
+            throw new \Exception('Solo se pueden rechazar pagos de préstamos en estado Activo, Al Día o En Mora.');
+        }
 
             if ($this->estado_pago !== 'pendiente') {
                 return;
@@ -238,17 +236,70 @@ class Pago extends Model
             return $this->hasOneThrough(Grupo::class, Prestamo::class, 'id', 'id', 'cuota_grupal_id', 'grupo_id');
         }
 
-        protected static function boot()
-        {
-            parent::boot();
-
-            static::creating(function ($pago) {
-                $prestamo = $pago->cuotaGrupal?->prestamo;
-                $estadosValidos = ['activo', 'ejecutado']; // Estados reales en la BD
-                if (!$prestamo || !in_array(strtolower($prestamo->estado), $estadosValidos)) {
-                    throw new \Exception('No se pueden registrar pagos para préstamos que no estén en estado Activo o Ejecutado.');
-                }
-            });
+    /**
+     * Revierte un pago aprobado a pendiente (JO/super_admin).
+     * Recalcula saldos de la cuota y mora.
+     */
+    public function revertir(): bool
+    {
+        if ($this->estado_pago !== 'aprobado') {
+            return false;
         }
+
+        $this->estado_pago = 'pendiente';
+        $this->monto_mora_pagada = 0;
+        $this->save();
+
+        $cuota = $this->cuotaGrupal;
+        if ($cuota) {
+            // Recalcular saldos sin este pago
+            $pagosAprobados = $cuota->pagos()
+                ->where('estado_pago', 'aprobado')
+                ->where('id', '!=', $this->id)
+                ->get();
+
+            $totalPagado = $pagosAprobados->sum('monto_pagado');
+            $totalAPagar = floatval($cuota->monto_cuota_grupal);
+            $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
+
+            $saldoPendiente = max(0, ($totalAPagar + $montoMora) - $totalPagado);
+            $cuota->saldo_pendiente = round($saldoPendiente, 2);
+
+            if ($totalPagado <= 0) {
+                $cuota->estado_pago = 'pendiente';
+                $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
+            } else {
+                $cuota->estado_pago = 'parcial';
+                $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
+            }
+            $cuota->save();
+
+            // Recalcular mora
+            if ($cuota->mora) {
+                $cuota->mora->estado_mora = 'pendiente';
+                $cuota->mora->save();
+            }
+
+            // Verificar estado del préstamo
+            $prestamo = $cuota->prestamo;
+            if ($prestamo) {
+                $prestamo->verificarYActualizarEstado();
+            }
+        }
+
+        return true;
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($pago) {
+            $prestamo = $pago->cuotaGrupal?->prestamo;
+            if (!$prestamo || !in_array($prestamo->estado, Prestamo::ESTADOS_ACTIVOS)) {
+                throw new \Exception('No se pueden registrar pagos para préstamos que no estén en estado Activo, Al Día o En Mora.');
+            }
+        });
+    }
 
 }
