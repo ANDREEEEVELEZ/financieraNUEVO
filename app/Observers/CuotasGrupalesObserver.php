@@ -58,9 +58,9 @@ class CuotasGrupalesObserver
                 
                 PrestamoIndividual::where('prestamo_id', $prestamo->id)->update(['estado' => 'Finalizado']);
                 
-                // Si el préstamo estaba en estado Parcialmente_Retanqueado, 
+                // Si el préstamo era parcialmente retanqueado, 
                 // mover a ex-integrantes a quienes no retanquearon
-                if ($prestamo->estado === 'Parcialmente_Retanqueado') {
+                if ($prestamo->es_parcialmente_retanqueado) {
                     $prestamo->moverIntegrantesNoRetanqueadosAExIntegrantes();
                 }
                 

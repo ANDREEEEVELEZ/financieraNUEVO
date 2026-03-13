@@ -13,29 +13,58 @@ class Prestamo extends Model
 
     protected $table = 'prestamos';
 
-    // ─── Constantes para los 10 estados funcionales del préstamo ──────
-    public const ESTADO_PENDIENTE = 'Pendiente';
-    public const ESTADO_APROBADO = 'Aprobado';
-    public const ESTADO_FIRMADO = 'Firmado';
-    public const ESTADO_ACTIVO = 'Activo';
-    public const ESTADO_AL_DIA = 'Al_Día';
-    public const ESTADO_EN_MORA = 'En_Mora';
-    public const ESTADO_RECHAZADO = 'Rechazado';
-    public const ESTADO_REFORMULADO = 'Reformulado';
-    public const ESTADO_FINALIZADO = 'Finalizado';
-    public const ESTADO_CANCELADO = 'Cancelado';
+    // ─── 10 estados funcionales del préstamo ──────────────────────────
+    public const ESTADO_PENDIENTE    = 'Pendiente';
+    public const ESTADO_APROBADO     = 'Aprobado';
+    public const ESTADO_FIRMADO      = 'Firmado';
+    public const ESTADO_ACTIVO       = 'Activo';
+    public const ESTADO_AL_DIA       = 'Al_Día';
+    public const ESTADO_EN_MORA      = 'En_Mora';
+    public const ESTADO_RECHAZADO    = 'Rechazado';
+    public const ESTADO_REFORMULADO  = 'Reformulado';
+    public const ESTADO_FINALIZADO   = 'Finalizado';
+    public const ESTADO_CANCELADO    = 'Cancelado';
 
-    // Aliases deprecados — mantener por compatibilidad con código existente
-    /** @deprecated Usar ESTADO_APROBADO — 'Por Firmar' ya no existe como estado */
-    public const ESTADO_POR_FIRMAR = 'Aprobado';
-    /** @deprecated Usar ESTADO_FIRMADO — 'Por Desembolsar' ya no existe como estado */
-    public const ESTADO_POR_DESEMBOLSAR = 'Firmado';
-    /** @deprecated Usar ESTADO_ACTIVO — 'Desembolsado' fue absorbido en Activo */
-    public const ESTADO_DESEMBOLSADO = 'Activo';
-    /** @deprecated Usar ESTADO_ACTIVO — 'Ejecutado' fue absorbido en Activo */
-    public const ESTADO_EJECUTADO = 'Activo';
-    /** @deprecated Usar campo boolean 'es_parcialmente_retanqueado' */
-    public const ESTADO_PARCIALMENTE_RETANQUEADO = 'Activo';
+    /**
+     * Lista de todos los estados para validaciones y selects.
+     */
+    public const ESTADOS = [
+        self::ESTADO_PENDIENTE,
+        self::ESTADO_APROBADO,
+        self::ESTADO_FIRMADO,
+        self::ESTADO_ACTIVO,
+        self::ESTADO_AL_DIA,
+        self::ESTADO_EN_MORA,
+        self::ESTADO_RECHAZADO,
+        self::ESTADO_REFORMULADO,
+        self::ESTADO_FINALIZADO,
+        self::ESTADO_CANCELADO,
+    ];
+
+    /**
+     * Colores de badge por estado para la UI (Filament).
+     */
+    public const ESTADO_COLORES = [
+        self::ESTADO_PENDIENTE   => 'gray',
+        self::ESTADO_APROBADO    => 'warning',
+        self::ESTADO_FIRMADO     => 'info',
+        self::ESTADO_ACTIVO      => 'primary',
+        self::ESTADO_AL_DIA      => 'success',
+        self::ESTADO_EN_MORA     => 'danger',
+        self::ESTADO_RECHAZADO   => 'danger',
+        self::ESTADO_REFORMULADO => 'warning',
+        self::ESTADO_FINALIZADO  => 'success',
+        self::ESTADO_CANCELADO   => 'gray',
+    ];
+
+    /**
+     * Estados que se consideran "activos" (préstamo en curso).
+     */
+    public const ESTADOS_ACTIVOS = [
+        self::ESTADO_ACTIVO,
+        self::ESTADO_AL_DIA,
+        self::ESTADO_EN_MORA,
+    ];
 
     protected $fillable = [
         'grupo_id',
@@ -63,6 +92,7 @@ class Prestamo extends Model
         'fecha_prestamo' => 'date',
         'fecha_desembolso' => 'date',
         'es_retanqueo' => 'boolean',
+        'es_parcialmente_retanqueado' => 'boolean',
     ];
 
     // Relaciones
@@ -163,18 +193,27 @@ class Prestamo extends Model
         return $this->estado === 'Finalizado';
     }
 
-    // Accessor para estado visible en tabla
-    public function getEstadoVisibleAttribute()
+    /**
+     * Accessor: estado legible para la UI.
+     * Si el préstamo es parcialmente retanqueado, lo refleja.
+     */
+    public function getEstadoVisibleAttribute(): string
     {
-        if ($this->estado === 'Aprobado') {
-            $total = $this->cuotasGrupales()->count();
-            $pagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
-            if ($pagadas > 0 && $pagadas < $total) {
-                return 'Activo';
-            }
+        $estado = str_replace('_', ' ', $this->estado);
+
+        if ($this->es_parcialmente_retanqueado) {
+            return $estado . ' (Retanqueo Parcial)';
         }
 
-        return $this->estado;
+        return $estado;
+    }
+
+    /**
+     * Accessor: color de badge para Filament.
+     */
+    public function getEstadoBadgeColorAttribute(): string
+    {
+        return self::ESTADO_COLORES[$this->estado] ?? 'gray';
     }
 
     // Accessor para asegurar que el monto total se calcule correctamente
@@ -217,7 +256,7 @@ class Prestamo extends Model
      */
     public function verificarYActualizarEstado()
     {
-        if ($this->estado === 'Aprobado' || $this->estado === 'Parcialmente_Retanqueado') {
+        if (in_array($this->estado, [self::ESTADO_ACTIVO, self::ESTADO_AL_DIA, self::ESTADO_EN_MORA])) {
             $totalCuotas = $this->cuotasGrupales()->count();
             $cuotasPagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
 
@@ -404,16 +443,16 @@ class Prestamo extends Model
             }
         }
 
-        // Verificación adicional para préstamos Parcialmente_Retanqueado:
+        // Verificación adicional para préstamos parcialmente retanqueados:
         // También verificar si hay cuotas grupales con saldo pendiente que correspondan
         // a la parte no cubierta por quienes no retanquearon
-        if ($this->estado === 'Parcialmente_Retanqueado') {
+        if ($this->es_parcialmente_retanqueado) {
             $cuotasConSaldoPendiente = $this->cuotasGrupales()
                 ->where('estado_pago', '!=', 'pagado')
                 ->where('saldo_pendiente', '>', 0)
                 ->count();
 
-            \Illuminate\Support\Facades\Log::info('Verificación adicional de cuotas grupales pendientes', [
+            Log::info('Verificación adicional de cuotas grupales pendientes', [
                 'prestamo_id' => $this->id,
                 'cuotas_con_saldo_pendiente' => $cuotasConSaldoPendiente
             ]);
@@ -641,12 +680,12 @@ class Prestamo extends Model
 
     /**
      * Reduce el monto del préstamo de forma proporcional.
-     * Permitido en estados 'Por Firmar' y 'Firmado'.
+     * Permitido en estados 'Aprobado' y 'Firmado'.
      */
     public function reducirMonto(float $nuevoMontoTotal, string $justificacion): bool
     {
-        // Solo permitido en estados Por Firmar o Firmado
-        if (!in_array($this->estado, [self::ESTADO_POR_FIRMAR, self::ESTADO_FIRMADO])) {
+        // Solo permitido en estados Aprobado o Firmado
+        if (!in_array($this->estado, [self::ESTADO_APROBADO, self::ESTADO_FIRMADO])) {
             return false;
         }
 
@@ -797,7 +836,7 @@ class Prestamo extends Model
      */
     public function getDetalleRetanqueoParaPago()
     {
-        if ($this->estado !== 'Parcialmente_Retanqueado') {
+        if (!$this->es_parcialmente_retanqueado) {
             return null;
         }
 

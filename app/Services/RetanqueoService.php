@@ -864,11 +864,14 @@ class RetanqueoService
             ->count();
         
         if ($integrantesNoRetanqueados > 0) {
-            // HAY integrantes que NO retanquearon - SIEMPRE marcar como Parcialmente_Retanqueado
-            $prestamoAntiguo->update(['estado' => 'Parcialmente_Retanqueado']);
+            // HAY integrantes que NO retanquearon — marcar con flag + estado Activo
+            $prestamoAntiguo->update([
+                'estado' => Prestamo::ESTADO_ACTIVO,
+                'es_parcialmente_retanqueado' => true,
+            ]);
             $retanqueo->update(['prestamo_antiguo_estado' => 0]);
             
-            Log::info('RetanqueoService: Préstamo marcado como Parcialmente_Retanqueado', [
+            Log::info('RetanqueoService: Préstamo marcado como Activo (parcialmente retanqueado)', [
                 'prestamo_id' => $prestamoAntiguo->id,
                 'integrantes_no_retanqueados' => $integrantesNoRetanqueados,
                 'razon' => 'Hay integrantes que no retanquearon y deben seguir pagando'

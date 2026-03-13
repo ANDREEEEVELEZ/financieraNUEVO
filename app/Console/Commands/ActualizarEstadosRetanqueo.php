@@ -76,22 +76,21 @@ class ActualizarEstadosRetanqueo extends Command
             $nuevoEstado = null;
 
             // NUEVA LÓGICA SIMPLIFICADA:
-            // - Si hay integrantes que no retanquearon: "Parcialmente_Retanqueado" 
-            // - Si todos retanquearon: "Finalizado"
-            // - No importa el estado de las cuotas al momento de ejecutar el retanqueo
+            // - Si hay integrantes que no retanquearon: Activo + flag es_parcialmente_retanqueado
+            // - Si todos retanquearon: Finalizado
             
             if ($integrantesQueRetanquean === $totalIntegrantes) {
                 // Todos retanquearon - finalizar
-                if ($prestamoAntiguo->estado !== 'Finalizado') {
-                    $nuevoEstado = 'Finalizado';
+                if ($prestamoAntiguo->estado !== Prestamo::ESTADO_FINALIZADO) {
+                    $nuevoEstado = Prestamo::ESTADO_FINALIZADO;
                 } else {
                     $prestamosYaFinalizados++;
                     $this->line("  ✅ Ya está finalizado");
                 }
             } else {
-                // Algunos no retanquearon - parcialmente retanqueado SIEMPRE
-                if ($prestamoAntiguo->estado !== 'Parcialmente_Retanqueado') {
-                    $nuevoEstado = 'Parcialmente_Retanqueado';
+                // Algunos no retanquearon — marcar con flag
+                if (!$prestamoAntiguo->es_parcialmente_retanqueado) {
+                    $nuevoEstado = Prestamo::ESTADO_ACTIVO;
                 } else {
                     $this->line("  ✅ Ya está en estado correcto");
                 }
@@ -101,10 +100,15 @@ class ActualizarEstadosRetanqueo extends Command
                 $this->line("  🔄 Cambiando estado a: {$nuevoEstado}");
                 
                 if (!$dryRun) {
-                    $prestamoAntiguo->update(['estado' => $nuevoEstado]);
+                    $updateData = ['estado' => $nuevoEstado];
+                    // Si no todos retanquearon, activar flag
+                    if ($nuevoEstado === Prestamo::ESTADO_ACTIVO) {
+                        $updateData['es_parcialmente_retanqueado'] = true;
+                    }
+                    $prestamoAntiguo->update($updateData);
                     
                     // SOLO mover a ex-integrantes si se finaliza Y todos ya terminaron de pagar
-                    if ($nuevoEstado === 'Finalizado') {
+                    if ($nuevoEstado === Prestamo::ESTADO_FINALIZADO) {
                         // Verificar si realmente no hay deuda pendiente individual
                         if (!$prestamoAntiguo->tieneIntegrantesNoRetanqueadosConDeudaPendiente()) {
                             $prestamoAntiguo->moverIntegrantesNoRetanqueadosAExIntegrantes();

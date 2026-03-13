@@ -40,7 +40,11 @@ class PrestamoIndividualObserver
         if (!$prestamo) return;
 
         // PROTECCIÓN CRÍTICA: No recalcular préstamos que ya están en estados que no permiten modificaciones
-        $estadosProtegidos = ['Aprobado', 'Activo', 'Finalizado', 'Parcialmente_Retanqueado'];
+        $estadosProtegidos = Prestamo::ESTADOS_ACTIVOS;
+        $estadosProtegidos = array_merge($estadosProtegidos, [
+            Prestamo::ESTADO_APROBADO,
+            Prestamo::ESTADO_FINALIZADO,
+        ]);
         if (in_array($prestamo->estado, $estadosProtegidos)) {
             \Illuminate\Support\Facades\Log::info('PrestamoIndividualObserver: Recalculación bloqueada por estado', [
                 'prestamo_id' => $prestamoId,
@@ -84,7 +88,7 @@ class PrestamoIndividualObserver
     private function actualizarCuotasGrupales(Prestamo $prestamo, $montoTotalDevolver): void
     {
         // PROTECCIÓN ADICIONAL: No actualizar cuotas de préstamos finalizados o retanqueados
-        if (in_array($prestamo->estado, ['Finalizado', 'Parcialmente_Retanqueado'])) {
+        if (in_array($prestamo->estado, [Prestamo::ESTADO_FINALIZADO, Prestamo::ESTADO_CANCELADO])) {
             \Illuminate\Support\Facades\Log::info('PrestamoIndividualObserver: Actualización de cuotas bloqueada', [
                 'prestamo_id' => $prestamo->id,
                 'estado_actual' => $prestamo->estado,

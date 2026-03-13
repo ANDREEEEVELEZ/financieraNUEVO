@@ -51,14 +51,14 @@ class ContratoGrupoController extends Controller
                     $esRetanqueo = stripos($prestamo->descripcion ?? '', 'RETANQUEO') !== false;
                     return !$esRetanqueo;
                 })
-                ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
+                ->whereIn('estado', [\App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_ACTIVO, \App\Models\Prestamo::ESTADO_AL_DIA, \App\Models\Prestamo::ESTADO_EN_MORA, \App\Models\Prestamo::ESTADO_FINALIZADO])
                 ->sortByDesc('id')
                 ->first();
             
             // Si no encontramos préstamo principal válido, intentar con cualquier préstamo válido
             if (!$prestamoGrupal) {
                 $prestamoGrupal = $grupo->prestamos
-                    ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
+                    ->whereIn('estado', [\App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_ACTIVO, \App\Models\Prestamo::ESTADO_AL_DIA, \App\Models\Prestamo::ESTADO_EN_MORA, \App\Models\Prestamo::ESTADO_FINALIZADO])
                     ->sortByDesc('id')
                     ->first();
             }
@@ -139,14 +139,14 @@ class ContratoGrupoController extends Controller
                 $esRetanqueo = stripos($prestamo->descripcion ?? '', 'RETANQUEO') !== false;
                 return !$esRetanqueo;
             })
-            ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
+            ->whereIn('estado', [\App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_ACTIVO, \App\Models\Prestamo::ESTADO_AL_DIA, \App\Models\Prestamo::ESTADO_EN_MORA, \App\Models\Prestamo::ESTADO_FINALIZADO])
             ->sortByDesc('id')
             ->first();
         
         // Si no encontramos préstamo principal válido, intentar con cualquier préstamo válido
         if (!$prestamoGrupal) {
             $prestamoGrupal = $grupo->prestamos
-                ->whereIn('estado', ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])
+                ->whereIn('estado', [\App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_ACTIVO, \App\Models\Prestamo::ESTADO_AL_DIA, \App\Models\Prestamo::ESTADO_EN_MORA, \App\Models\Prestamo::ESTADO_FINALIZADO])
                 ->sortByDesc('id')
                 ->first();
         }
@@ -219,7 +219,7 @@ class ContratoGrupoController extends Controller
         $prestamoGrupal = \App\Models\Prestamo::with(['grupo.clientes.persona'])->findOrFail($prestamoId);
         
         // Validar que el préstamo tiene estado válido para contratos
-        if (!in_array($prestamoGrupal->estado, ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])) {
+        if (!in_array($prestamoGrupal->estado, [\App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_ACTIVO, \App\Models\Prestamo::ESTADO_AL_DIA, \App\Models\Prestamo::ESTADO_EN_MORA, \App\Models\Prestamo::ESTADO_FINALIZADO])) {
             abort(403, 'Solo se pueden imprimir contratos de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
         }
 
@@ -290,7 +290,7 @@ class ContratoGrupoController extends Controller
         $prestamoGrupal = \App\Models\Prestamo::with(['grupo.clientes.persona'])->findOrFail($prestamoId);
         
         // Validar que el préstamo tiene estado válido para cartilla
-        if (!in_array($prestamoGrupal->estado, ['Aprobado', 'Activo', 'Parcialmente_Retanqueado', 'Finalizado'])) {
+        if (!in_array($prestamoGrupal->estado, [\App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_ACTIVO, \App\Models\Prestamo::ESTADO_AL_DIA, \App\Models\Prestamo::ESTADO_EN_MORA, \App\Models\Prestamo::ESTADO_FINALIZADO])) {
             abort(403, 'Solo se pueden imprimir cartillas de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
         }
 
