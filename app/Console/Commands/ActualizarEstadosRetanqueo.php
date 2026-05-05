@@ -47,6 +47,7 @@ class ActualizarEstadosRetanqueo extends Command
         $prestamosYaFinalizados = 0;
 
         foreach ($retanqueos as $retanqueo) {
+            /** @var Retanqueo $retanqueo */
             $prestamoAntiguo = $retanqueo->prestamoAntiguo;
             
             if (!$prestamoAntiguo) {

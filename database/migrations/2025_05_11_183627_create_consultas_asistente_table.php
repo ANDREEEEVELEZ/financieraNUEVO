@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('consultas_asistente', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('consulta')->nullable();
-            $table->string('respuesta')->nullable();
+            $table->text('consulta')->nullable();
+            $table->text('respuesta')->nullable();
             $table->timestamps();
         });
     }

@@ -28,6 +28,10 @@ return new class extends Migration {
             $table->foreignId('cliente_id')
                 ->constrained('clientes')
                 ->comment('Cliente separado del grupo');
+            $table->foreignId('prestamo_nuevo_id')
+                ->nullable()
+                ->constrained('prestamos')
+                ->nullOnDelete();
             $table->foreignId('ejecutado_por')
                 ->constrained('users')
                 ->comment('Usuario que ejecutó la separación (JC o JO)');
@@ -45,6 +49,7 @@ return new class extends Migration {
 
             $table->index('prestamo_origen_id', 'sep_prestamo_index');
             $table->index('cliente_id', 'sep_cliente_index');
+            $table->index('prestamo_nuevo_id', 'sep_prestamo_nuevo_index');
         });
     }
 

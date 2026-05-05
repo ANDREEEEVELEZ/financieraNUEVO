@@ -949,7 +949,7 @@ class RetanqueoService
                 ]);
 
                 // Actualizar ciclo del cliente a I si es su primer préstamo
-                $cliente = \App\Models\Cliente::find($clienteId);
+                $cliente = Cliente::find($clienteId);
                 if ($cliente && !$cliente->ciclo) {
                     $cliente->update(['ciclo' => 'I']);
                 }

@@ -21,3 +21,13 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# AI Agents & SDD
+.claude/
+skills-lock.json
+.agent/scratch/
+.agent/logs/
+*.log
+
+# SDD Artifacts (Optional: comment out if you want to share design)
+# openspec/

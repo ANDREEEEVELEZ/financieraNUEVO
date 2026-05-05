@@ -35,10 +35,6 @@ return new class extends Migration {
                 ->comment('Usuario que ejecutó la reagrupación (JC o JO)');
             $table->enum('tipo', ['retanqueo', 'renovacion'])
                 ->comment('Tipo de reagrupación: retanqueo descuenta última cuota, renovacion no');
-            $table->json('clientes_trasladados')
-                ->comment('Array de IDs de clientes movidos al nuevo grupo');
-            $table->json('clientes_retenidos')
-                ->comment('Array de IDs de clientes que quedan en el grupo original');
             $table->decimal('monto_descuento', 12, 2)->default(0)
                 ->comment('Monto descontado en caso de retanqueo (última cuota)');
             $table->text('observaciones')->nullable();

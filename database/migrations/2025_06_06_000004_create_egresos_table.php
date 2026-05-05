@@ -17,12 +17,13 @@ class CreateEgresosTable extends Migration
             $table->unsignedBigInteger('prestamo_id')->nullable();
             $table->unsignedBigInteger('categoria_id')->nullable();
             $table->unsignedBigInteger('subcategoria_id')->nullable();
-            $table->text('detalle_subcategoria')->nullable();
             $table->timestamps();
 
             $table->foreign('prestamo_id')->references('id')->on('prestamos')->onDelete('cascade');
             $table->foreign('categoria_id')->references('id')->on('categorias')->onDelete('cascade');
             $table->foreign('subcategoria_id')->references('id')->on('subcategorias')->onDelete('cascade');
+            $table->index('fecha', 'egresos_fecha_idx');
+            $table->index('tipo_egreso', 'egresos_tipo_idx');
         });
     }
 

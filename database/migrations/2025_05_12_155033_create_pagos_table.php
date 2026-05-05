@@ -13,13 +13,18 @@ return new class extends Migration
     {
         Schema::create('pagos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('cuota_grupal_id')->constrained('cuotas_grupales')->onDelete('cascade');
+            $table->foreignId('cuota_grupal_id')->nullable()->constrained('cuotas_grupales')->onDelete('cascade');
             $table->string('tipo_pago')->nullable();
-            $table->string('monto_pagado')->nullable();
+            $table->string('codigo_operacion')->nullable();
+            $table->decimal('monto_pagado', 10, 2)->nullable();
+            $table->decimal('monto_mora_pagada', 10, 2)->nullable();
             $table->dateTime('fecha_pago')->nullable();
             $table->string('estado_pago')->nullable();
             $table->string('observaciones')->nullable();
             $table->timestamps();
+            $table->index(['cuota_grupal_id', 'estado_pago'], 'pagos_cuota_estado_idx');
+            $table->index('fecha_pago', 'pagos_fecha_idx');
+            $table->index('estado_pago', 'pagos_estado_idx');
         });
     }
 

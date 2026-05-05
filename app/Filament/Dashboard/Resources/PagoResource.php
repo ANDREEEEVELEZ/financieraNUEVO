@@ -47,7 +47,7 @@ class PagoResource extends Resource
                             $opciones = [];
 
                             if ($cuotaGrupalId) {
-                                $cuota = \App\Models\CuotasGrupales::with('prestamo.grupo')->find($cuotaGrupalId);
+                                $cuota = CuotasGrupales::with('prestamo.grupo')->find($cuotaGrupalId);
                                 if ($cuota && $cuota->prestamo && $cuota->prestamo->grupo) {
                                     $grupo = $cuota->prestamo->grupo;
                                     $prestamo = $cuota->prestamo;
@@ -170,6 +170,7 @@ class PagoResource extends Resource
                                 // Filtrar manualmente las que tienen saldo pendiente
                                 $cuotas = collect();
                                 foreach ($todasLasCuotas as $cuota) {
+                                    /** @var CuotasGrupales $cuota */
                                     if ($cuota->saldoPendiente() > 0) {
                                         $cuotas->push($cuota);
                                     }
@@ -215,6 +216,7 @@ class PagoResource extends Resource
                             // Si no hay cuota seleccionada, o es la primera pendiente, setear normalmente
                             if ($cuotas->count() > 0) {
                                 foreach ($cuotas as $cuota) {
+                                    /** @var CuotasGrupales $cuota */
                                     $saldoPendiente = $cuota->saldoPendiente();
                                     if ($saldoPendiente > 0) {
                                         $set('cuota_grupal_id', $cuota->id);
@@ -671,7 +673,7 @@ class PagoResource extends Resource
                                     $saldoPendiente = floatval($get('../../saldo_pendiente_actual') ?? 0);
                                     if ($sumaTotal > $saldoPendiente && $saldoPendiente > 0) {
                                         // Mostrar notificación de advertencia
-                                        \Filament\Notifications\Notification::make()
+                                        Notification::make()
                                             ->title('Monto excedido')
                                             ->body('La suma de los pagos individuales no puede exceder el saldo pendiente de S/. ' . number_format($saldoPendiente, 2))
                                             ->warning()

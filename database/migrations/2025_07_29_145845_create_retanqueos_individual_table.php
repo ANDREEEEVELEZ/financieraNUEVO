@@ -44,6 +44,11 @@ return new class extends Migration
             $table->string('estado_retanqueo_individual', 30)->default('propuesto');
 
             $table->timestamps();
+
+            $table->index('participacion_tipo');
+            $table->index('estado_retanqueo_individual');
+            $table->index(['retanqueo_id', 'participacion_tipo']);
+            $table->index(['cliente_id', 'participacion_tipo']);
         });
     }
 

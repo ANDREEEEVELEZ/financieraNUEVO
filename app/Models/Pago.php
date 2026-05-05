@@ -149,7 +149,7 @@ class Pago extends Model
         }
 
         // Actualiza saldo y estado cuota
-        $cuota->saldo_pendiente = $saldoTotalPendiente;
+        $cuota->saldo_pendiente = (float) $saldoTotalPendiente;
         if ($saldoTotalPendiente == 0) {
             $cuota->estado_pago = 'pagado';
             $cuota->estado_cuota_grupal = 'cancelada';
@@ -263,7 +263,7 @@ class Pago extends Model
             $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
             $saldoPendiente = max(0, ($totalAPagar + $montoMora) - $totalPagado);
-            $cuota->saldo_pendiente = round($saldoPendiente, 2);
+            $cuota->saldo_pendiente = (float) round($saldoPendiente, 2);
 
             if ($totalPagado <= 0) {
                 $cuota->estado_pago = 'pendiente';

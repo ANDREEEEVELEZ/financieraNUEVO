@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('moras', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('cuota_grupal_id')->constrained('cuotas_grupales')->onDelete('cascade');
-            $table->integer('dias_atraso')->nullable();
-            $table->decimal('monto_mora')->nullable();
+            $table->foreignId('cuota_grupal_id')->nullable()->constrained('cuotas_grupales')->onDelete('cascade');
+            $table->date('fecha_atraso')->nullable();
             $table->enum('estado_mora', ['pendiente', 'pagada', 'parcialmente_pagada'])->default('pendiente');
             $table->timestamps();
+            $table->index('estado_mora', 'moras_estado_idx');
         });
     }
 

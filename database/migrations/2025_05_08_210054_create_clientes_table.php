@@ -20,7 +20,10 @@ return new class extends Migration
             $table->string('actividad')->nullable();
             $table->string('condicion_personal')->nullable();
             $table->string('estado_cliente')->nullable();
+            $table->foreignId('asesor_id')->nullable()->constrained('asesores')->onDelete('set null');
             $table->timestamps();
+            $table->index('asesor_id', 'clientes_asesor_idx');
+            $table->index('estado_cliente', 'clientes_estado_idx');
         });
     }
 

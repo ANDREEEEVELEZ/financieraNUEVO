@@ -18,7 +18,10 @@ return new class extends Migration
             $table->date('fecha_registro')->nullable();
             $table->string('calificacion_grupo')->nullable();
             $table->string('estado_grupo')->nullable();
+            $table->foreignId('asesor_id')->nullable()->constrained('asesores')->onDelete('cascade');
             $table->timestamps();
+            $table->index('asesor_id', 'grupos_asesor_idx');
+            $table->index('estado_grupo', 'grupos_estado_idx');
         });
     }
 

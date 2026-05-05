@@ -14,16 +14,16 @@ class Prestamo extends Model
     protected $table = 'prestamos';
 
     // ─── 10 estados funcionales del préstamo ──────────────────────────
-    public const ESTADO_PENDIENTE    = 'Pendiente';
-    public const ESTADO_APROBADO     = 'Aprobado';
-    public const ESTADO_FIRMADO      = 'Firmado';
-    public const ESTADO_ACTIVO       = 'Activo';
-    public const ESTADO_AL_DIA       = 'Al_Día';
-    public const ESTADO_EN_MORA      = 'En_Mora';
-    public const ESTADO_RECHAZADO    = 'Rechazado';
-    public const ESTADO_REFORMULADO  = 'Reformulado';
-    public const ESTADO_FINALIZADO   = 'Finalizado';
-    public const ESTADO_CANCELADO    = 'Cancelado';
+    public const ESTADO_PENDIENTE = 'Pendiente';
+    public const ESTADO_APROBADO = 'Aprobado';
+    public const ESTADO_FIRMADO = 'Firmado';
+    public const ESTADO_ACTIVO = 'Activo';
+    public const ESTADO_AL_DIA = 'Al_Día';
+    public const ESTADO_EN_MORA = 'En_Mora';
+    public const ESTADO_RECHAZADO = 'Rechazado';
+    public const ESTADO_REFORMULADO = 'Reformulado';
+    public const ESTADO_FINALIZADO = 'Finalizado';
+    public const ESTADO_CANCELADO = 'Cancelado';
 
     /**
      * Lista de todos los estados para validaciones y selects.
@@ -45,16 +45,16 @@ class Prestamo extends Model
      * Colores de badge por estado para la UI (Filament).
      */
     public const ESTADO_COLORES = [
-        self::ESTADO_PENDIENTE   => 'gray',
-        self::ESTADO_APROBADO    => 'warning',
-        self::ESTADO_FIRMADO     => 'info',
-        self::ESTADO_ACTIVO      => 'primary',
-        self::ESTADO_AL_DIA      => 'success',
-        self::ESTADO_EN_MORA     => 'danger',
-        self::ESTADO_RECHAZADO   => 'danger',
+        self::ESTADO_PENDIENTE => 'gray',
+        self::ESTADO_APROBADO => 'warning',
+        self::ESTADO_FIRMADO => 'info',
+        self::ESTADO_ACTIVO => 'primary',
+        self::ESTADO_AL_DIA => 'success',
+        self::ESTADO_EN_MORA => 'danger',
+        self::ESTADO_RECHAZADO => 'danger',
         self::ESTADO_REFORMULADO => 'warning',
-        self::ESTADO_FINALIZADO  => 'success',
-        self::ESTADO_CANCELADO   => 'gray',
+        self::ESTADO_FINALIZADO => 'success',
+        self::ESTADO_CANCELADO => 'gray',
     ];
 
     /**
@@ -114,6 +114,11 @@ class Prestamo extends Model
     public function egresos()
     {
         return $this->hasMany(Egreso::class);
+    }
+
+    public function auditLogs()
+    {
+        return $this->morphMany(AuditLog::class, 'auditable')->latest();
     }
 
     // Nuevas relaciones del modelo ERP
@@ -237,7 +242,7 @@ class Prestamo extends Model
             if ($total > 0 && $total === $pagadas) {
                 // Verificar si hay retanqueos parciales donde algunas personas no retanquearon
                 if ($this->tieneIntegrantesNoRetanqueadosConDeudaPendiente()) {
-                    \Illuminate\Support\Facades\Log::info('No se puede finalizar automáticamente el préstamo: hay integrantes que no retanquearon con deuda pendiente', [
+                    Log::info('No se puede finalizar automáticamente el préstamo: hay integrantes que no retanquearon con deuda pendiente', [
                         'prestamo_id' => $this->id,
                     ]);
                     return false;
@@ -260,7 +265,7 @@ class Prestamo extends Model
             $totalCuotas = $this->cuotasGrupales()->count();
             $cuotasPagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
 
-            \Illuminate\Support\Facades\Log::info('Verificando estado del préstamo', [
+            Log::info('Verificando estado del préstamo', [
                 'prestamo_id' => $this->id,
                 'estado_actual' => $this->estado,
                 'total_cuotas' => $totalCuotas,
@@ -270,7 +275,7 @@ class Prestamo extends Model
             if ($totalCuotas > 0 && $cuotasPagadas === $totalCuotas) {
                 // Verificar si hay retanqueos parciales donde algunas personas no retanquearon
                 if ($this->tieneIntegrantesNoRetanqueadosConDeudaPendiente()) {
-                    \Illuminate\Support\Facades\Log::info('No se puede finalizar el préstamo: hay integrantes que no retanquearon con deuda pendiente', [
+                    Log::info('No se puede finalizar el préstamo: hay integrantes que no retanquearon con deuda pendiente', [
                         'prestamo_id' => $this->id,
                     ]);
                     return false;
@@ -285,7 +290,7 @@ class Prestamo extends Model
                 // Mover integrantes que no retanquearon a ex-integrantes
                 $this->moverIntegrantesNoRetanqueadosAExIntegrantes();
 
-                \Illuminate\Support\Facades\Log::info('Estado del préstamo actualizado a Finalizado', [
+                Log::info('Estado del préstamo actualizado a Finalizado', [
                     'prestamo_id' => $this->id,
                 ]);
 
@@ -361,7 +366,7 @@ class Prestamo extends Model
                 // Mover a ex-integrante
                 $this->grupo->removerCliente($cliente->id, now());
 
-                \Illuminate\Support\Facades\Log::info('Cliente movido a ex-integrante por completar pagos post-retanqueo', [
+                Log::info('Cliente movido a ex-integrante por completar pagos post-retanqueo', [
                     'cliente_id' => $cliente->id,
                     'grupo_id' => $this->grupo->id,
                     'prestamo_id' => $this->id
@@ -405,7 +410,7 @@ class Prestamo extends Model
             return false;
         }
 
-        \Illuminate\Support\Facades\Log::info('Verificando integrantes que no retanquearon', [
+        Log::info('Verificando integrantes que no retanquearon', [
             'prestamo_id' => $this->id,
             'estado' => $this->estado,
             'total_no_retanqueados' => $integrantesNoRetanqueados->count()
@@ -428,7 +433,7 @@ class Prestamo extends Model
                         // También verificar que el monto a devolver sea mayor a 0
                         $montoDevolver = (float) $prestamoIndividual->monto_devolver_individual;
                         if ($montoDevolver > 0) {
-                            \Illuminate\Support\Facades\Log::info('Integrante que no retanqueó aún tiene deuda pendiente', [
+                            Log::info('Integrante que no retanqueó aún tiene deuda pendiente', [
                                 'prestamo_id' => $this->id,
                                 'cliente_id' => $cliente->id,
                                 'prestamo_individual_id' => $prestamoIndividual->id,
@@ -604,7 +609,7 @@ class Prestamo extends Model
             DB::commit();
             return true;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Error al desembolsar préstamo', [
                 'prestamo_id' => $this->id,
@@ -799,7 +804,7 @@ class Prestamo extends Model
     {
         // Solo sincronizar si está en estado Pendiente y NO es un retanqueo
         if ($this->estado !== 'Pendiente' || $this->es_retanqueo) {
-            \Illuminate\Support\Facades\Log::warning('Intento de sincronización bloqueado', [
+            Log::warning('Intento de sincronización bloqueado', [
                 'prestamo_id' => $this->id,
                 'estado' => $this->estado,
                 'es_retanqueo' => $this->es_retanqueo,
@@ -817,7 +822,7 @@ class Prestamo extends Model
                 'monto_devolver' => round($montoDevolver, 2),
             ]);
 
-            \Illuminate\Support\Facades\Log::info('Sincronización de montos completada', [
+            Log::info('Sincronización de montos completada', [
                 'prestamo_id' => $this->id,
                 'monto_total_anterior' => $this->getOriginal('monto_prestado_total'),
                 'monto_total_nuevo' => round($montoTotal, 2),

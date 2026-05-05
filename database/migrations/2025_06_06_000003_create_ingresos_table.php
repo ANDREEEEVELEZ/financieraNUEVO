@@ -20,6 +20,8 @@ class CreateIngresosTable extends Migration
 
             $table->foreign('pago_id')->references('id')->on('pagos')->onDelete('cascade');
             $table->foreign('grupo_id')->references('id')->on('grupos')->onDelete('cascade');
+            $table->index('fecha_hora', 'ingresos_fecha_idx');
+            $table->index('tipo_ingreso', 'ingresos_tipo_idx');
         });
     }
 

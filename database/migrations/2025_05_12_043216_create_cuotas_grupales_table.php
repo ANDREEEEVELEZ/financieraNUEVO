@@ -23,6 +23,10 @@ return new class extends Migration
             $table->enum('estado_pago', ['pendiente', 'parcial', 'pagado'])->default('pendiente');
 
             $table->timestamps();
+            $table->index(['prestamo_id', 'estado_cuota_grupal'], 'cuotas_grupales_prestamo_estado_idx');
+            $table->index(['fecha_vencimiento', 'estado_pago'], 'cuotas_grupales_vencimiento_pago_idx');
+            $table->index('estado_pago', 'cuotas_grupales_estado_pago_idx');
+            $table->index('estado_cuota_grupal', 'cuotas_grupales_estado_cuota_idx');
         });
 
     }

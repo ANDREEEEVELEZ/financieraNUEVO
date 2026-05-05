@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('DNI', 8)->unique();
             $table->string('nombre');
             $table->string('apellidos');
-            $table->enum('sexo', ['Hombre', 'Mujer']);
+            $table->enum('sexo', ['Masculino', 'Femenino']);
             $table->date('fecha_nacimiento')->nullable();
             $table->string('celular')->nullable();
             $table->string('correo')->unique()->nullable();

@@ -22,15 +22,11 @@ class Reagrupacion extends Model
         'prestamo_origen_id',
         'ejecutado_por',
         'tipo',
-        'clientes_trasladados',
-        'clientes_retenidos',
         'monto_descuento',
         'observaciones',
     ];
 
     protected $casts = [
-        'clientes_trasladados' => 'array',
-        'clientes_retenidos' => 'array',
         'monto_descuento' => 'decimal:2',
     ];
 
@@ -54,6 +50,22 @@ class Reagrupacion extends Model
     public function ejecutor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'ejecutado_por');
+    }
+
+    public function clientesTrasladados()
+    {
+        return $this->belongsToMany(Cliente::class, 'reagrupacion_cliente')
+                    ->withPivot('tipo')
+                    ->wherePivot('tipo', 'trasladado')
+                    ->withTimestamps();
+    }
+
+    public function clientesRetenidos()
+    {
+        return $this->belongsToMany(Cliente::class, 'reagrupacion_cliente')
+                    ->withPivot('tipo')
+                    ->wherePivot('tipo', 'retenido')
+                    ->withTimestamps();
     }
 
     // ─── Helpers ────────────────────────────────────────────────────

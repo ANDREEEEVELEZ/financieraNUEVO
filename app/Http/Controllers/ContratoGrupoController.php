@@ -71,7 +71,7 @@ class ContratoGrupoController extends Controller
             foreach ($prestamoGrupal->getIntegrantesParaContrato() as $integrante) {
                 $cliente = $integrante['cliente'];
                 $persona = $cliente->persona;
-                $prestamoIndividual = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoGrupal->id ?? null)
+                $prestamoIndividual = PrestamoIndividual::where('prestamo_id', $prestamoGrupal->id ?? null)
                     ->where('cliente_id', $cliente->id)
                     ->first();
                 $monto = $prestamoIndividual->monto_prestado_individual ?? 0;
@@ -81,7 +81,7 @@ class ContratoGrupoController extends Controller
                 $seguro = $prestamoIndividual->seguro ?? 0;
 
                 // Generar cronograma individual basado en las fechas de cuotas grupales
-                $cuotas = \App\Models\CuotasGrupales::where('prestamo_id', $prestamoGrupal->id ?? null)
+                $cuotas = CuotasGrupales::where('prestamo_id', $prestamoGrupal->id ?? null)
                     ->orderBy('numero_cuota')
                     ->get();
                 $cronograma = [];

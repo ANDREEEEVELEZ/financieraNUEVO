@@ -16,9 +16,12 @@ return new class extends Migration
             $table->foreignId('grupo_id')->constrained('grupos')->onDelete('cascade'); 
             $table->foreignId('cliente_id')->constrained('clientes')->onDelete('cascade');
             $table->date('fecha_ingreso')->nullable();
+            $table->date('fecha_salida')->nullable();
             $table->string('rol')->nullable();
             $table->string('estado_grupo_cliente')->nullable();
             $table->timestamps();
+            $table->index(['grupo_id', 'estado_grupo_cliente'], 'grupo_cliente_grupo_estado_idx');
+            $table->index('cliente_id', 'grupo_cliente_cliente_idx');
         });
     }
 

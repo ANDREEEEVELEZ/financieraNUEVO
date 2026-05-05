@@ -37,7 +37,12 @@ return new class extends Migration
         $table->tinyInteger('prestamo_antiguo_estado')->default(0);
         $table->date('fecha_aceptacion')->nullable();
         $table->string('estado_retanqueo');
-                $table->timestamps();
+        $table->timestamps();
+
+        $table->index('estado_retanqueo');
+        $table->index('fecha_aceptacion');
+        $table->index(['prestamo_id', 'estado_retanqueo']);
+        $table->index('created_at');
             });
         }
 

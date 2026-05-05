@@ -26,7 +26,7 @@ class PrestamoResource extends Resource
     public static function form(Forms\Form $form): Forms\Form
     {
         $record = request()->route('record');
-        $prestamo = $record ? \App\Models\Prestamo::with('prestamoIndividual.cliente.persona')->find($record) : null;
+        $prestamo = $record ? Prestamo::with('prestamoIndividual.cliente.persona')->find($record) : null;
         $user = request()->user();
 
         // Si el préstamo existe y su estado NO es 'Pendiente', bloquear todo
@@ -222,7 +222,7 @@ class PrestamoResource extends Resource
                             // Validar que el monto seleccionado sea válido para el ciclo
                             $ciclo = \App\Helpers\CicloHelper::normalize($get('ciclo') ?? 'I');
                             if (!\App\Helpers\CicloHelper::validarMontoExacto($state, $ciclo)) {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->title('Monto no válido para el ciclo ' . $ciclo)
                                     ->danger()
                                     ->send();
@@ -610,7 +610,7 @@ class PrestamoResource extends Resource
 
         // Si es un préstamo existente, verificar su estado y si es retanqueo
         if ($record) {
-            $prestamo = \App\Models\Prestamo::find($record);
+            $prestamo = Prestamo::find($record);
 
             // Si el préstamo existe y NO está en estado Pendiente, no permitir ningún cambio
             if ($prestamo && $prestamo->estado !== 'Pendiente') {
@@ -620,7 +620,7 @@ class PrestamoResource extends Resource
 
             // NUEVA VALIDACIÓN: Si es un retanqueo, no permitir cambios desde este módulo
             if ($prestamo && $prestamo->es_retanqueo) {
-                \Filament\Notifications\Notification::make()
+                Notification::make()
                     ->title('No se puede editar un retanqueo desde este módulo')
                     ->body('Los retanqueos solo pueden ser editados desde el módulo de Retanqueos.')
                     ->warning()
@@ -640,7 +640,7 @@ class PrestamoResource extends Resource
         // Los asesores solo pueden editar si el préstamo está en estado Pendiente y no es retanqueo
         if ($user && $user->roles->pluck('name')->contains('Asesor')) {
             if ($record) {
-                $prestamo = \App\Models\Prestamo::find($record);
+                $prestamo = Prestamo::find($record);
                 if ($prestamo && ($prestamo->estado !== 'Pendiente' || $prestamo->es_retanqueo)) {
                     // Si no está en Pendiente o es retanqueo, preservar todos los campos
                     return $prestamo->toArray();
@@ -670,7 +670,7 @@ class PrestamoResource extends Resource
     {
         // Asegurar que los montos totales se cargan correctamente
         if (!empty($data['id'])) {
-            $prestamo = \App\Models\Prestamo::with('prestamoIndividual')->find($data['id']);
+            $prestamo = Prestamo::with('prestamoIndividual')->find($data['id']);
             if ($prestamo && $prestamo->prestamoIndividual->count() > 0) {
                 // Recalcular los montos totales basados en los préstamos individuales
                 $montoTotal = $prestamo->prestamoIndividual->sum('monto_prestado_individual');

@@ -19,6 +19,8 @@ return new class extends Migration
              $table->decimal('monto_pagado', 10, 2)->nullable();
              $table->enum('estado_pago_individual', ['Pagada', 'Parcial', 'Mora']);
             $table->timestamps();
+            $table->index('pago_id', 'detalles_pago_pago_idx');
+            $table->index('prestamo_individual_id', 'detalles_pago_prestamo_individual_idx');
         });
     }
 
