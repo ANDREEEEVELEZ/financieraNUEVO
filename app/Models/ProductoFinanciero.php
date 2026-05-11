@@ -18,6 +18,7 @@ class ProductoFinanciero extends Model
         'tasa_interes',
         'tasa_mora',
         'permite_condonacion_mora',
+        'permite_retanqueo',
         'monto_minimo',
         'monto_maximo',
         'plazo_minimo_meses',
@@ -27,13 +28,14 @@ class ProductoFinanciero extends Model
     ];
 
     protected $casts = [
-        'tasa_interes' => 'decimal:4',
-        'tasa_mora' => 'decimal:4',
+        'tasa_interes'           => 'decimal:4',
+        'tasa_mora'              => 'decimal:4',
         'permite_condonacion_mora' => 'boolean',
-        'monto_minimo' => 'decimal:2',
-        'monto_maximo' => 'decimal:2',
-        'config_json' => 'array',
-        'activo' => 'boolean',
+        'permite_retanqueo'      => 'boolean',
+        'monto_minimo'           => 'decimal:2',
+        'monto_maximo'           => 'decimal:2',
+        'config_json'            => 'array',
+        'activo'                 => 'boolean',
     ];
 
     // Relaciones
@@ -67,6 +69,15 @@ class ProductoFinanciero extends Model
     public function esIndividual(): bool
     {
         return $this->tipo === 'individual';
+    }
+
+    /**
+     * Contrato de dominio: ¿este producto financiero permite retanqueo?
+     * Definido por el Súper Admin. No inferido por el sistema.
+     */
+    public function admiteRetanqueo(): bool
+    {
+        return $this->permite_retanqueo === true;
     }
 
     /**
