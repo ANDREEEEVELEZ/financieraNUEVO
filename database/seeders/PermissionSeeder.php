@@ -73,6 +73,19 @@ class PermissionSeeder extends Seeder
             'prestamos.reformular',      // Reformular solicitud rechazada (solo Asesor)
             'prestamos.separar_cliente', // Separar cliente moroso del grupo (JC, JO)
             'prestamos.reagrupar',       // Reagrupación parcial (JC, JO)
+            // Filament Shield permissions
+            'view_any_prestamo',
+            'view_prestamo',
+            'create_prestamo',
+            'update_prestamo',
+            'delete_prestamo',
+            'delete_any_prestamo',
+            'force_delete_prestamo',
+            'force_delete_any_prestamo',
+            'restore_prestamo',
+            'restore_any_prestamo',
+            'replicate_prestamo',
+            'reorder_prestamo',
         ];
 
         // ─── Permisos de Pagos ──────────────────────────────────────────
@@ -82,11 +95,37 @@ class PermissionSeeder extends Seeder
             'pagos.aprobar',             // Aprobar pago verificando transacción (solo JO)
             'pagos.anular',              // Anulación lógica de pago (solo JO)
             'pagos.revertir',            // Revertir pago aprobado con auditoría (solo JO)
+            // Filament Shield permissions
+            'view_any_pago',
+            'view_pago',
+            'create_pago',
+            'update_pago',
+            'delete_pago',
+            'delete_any_pago',
+            'force_delete_pago',
+            'force_delete_any_pago',
+            'restore_pago',
+            'restore_any_pago',
+            'replicate_pago',
+            'reorder_pago',
         ];
 
         // ─── Permisos de Retanqueos ─────────────────────────────────────
         $retanqueoPermisos = [
             'retanqueos.ver_todos',      // Ver todos los retanqueos (JC, JO)
+            // Filament Shield permissions
+            'view_any_retanqueo',
+            'view_retanqueo',
+            'create_retanqueo',
+            'update_retanqueo',
+            'delete_retanqueo',
+            'delete_any_retanqueo',
+            'force_delete_retanqueo',
+            'force_delete_any_retanqueo',
+            'restore_retanqueo',
+            'restore_any_retanqueo',
+            'replicate_retanqueo',
+            'reorder_retanqueo',
         ];
 
         // ─── Permisos de Ajustes de Deuda ───────────────────────────────
@@ -102,6 +141,19 @@ class PermissionSeeder extends Seeder
             'productos.editar',
             'productos.ver',
             'productos.activar_desactivar',
+            // Filament Shield permissions
+            'view_any_producto::financiero',
+            'view_producto::financiero',
+            'create_producto::financiero',
+            'update_producto::financiero',
+            'delete_producto::financiero',
+            'delete_any_producto::financiero',
+            'force_delete_producto::financiero',
+            'force_delete_any_producto::financiero',
+            'restore_producto::financiero',
+            'restore_any_producto::financiero',
+            'replicate_producto::financiero',
+            'reorder_producto::financiero',
         ];
 
         // ─── Permisos de Reportes ───────────────────────────────────────
@@ -134,8 +186,8 @@ class PermissionSeeder extends Seeder
         $jefeOperaciones = Role::firstOrCreate(['name' => 'Jefe de operaciones', 'guard_name' => 'web']);
         $asesor = Role::firstOrCreate(['name' => 'Asesor', 'guard_name' => 'web']);
 
-        // ─── Super Admin: Todos los permisos ────────────────────────────
-        $superAdmin->syncPermissions($todosPermisos);
+        // ─── Super Admin: Todos los permisos (incluyendo los de Filament Shield) ──
+        $superAdmin->syncPermissions(Permission::all());
 
         // ─── Jefe de Créditos (JC) ─────────────────────────────────────
         // Aprueba/rechaza préstamos, ve retanqueos y pagos (lectura),

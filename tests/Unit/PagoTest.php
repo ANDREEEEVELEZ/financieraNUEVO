@@ -125,6 +125,17 @@ describe('Validaciones de creación de pagos', function ()
 
         expect($pago->estado_pago)->toBe('pendiente');
     });
+
+    it('permite crear pagos con cuota_grupal_id nulo (pago canónico)', function () {
+        $pago = Pago::factory()->create([
+            'cuota_grupal_id' => null,
+            'monto_pagado' => 100,
+            'estado_pago' => 'pendiente',
+        ]);
+
+        expect($pago)->toBeInstanceOf(Pago::class);
+        expect($pago->cuota_grupal_id)->toBeNull();
+    });
 });
 
 describe('Funcionalidad de aprobación de pagos', function ()
