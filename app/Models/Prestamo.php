@@ -13,7 +13,8 @@ class Prestamo extends Model
 
     protected $table = 'prestamos';
 
-    // ─── 10 estados funcionales del préstamo ──────────────────────────
+    // ─── FSM: Estados del ciclo de vida del préstamo ────────────────────
+    // Flujo válido: Pendiente → Aprobado → Firmado → Activo → (Al_Día|En_Mora) → Finalizado
     public const ESTADO_PENDIENTE = 'Pendiente';
     public const ESTADO_APROBADO = 'Aprobado';
     public const ESTADO_FIRMADO = 'Firmado';
@@ -26,7 +27,14 @@ class Prestamo extends Model
     public const ESTADO_CANCELADO = 'Cancelado';
 
     /**
-     * Lista de todos los estados para validaciones y selects.
+     * @deprecated Usar ESTADO_FIRMADO + ESTADO_ACTIVO.
+     * Mantenidos sólo para compatibilidad con datos históricos en BD.
+     */
+    public const ESTADO_POR_DESEMBOLSAR = 'Por Desembolsar';
+    public const ESTADO_DESEMBOLSADO = 'Desembolsado';
+
+    /**
+     * Estados válidos del FSM (los dos deprecados se omiten del flujo normal).
      */
     public const ESTADOS = [
         self::ESTADO_PENDIENTE,
@@ -45,16 +53,19 @@ class Prestamo extends Model
      * Colores de badge por estado para la UI (Filament).
      */
     public const ESTADO_COLORES = [
-        self::ESTADO_PENDIENTE => 'gray',
-        self::ESTADO_APROBADO => 'warning',
-        self::ESTADO_FIRMADO => 'info',
-        self::ESTADO_ACTIVO => 'primary',
-        self::ESTADO_AL_DIA => 'success',
-        self::ESTADO_EN_MORA => 'danger',
-        self::ESTADO_RECHAZADO => 'danger',
-        self::ESTADO_REFORMULADO => 'warning',
-        self::ESTADO_FINALIZADO => 'success',
-        self::ESTADO_CANCELADO => 'gray',
+        self::ESTADO_PENDIENTE       => 'gray',
+        self::ESTADO_APROBADO        => 'warning',
+        self::ESTADO_FIRMADO         => 'info',
+        self::ESTADO_ACTIVO          => 'primary',
+        self::ESTADO_AL_DIA          => 'success',
+        self::ESTADO_EN_MORA         => 'danger',
+        self::ESTADO_RECHAZADO       => 'danger',
+        self::ESTADO_REFORMULADO     => 'warning',
+        self::ESTADO_FINALIZADO      => 'success',
+        self::ESTADO_CANCELADO       => 'gray',
+        // Compatibilidad histórica (no aparecen en flujo normal)
+        self::ESTADO_POR_DESEMBOLSAR => 'info',
+        self::ESTADO_DESEMBOLSADO    => 'primary',
     ];
 
     /**
@@ -232,12 +243,15 @@ class Prestamo extends Model
         return $this->prestamoIndividual()->sum('monto_devolver_individual');
     }
 
-    // Método para actualizar el estado automáticamente
     public function actualizarEstadoAutomaticamente()
     {
-        if ($this->estado === 'Aprobado') {
-            $total = $this->cuotasGrupales()->count();
-            $pagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
+        // Solo evaluar si el préstamo ya está activo (en curso)
+        if (!in_array($this->estado, self::ESTADOS_ACTIVOS)) {
+            return false;
+        }
+
+        $total = $this->cuotasGrupales()->count();
+        $pagadas = $this->cuotasGrupales()->where('estado_pago', 'pagado')->count();
 
             if ($total > 0 && $total === $pagadas) {
                 // Verificar si hay retanqueos parciales donde algunas personas no retanquearon
@@ -248,11 +262,11 @@ class Prestamo extends Model
                     return false;
                 }
 
-                $this->estado = 'Finalizado';
+                $this->estado = self::ESTADO_FINALIZADO;
                 $this->save();
                 return true;
             }
-        }
+
         return false;
     }
 

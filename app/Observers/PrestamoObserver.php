@@ -69,28 +69,22 @@ class PrestamoObserver
             ]);
         }
 
-        // Si el estado se cambió a aprobado Y viene de Pendiente
+        // ── Transición: Firmado → Activo (Desembolso por JO) ─────────────────
         if (
             $prestamo->wasChanged('estado') &&
-            strtolower($prestamo->estado) === 'aprobado' &&
-            strtolower($prestamo->getRawOriginal('estado') ?? '') === 'pendiente'
+            strtolower($prestamo->estado) === 'activo' &&
+            strtolower($prestamo->getRawOriginal('estado') ?? '') === 'firmado'
         ) {
-
-            // Transición automática: Aprobado → Por Desembolsar
-            $prestamo->updateQuietly(['estado' => Prestamo::ESTADO_POR_DESEMBOLSAR]);
-
-            Log::info('PrestamoObserver: Préstamo aprobado, transición automática a Por Desembolsar', [
-                'prestamo_id' => $prestamo->id
-            ]);
+            $this->procesarDesembolso($prestamo);
         }
 
-        // Si el estado se cambió a Desembolsado Y viene de Por Desembolsar
+        // ── Retrocompatibilidad: "Desembolsado" (datos históricos) ────────────
+        // Solo para registros anteriores a la refactorización del FSM.
         if (
             $prestamo->wasChanged('estado') &&
             strtolower($prestamo->estado) === 'desembolsado' &&
             strtolower($prestamo->getRawOriginal('estado') ?? '') === 'por desembolsar'
         ) {
-
             $this->procesarDesembolso($prestamo);
         }
     }

@@ -122,29 +122,36 @@ class PrestamoWorkflowTest extends TestCase
             'asesor_id' => $this->asesorRecord->id
         ]);
 
+        // Asociar clientes al grupo (pivot)
+        $this->grupo->clientes()->attach($clientes->pluck('id'));
+
         // Crear préstamo en estado Pendiente
         $this->prestamo = Prestamo::factory()->create([
-            'grupo_id' => $this->grupo->id,
-            'estado' => Prestamo::ESTADO_PENDIENTE,
-            'monto_total' => 4000,
-            'tasa_interes' => 17,
-            'plazo' => 4,
+            'grupo_id'            => $this->grupo->id,
+            'estado'              => Prestamo::ESTADO_PENDIENTE,
+            'monto_prestado_total'=> 4000,
+            'monto_devolver'      => 4680,
+            'tasa_interes'        => 17,
+            'cantidad_cuotas'     => 4,
+            'frecuencia'          => 'mensual',
+            'fecha_prestamo'      => now()->toDateString(),
         ]);
 
-        // Crear préstamos individuales
+        // Crear préstamos individuales (3 clientes a 1000, 1500, 1500)
+        $montos = [1000, 1500, 1500];
         foreach ($clientes as $index => $cliente) {
+            $monto = $montos[$index];
             PrestamoIndividual::factory()->create([
-                'prestamo_id' => $this->prestamo->id,
-                'cliente_id' => $cliente->id,
-                'monto_prestamo' => 1000 + ($index * 500),
-                'monto_interes' => 170 + ($index * 85),
-                'monto_seguro' => 30,
-                'estado' => 'Pendiente',
+                'prestamo_id'             => $this->prestamo->id,
+                'cliente_id'              => $cliente->id,
+                'monto_prestado_individual' => $monto,
+                'monto_cuota_prestamo_individual' => round(($monto * 1.17) / 4, 2),
+                'monto_devolver_individual' => round($monto * 1.17, 2),
+                'interes'                 => round($monto * 0.17, 2),
+                'seguro'                  => 0,
+                'estado'                  => 'Pendiente',
             ]);
         }
-
-        // Actualizar monto total del préstamo
-        $this->prestamo->sincronizarMontosTotal();
     }
 
     // ========================================
@@ -152,52 +159,65 @@ class PrestamoWorkflowTest extends TestCase
     // ========================================
 
     /** @test */
-    public function test_flujo_pendiente_a_aprobado_a_por_desembolsar()
+    public function test_flujo_pendiente_a_aprobado()
     {
-        // Estado inicial: Pendiente
         $this->assertEquals(Prestamo::ESTADO_PENDIENTE, $this->prestamo->estado);
 
-        // Aprobar préstamo (debe pasar automáticamente a Por Desembolsar)
         $this->actingAs($this->jefeCreditos);
         $this->prestamo->aprobar();
         $this->prestamo->refresh();
 
-        // Verificar que pasó a Por Desembolsar (transición automática)
-        $this->assertEquals(Prestamo::ESTADO_POR_DESEMBOLSAR, $this->prestamo->estado);
+        // Aprobado — siguiente paso es que el asesor firme el contrato
+        $this->assertEquals(Prestamo::ESTADO_APROBADO, $this->prestamo->estado);
     }
 
     /** @test */
-    public function test_flujo_por_desembolsar_a_desembolsado()
+    public function test_flujo_aprobado_a_firmado()
     {
-        // Preparar: Llevar a estado Por Desembolsar
-        $this->prestamo->update(['estado' => Prestamo::ESTADO_POR_DESEMBOLSAR]);
+        $this->prestamo->update(['estado' => Prestamo::ESTADO_APROBADO]);
 
-        // Desembolsar
+        $this->actingAs($this->asesor);
+        $this->prestamo->firmar();
+        $this->prestamo->refresh();
+
+        $this->assertEquals(Prestamo::ESTADO_FIRMADO, $this->prestamo->estado);
+    }
+
+    /** @test */
+    public function test_flujo_firmado_a_activo_crea_cuotas()
+    {
+        // Preparar: llevar a Firmado
+        $this->prestamo->update(['estado' => Prestamo::ESTADO_FIRMADO]);
+
         $this->actingAs($this->jefeOperaciones);
         $fechaDesembolso = now();
         $this->prestamo->desembolsar($fechaDesembolso);
         $this->prestamo->refresh();
 
-        // Verificar estado
-        $this->assertEquals(Prestamo::ESTADO_DESEMBOLSADO, $this->prestamo->estado);
+        // El préstamo debe estar Activo
+        $this->assertEquals(Prestamo::ESTADO_ACTIVO, $this->prestamo->estado);
         $this->assertEquals($fechaDesembolso->toDateString(), $this->prestamo->fecha_desembolso->toDateString());
     }
 
     /** @test */
-    public function test_flujo_completo_pendiente_a_desembolsado()
+    public function test_flujo_completo_pendiente_a_activo()
     {
-        // Estado inicial
         $this->assertEquals(Prestamo::ESTADO_PENDIENTE, $this->prestamo->estado);
 
-        // Paso 1: Aprobar
+        // Paso 1: JC aprueba
         $this->prestamo->aprobar();
         $this->prestamo->refresh();
-        $this->assertEquals(Prestamo::ESTADO_POR_DESEMBOLSAR, $this->prestamo->estado);
+        $this->assertEquals(Prestamo::ESTADO_APROBADO, $this->prestamo->estado);
 
-        // Paso 2: Desembolsar
+        // Paso 2: Asesor firma contrato
+        $this->prestamo->firmar();
+        $this->prestamo->refresh();
+        $this->assertEquals(Prestamo::ESTADO_FIRMADO, $this->prestamo->estado);
+
+        // Paso 3: JO desembolsa
         $this->prestamo->desembolsar(now());
         $this->prestamo->refresh();
-        $this->assertEquals(Prestamo::ESTADO_DESEMBOLSADO, $this->prestamo->estado);
+        $this->assertEquals(Prestamo::ESTADO_ACTIVO, $this->prestamo->estado);
     }
 
     // ========================================
