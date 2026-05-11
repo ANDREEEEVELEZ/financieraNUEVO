@@ -5,6 +5,7 @@ namespace App\Filament\Dashboard\Resources;
 use App\Filament\Dashboard\Resources\PagoResource\Pages;
 use App\Models\Pago;
 use App\Models\CuotasGrupales;
+use App\Services\PagoService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -966,7 +967,19 @@ class PagoResource extends Resource
                         ->color('success')
                         ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                         ->action(function ($record) {
-                            $record->aprobar();
+                            try {
+                                app(PagoService::class)->aprobarPago($record);
+                                Notification::make()
+                                    ->title('Pago aprobado exitosamente')
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                Notification::make()
+                                    ->title('Error al aprobar')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
                             \Filament\Notifications\Notification::make()
                                 ->title('Pago aprobado')
                                 ->success()
@@ -979,11 +992,19 @@ class PagoResource extends Resource
                         ->color('danger')
                         ->visible(fn($record) => strtolower($record->estado_pago) === 'pendiente' && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                         ->action(function ($record) {
-                            $record->rechazar();
-                            \Filament\Notifications\Notification::make()
-                                ->title('Pago rechazado')
-                                ->danger()
-                                ->send();
+                            try {
+                                app(PagoService::class)->rechazarPago($record);
+                                Notification::make()
+                                    ->title('Pago rechazado')
+                                    ->success()
+                                    ->send();
+                            } catch (\Exception $e) {
+                                Notification::make()
+                                    ->title('Error al rechazar')
+                                    ->body($e->getMessage())
+                                    ->danger()
+                                    ->send();
+                            }
                         }),
 
                     Action::make('revertir')
@@ -996,16 +1017,24 @@ class PagoResource extends Resource
                         ->modalSubmitActionLabel('Sí, revertir')
                         ->visible(fn($record) => strtolower($record->estado_pago) === 'aprobado' && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                         ->action(function ($record) {
-                            if ($record->revertir()) {
-                                \Filament\Notifications\Notification::make()
-                                    ->title('Pago revertido')
-                                    ->body('El pago ha sido revertido a estado Pendiente y los saldos fueron recalculados.')
-                                    ->success()
-                                    ->send();
-                            } else {
+                            try {
+                                if (app(PagoService::class)->revertirPago($record)) {
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Pago revertido')
+                                        ->body('El pago ha sido revertido a estado Pendiente y los saldos fueron recalculados.')
+                                        ->success()
+                                        ->send();
+                                } else {
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Error al revertir')
+                                        ->body('No se pudo revertir el pago. Solo se pueden revertir pagos aprobados.')
+                                        ->danger()
+                                        ->send();
+                                }
+                            } catch (\Exception $e) {
                                 \Filament\Notifications\Notification::make()
                                     ->title('Error al revertir')
-                                    ->body('No se pudo revertir el pago. Solo se pueden revertir pagos aprobados.')
+                                    ->body($e->getMessage())
                                     ->danger()
                                     ->send();
                             }

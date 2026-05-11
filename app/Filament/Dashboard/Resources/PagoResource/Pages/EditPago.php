@@ -9,6 +9,8 @@ use Filament\Forms;
 use Illuminate\Support\Facades\Auth;
 use Filament\Notifications\Notification;
 
+use App\Services\PagoService;
+
 class EditPago extends EditRecord
 {
     protected static string $resource = PagoResource::class;
@@ -157,11 +159,19 @@ private function shouldDisableForm(): bool
                     $user->hasAnyRole(['super_admin', 'Jefe de operaciones'])
                 )
                 ->action(function ($record) {
-                    $record->aprobar();
-                    Notification::make()
-                        ->title('Pago aprobado')
-                        ->success()
-                        ->send();
+                    try {
+                        app(PagoService::class)->aprobarPago($record);
+                        Notification::make()
+                            ->title('Pago aprobado')
+                            ->success()
+                            ->send();
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Error al aprobar')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
                 }),
 
             Actions\Action::make('rechazar')
@@ -175,11 +185,19 @@ private function shouldDisableForm(): bool
                     $user->hasAnyRole(['super_admin', 'Jefe de operaciones'])
                 )
                 ->action(function ($record) {
-                    $record->rechazar();
-                    Notification::make()
-                        ->title('Pago rechazado')
-                        ->danger()
-                        ->send();
+                    try {
+                        app(PagoService::class)->rechazarPago($record);
+                        Notification::make()
+                            ->title('Pago rechazado')
+                            ->danger()
+                            ->send();
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Error al rechazar')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
                 }),
         ];
     }

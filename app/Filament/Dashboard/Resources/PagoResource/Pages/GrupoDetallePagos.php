@@ -16,6 +16,7 @@ use Filament\Actions;
 use Filament\Notifications\Notification;
 use Exception;
 use App\Models\Prestamo;
+use App\Services\PagoService;
 
 class GrupoDetallePagos extends Page implements HasTable
 {
@@ -58,7 +59,7 @@ class GrupoDetallePagos extends Page implements HasTable
             ->with([
                 'cuotaGrupal.prestamo.grupo',
                 'cuotaGrupal.mora',
-                'detallesPago.prestamoIndividual.cliente.persona'
+                'aplicacionesPago.cuota.cliente.persona',
             ])
             ->orderBy('created_at', 'desc');
     }
@@ -216,11 +217,19 @@ public function table(Table $table): Table
                                         $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
                                 })
                                 ->action(function ($livewire, $record) {
-                                    $record->aprobar();
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Pago aprobado correctamente')
-                                        ->success()
-                                        ->send();
+                                    try {
+                                        app(PagoService::class)->aprobarPago($record);
+                                        \Filament\Notifications\Notification::make()
+                                            ->title('Pago aprobado correctamente')
+                                            ->success()
+                                            ->send();
+                                    } catch (\Exception $e) {
+                                        \Filament\Notifications\Notification::make()
+                                            ->title('Error al aprobar')
+                                            ->body($e->getMessage())
+                                            ->danger()
+                                            ->send();
+                                    }
                                     $livewire->dispatch('closeEditModal');
                                 }),
 
@@ -233,11 +242,19 @@ public function table(Table $table): Table
                                         $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
                                 })
                                 ->action(function ($livewire, $record) {
-                                    $record->rechazar();
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Pago rechazado correctamente')
-                                        ->danger()
-                                        ->send();
+                                    try {
+                                        app(PagoService::class)->rechazarPago($record);
+                                        \Filament\Notifications\Notification::make()
+                                            ->title('Pago rechazado correctamente')
+                                            ->danger()
+                                            ->send();
+                                    } catch (\Exception $e) {
+                                        \Filament\Notifications\Notification::make()
+                                            ->title('Error al rechazar')
+                                            ->body($e->getMessage())
+                                            ->danger()
+                                            ->send();
+                                    }
                                     $livewire->dispatch('closeEditModal');
                                 }),
                         ])->columnSpanFull(),
@@ -759,28 +776,51 @@ public function table(Table $table): Table
                         $data['saldo_pendiente_actual'] = 0;
                     }
 
-                    // Mapear todos los integrantes del grupo, mostrando monto_pagado si existe en detallesPago, o 0 si no existe
-                    $integrantes = [];
-                    if ($record->cuotaGrupal && $record->cuotaGrupal->prestamo) {
-                        $prestamoId = $record->cuotaGrupal->prestamo->id;
-                        $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->with('cliente.persona')->get();
+                    // Mapear integrantes desde AplicacionPago (V2) → CuotaIndividual → Cliente
+                    $aplicaciones = $record->aplicacionesPago;
+                    $data['detallesPago'] = [];
+
+                    if ($aplicaciones->isNotEmpty()) {
+                        // Hay aplicaciones: mostrar lo que ya se distribuyó
+                        $data['detallesPago'] = $aplicaciones->map(function ($ap) {
+                            $persona = optional($ap->cuota?->cliente?->persona);
+                            $nombre  = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
+                            return [
+                                'cuota_individual_id' => $ap->cuota_id,
+                                'nombre_integrante'   => $nombre,
+                                'monto_capital'       => (float) $ap->monto_aplicado_capital,
+                                'monto_interes'       => (float) $ap->monto_aplicado_interes,
+                                'monto_mora'          => (float) $ap->monto_aplicado_mora,
+                                'monto_pagado'        => round(
+                                    (float) $ap->monto_aplicado_capital +
+                                    (float) $ap->monto_aplicado_interes +
+                                    (float) $ap->monto_aplicado_mora,
+                                    2
+                                ),
+                            ];
+                        })->toArray();
+                    } else {
+                        // Pago pendiente: mostrar integrantes del préstamo con monto 0
+                        if ($record->cuotaGrupal && $record->cuotaGrupal->prestamo) {
+                            $prestamoId = $record->cuotaGrupal->prestamo->id;
+                            $pis = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)
+                                ->with('cliente.persona')
+                                ->get();
+
+                            $data['detallesPago'] = $pis->map(function ($pi) {
+                                $persona = optional($pi->cliente->persona);
+                                $nombre  = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
+                                return [
+                                    'cuota_individual_id' => null,
+                                    'nombre_integrante'   => $nombre,
+                                    'monto_capital'       => round($pi->monto_prestado_individual / ($pi->prestamo->cantidad_cuotas ?? 4), 2),
+                                    'monto_interes'       => round($pi->interes / ($pi->prestamo->cantidad_cuotas ?? 4), 2),
+                                    'monto_mora'          => 0,
+                                    'monto_pagado'        => (float) $pi->monto_cuota_prestamo_individual,
+                                ];
+                            })->toArray();
+                        }
                     }
-
-                    // Indexar detallesPago por prestamo_individual_id para acceso rápido
-                    $detallesPagoById = $record->detallesPago->keyBy('prestamo_individual_id');
-
-                    $data['detallesPago'] = collect($integrantes)->map(function($pi) use ($detallesPagoById) {
-                        $persona = optional($pi->cliente->persona);
-                        $nombre = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
-                        $detalle = $detallesPagoById->get($pi->id);
-                        // Si existe el detalle, usar el monto_pagado registrado, si no, usar 0 por defecto
-                        $monto = $detalle !== null ? floatval($detalle->monto_pagado) : 0;
-                        return [
-                            'prestamo_individual_id' => $pi->id,
-                            'nombre_integrante' => $nombre,
-                            'monto_pagado' => $monto,
-                        ];
-                    })->toArray();
 
                     return $data;
                 })
@@ -809,30 +849,20 @@ public function table(Table $table): Table
                         $esAsesor = $user->hasRole('Asesor');
 
                         if ($esPendiente && $esAsesor) {
-                            // Actualizar campos simples
-                            $record->tipo_pago = $data['tipo_pago'] ?? $record->tipo_pago;
-                            $record->codigo_operacion = $data['codigo_operacion'] ?? $record->codigo_operacion;
-                            $record->fecha_pago = $data['fecha_pago'] ?? $record->fecha_pago;
-                            $record->observaciones = $data['observaciones'] ?? $record->observaciones;
-
-                            // Actualizar detalles por integrante (detallesPago)
+                            // Pago pendiente — el asesor edita los datos base del pago.
+                            // La distribución en AplicacionPago la hace el PagoService al aprobar.
                             $nuevoMontoPagado = 0;
                             if (isset($data['detallesPago']) && is_array($data['detallesPago'])) {
-                                // Eliminar los detalles existentes y crear los nuevos
-                                $record->detallesPago()->delete();
                                 foreach ($data['detallesPago'] as $detalle) {
-                                    if (isset($detalle['prestamo_individual_id'])) {
-                                        $nuevoMontoPagado += floatval($detalle['monto_pagado'] ?? 0);
-                                        $record->detallesPago()->create([
-                                            'prestamo_individual_id' => $detalle['prestamo_individual_id'],
-                                            'monto_pagado' => $detalle['monto_pagado'] ?? 0,
-                                        ]);
-                                    }
+                                    $nuevoMontoPagado += floatval($detalle['monto_pagado'] ?? 0);
                                 }
                             }
 
-                            // Actualizar el monto_pagado principal con la suma de los detalles
-                            $record->monto_pagado = $nuevoMontoPagado;
+                            $record->tipo_pago        = $data['tipo_pago'] ?? $record->tipo_pago;
+                            $record->codigo_operacion = $data['codigo_operacion'] ?? $record->codigo_operacion;
+                            $record->fecha_pago       = $data['fecha_pago'] ?? $record->fecha_pago;
+                            $record->observaciones    = $data['observaciones'] ?? $record->observaciones;
+                            $record->monto_pagado     = $nuevoMontoPagado > 0 ? $nuevoMontoPagado : ($data['monto_pagado'] ?? $record->monto_pagado);
                             $record->save();
 
                             Notification::make()
@@ -859,11 +889,19 @@ public function table(Table $table): Table
                             $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
                     })
                     ->action(function ($record) {
-                        $record->aprobar();
-                        Notification::make()
-                            ->title('Pago aprobado correctamente')
-                            ->success()
-                            ->send();
+                        try {
+                            app(PagoService::class)->aprobarPago($record);
+                            Notification::make()
+                                ->title('Pago aprobado correctamente')
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Error al aprobar')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
 
                 Tables\Actions\Action::make('rechazar')
@@ -877,11 +915,19 @@ public function table(Table $table): Table
                             $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
                     })
                     ->action(function ($record) {
-                        $record->rechazar();
-                        Notification::make()
-                            ->title('Pago rechazado')
-                            ->danger()
-                            ->send();
+                        try {
+                            app(PagoService::class)->rechazarPago($record);
+                            Notification::make()
+                                ->title('Pago rechazado')
+                                ->danger()
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Error al rechazar')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
             ]),
         ])
@@ -899,8 +945,12 @@ public function table(Table $table): Table
                         $aprobados = 0;
                         foreach ($records as $record) {
                             if (strtolower($record->estado_pago) === 'pendiente') {
-                                $record->aprobar();
-                                $aprobados++;
+                                try {
+                                    app(PagoService::class)->aprobarPago($record);
+                                    $aprobados++;
+                                } catch (\Exception $e) {
+                                    // Continuar con el siguiente si falla uno
+                                }
                             }
                         }
 
