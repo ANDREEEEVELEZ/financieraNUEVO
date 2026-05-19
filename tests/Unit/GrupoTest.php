@@ -2,9 +2,17 @@
 
 use App\Models\Grupo;
 use App\Models\Cliente;
+use App\Models\Prestamo;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(Tests\TestCase::class, RefreshDatabase::class);
+
+function rolesParaGrupo(): void
+{
+    foreach (['super_admin', 'Jefe de creditos', 'Jefe de operaciones', 'Asesor'] as $rol) {
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => $rol, 'guard_name' => 'web']);
+    }
+}
 
 describe('Modelo Grupo', function () {
     it('Verifica si se puede crear un grupo', function () {
@@ -49,5 +57,81 @@ describe('Modelo Grupo', function () {
         // El grupo sigue teniendo 2 relaciones, pero solo 1 activo
         $activos = $grupo->clientes()->where('estado_cliente', 'activo')->count();
         expect($activos)->toBe(1);
+    });
+});
+
+describe('Grupo::puedeAgregarIntegrante', function () {
+    it('permite agregar cuando hay menos de 6 integrantes', function () {
+        $grupo    = Grupo::factory()->create();
+        $clientes = Cliente::factory()->count(5)->create();
+        foreach ($clientes as $c) {
+            $grupo->clientes()->attach($c->id, ['fecha_ingreso' => now()]);
+        }
+        expect($grupo->puedeAgregarIntegrante())->toBeTrue();
+    });
+
+    it('no permite agregar cuando hay exactamente 6 integrantes', function () {
+        $grupo    = Grupo::factory()->create();
+        $clientes = Cliente::factory()->count(6)->create();
+        foreach ($clientes as $c) {
+            $grupo->clientes()->attach($c->id, ['fecha_ingreso' => now()]);
+        }
+        expect($grupo->puedeAgregarIntegrante())->toBeFalse();
+    });
+});
+
+describe('Grupo::puedeRemoverIntegrante', function () {
+    it('permite remover cuando hay más de 4 integrantes', function () {
+        $grupo    = Grupo::factory()->create();
+        $clientes = Cliente::factory()->count(5)->create();
+        foreach ($clientes as $c) {
+            $grupo->clientes()->attach($c->id, ['fecha_ingreso' => now()]);
+        }
+        expect($grupo->puedeRemoverIntegrante())->toBeTrue();
+    });
+
+    it('no permite remover cuando hay exactamente 4 integrantes', function () {
+        $grupo    = Grupo::factory()->create();
+        $clientes = Cliente::factory()->count(4)->create();
+        foreach ($clientes as $c) {
+            $grupo->clientes()->attach($c->id, ['fecha_ingreso' => now()]);
+        }
+        expect($grupo->puedeRemoverIntegrante())->toBeFalse();
+    });
+});
+
+describe('Grupo::tienePrestamosActivos', function () {
+    beforeEach(fn () => rolesParaGrupo());
+
+    it('detecta préstamos en ESTADOS_ACTIVOS como activos', function () {
+        $grupo = Grupo::factory()->create();
+
+        foreach (Prestamo::ESTADOS_ACTIVOS as $estado) {
+            Prestamo::factory()->create(['grupo_id' => $grupo->id, 'estado' => $estado]);
+            expect($grupo->tienePrestamosActivos())->toBeTrue("Estado {$estado} debe considerarse activo");
+            // Limpiar para el siguiente estado
+            $grupo->prestamos()->delete();
+        }
+    });
+
+    it('detecta préstamos Pendiente, Aprobado y Firmado como activos', function () {
+        $grupo = Grupo::factory()->create();
+
+        foreach ([Prestamo::ESTADO_PENDIENTE, Prestamo::ESTADO_APROBADO, Prestamo::ESTADO_FIRMADO] as $estado) {
+            Prestamo::factory()->create(['grupo_id' => $grupo->id, 'estado' => $estado]);
+            expect($grupo->tienePrestamosActivos())->toBeTrue("Estado {$estado} debe bloquear modificaciones");
+            $grupo->prestamos()->delete();
+        }
+    });
+
+    it('retorna false para un grupo sin préstamos', function () {
+        $grupo = Grupo::factory()->create();
+        expect($grupo->tienePrestamosActivos())->toBeFalse();
+    });
+
+    it('retorna false para préstamos Finalizado y Cancelado', function () {
+        $grupo = Grupo::factory()->create();
+        Prestamo::factory()->create(['grupo_id' => $grupo->id, 'estado' => Prestamo::ESTADO_FINALIZADO]);
+        expect($grupo->tienePrestamosActivos())->toBeFalse();
     });
 });
