@@ -25,6 +25,11 @@ class Prestamo extends Model
     public const ESTADO_REFORMULADO = 'Reformulado';
     public const ESTADO_FINALIZADO = 'Finalizado';
     public const ESTADO_CANCELADO = 'Cancelado';
+    /**
+     * Préstamo individual generado automáticamente al separar a un moroso de un grupo.
+     * Flujo válido: Separado → (pago por recuperación) → Finalizado.
+     */
+    public const ESTADO_SEPARADO = 'Separado';
 
     /**
      * @deprecated Usar ESTADO_FIRMADO + ESTADO_ACTIVO.
@@ -47,6 +52,7 @@ class Prestamo extends Model
         self::ESTADO_REFORMULADO,
         self::ESTADO_FINALIZADO,
         self::ESTADO_CANCELADO,
+        self::ESTADO_SEPARADO,
     ];
 
     /**
@@ -63,6 +69,7 @@ class Prestamo extends Model
         self::ESTADO_REFORMULADO     => 'warning',
         self::ESTADO_FINALIZADO      => 'success',
         self::ESTADO_CANCELADO       => 'gray',
+        self::ESTADO_SEPARADO        => 'danger',
         // Compatibilidad histórica (no aparecen en flujo normal)
         self::ESTADO_POR_DESEMBOLSAR => 'info',
         self::ESTADO_DESEMBOLSADO    => 'primary',
@@ -93,6 +100,7 @@ class Prestamo extends Model
         'prestamo_origen_id',
         'titular_cuenta_desembolso',
         'numero_cuenta_desembolso',
+        'tipo',
     ];
 
     protected $casts = [
@@ -104,6 +112,7 @@ class Prestamo extends Model
         'fecha_desembolso' => 'date',
         'es_retanqueo' => 'boolean',
         'es_parcialmente_retanqueado' => 'boolean',
+        'tipo' => 'string',
     ];
 
     // Relaciones
@@ -608,9 +617,11 @@ class Prestamo extends Model
         DB::beginTransaction();
         try {
             $this->estado = self::ESTADO_ACTIVO;
-            $this->fecha_desembolso = $fechaDesembolso
+            /** @var mixed $fechaDesembolsoVal */
+            $fechaDesembolsoVal = $fechaDesembolso
                 ? \Carbon\Carbon::parse($fechaDesembolso)
                 : now();
+            $this->fecha_desembolso = $fechaDesembolsoVal;
             $this->save();
 
             $this->prestamoIndividual()->update(['estado' => self::ESTADO_ACTIVO]);

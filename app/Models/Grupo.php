@@ -80,7 +80,10 @@ class Grupo extends Model
     public function tienePrestamosActivos(): bool
     {
         return $this->prestamos()
-            ->whereIn('estado', ['Pendiente', 'Aprobado'])
+            ->whereIn('estado', array_merge(
+                \App\Models\Prestamo::ESTADOS_ACTIVOS,
+                [\App\Models\Prestamo::ESTADO_PENDIENTE, \App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_FIRMADO]
+            ))
             ->exists();
     }
 
@@ -96,20 +99,14 @@ class Grupo extends Model
         })->implode(', ');
     }
 
-    /**
-     * Valida si se puede agregar un integrante al grupo
-     */
     public function puedeAgregarIntegrante(): bool
     {
-        return true;
+        return $this->clientes()->count() < 6;
     }
 
-    /**
-     * Valida si se puede remover un integrante del grupo
-     */
     public function puedeRemoverIntegrante(): bool
     {
-        return true;
+        return $this->clientes()->count() > 4;
     }
 
     /**
@@ -262,6 +259,37 @@ class Grupo extends Model
         }
 
         return true;
+    }
+
+    /**
+     * Separa a un integrante moroso del grupo delegando en MorosoSeparationService.
+     * Método paralelo a removerCliente — NO modifica removerCliente.
+     *
+     * @throws \RuntimeException si el grupo no tiene préstamo grupal activo.
+     */
+    public function separarIntegrante(int $clienteId, int $ejecutadoPorId, string $motivo): \App\Models\SeparacionCliente
+    {
+        $prestamo = $this->prestamos()
+            ->whereIn('estado', \App\Models\Prestamo::ESTADOS_ACTIVOS)
+            ->where(function ($query) {
+                $query->where('tipo', 'grupal')
+                    ->orWhereNull('tipo');
+            })
+            ->latest()
+            ->first();
+
+        if (!$prestamo) {
+            throw new \RuntimeException(
+                "El grupo #{$this->id} no tiene préstamo grupal activo."
+            );
+        }
+
+        return app(\App\Services\MorosoSeparationService::class)->separar(
+            $prestamo->id,
+            $clienteId,
+            $ejecutadoPorId,
+            $motivo,
+        );
     }
 
     public function prestamos()

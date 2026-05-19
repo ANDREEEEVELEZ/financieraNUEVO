@@ -28,17 +28,6 @@ class Persona extends Model
         'fecha_nacimiento' => 'date',
     ];
 
-    /**
-     * Register the model observers.
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        // Registrar el Observer para el modelo Persona
-        static::observe(\App\Observers\PersonaObserver::class);
-    }
-
     // Mutators para convertir automáticamente a mayúsculas
     public function setNombreAttribute($value)
     {

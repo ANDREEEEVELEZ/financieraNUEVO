@@ -30,17 +30,6 @@ class Asesor extends Model
         $this->attributes['estado_asesor'] = strtoupper($value);
     }
 
-    /**
-     * Register the model observers.
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        // Registrar el Observer para el modelo Asesor
-        static::observe(\App\Observers\AsesorObserver::class);
-    }
-
     // Relaciones con tablas
     public function persona()
     {
