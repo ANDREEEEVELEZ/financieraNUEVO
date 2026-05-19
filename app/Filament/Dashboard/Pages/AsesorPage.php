@@ -112,7 +112,7 @@ class AsesorPage extends Page
             })->get();
 
         $montoTotalMora = $cuotasConMora->sum(function ($cuota) {
-            return $cuota->mora ? $cuota->mora->getMontoMoraCalculadoAttribute() : 0;
+            return $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
         });
 
         $totalMorasHistoricas = Mora::whereHas('cuotaGrupal', function ($q) use ($prestamoIds) {
@@ -217,7 +217,7 @@ class AsesorPage extends Page
                             $incluirCuota = false;
                         }
                         if ($incluirCuota) {
-                            $montoMoraGrupo += $cuota->mora->getMontoMoraCalculadoAttribute();
+                            $montoMoraGrupo += abs($cuota->mora->monto_mora_calculado);
                         }
                     }
                 }
@@ -233,7 +233,14 @@ class AsesorPage extends Page
         })->sortByDesc('monto_mora');
 
 
-        $moraPorGrupo = $gruposQueryBase->with([
+        $moraPorGrupoQuery = Grupo::query();
+        if ($asesor) {
+            $moraPorGrupoQuery->whereHas('clientes', function ($q) use ($asesor) {
+                $q->where('asesor_id', $asesor->id);
+            });
+        }
+
+        $moraPorGrupo = $moraPorGrupoQuery->with([
             'prestamos.cuotasGrupales' => function ($query) use ($desde, $hasta) {
                 if ($desde) {
                     $query->whereDate('fecha_vencimiento', '>=', $desde);
@@ -260,7 +267,7 @@ class AsesorPage extends Page
                             }
 
                             if ($incluirCuota) {
-                                $mora += $cuota->mora->getMontoMoraCalculadoAttribute();
+                                $mora += abs($cuota->mora->monto_mora_calculado);
                             }
                         }
                     }
