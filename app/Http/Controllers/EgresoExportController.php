@@ -16,20 +16,17 @@ class EgresoExportController extends Controller
     public function export(Request $request)
     {
         try {
-            $formato = $request->input('formato', 'excel'); // excel o pdf
-            $tipoEgreso = $request->input('tipo_egreso', 'todos'); // desembolso, gasto, todos
+            $request->validate([
+                'formato'     => ['nullable', 'string', 'in:excel,pdf'],
+                'tipo_egreso' => ['nullable', 'string', 'in:todos,desembolso,gasto'],
+                'fecha_desde' => ['nullable', 'date'],
+                'fecha_hasta' => ['nullable', 'date', 'after_or_equal:fecha_desde'],
+            ]);
+
+            $formato    = $request->input('formato', 'excel');
+            $tipoEgreso = $request->input('tipo_egreso', 'todos');
             $fechaDesde = $request->input('fecha_desde');
             $fechaHasta = $request->input('fecha_hasta');
-
-            // Validar formato
-            if (!in_array($formato, ['excel', 'pdf'])) {
-                return redirect()->back()->with('error', 'Formato de exportación no válido.');
-            }
-
-            // Validar tipo de egreso
-            if (!in_array($tipoEgreso, ['todos', 'desembolso', 'gasto'])) {
-                return redirect()->back()->with('error', 'Tipo de egreso no válido.');
-            }
 
             // Construir la consulta base
             $query = Egreso::with(['prestamo.grupo', 'categoria', 'subcategoria']);

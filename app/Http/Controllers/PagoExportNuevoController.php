@@ -19,6 +19,14 @@ class PagoExportNuevoController extends Controller
 
     public function export(Request $request)
     {
+        $request->validate([
+            'formato'     => ['nullable', 'string', 'in:pdf,excel'],
+            'grupo'       => ['nullable', 'integer', 'min:1'],
+            'from'        => ['nullable', 'date'],
+            'until'       => ['nullable', 'date', 'after_or_equal:from'],
+            'estado_pago' => ['nullable', 'string', 'in:Aprobado,Pendiente,Rechazado,parcial'],
+        ]);
+
         $formato = $request->get('formato', 'pdf');
 
         if ($formato === 'excel') {
@@ -30,23 +38,10 @@ class PagoExportNuevoController extends Controller
 
     private function exportPDFProfesional(Request $request)
     {
-        // TEMPORAL: Verificar directamente qué datos existen
-        $user = $request->user();
-        $totalPagosDB = Pago::count();
-        
-        // Obtener datos con filtros
-        $data = $this->obtenerDatosConFiltros($request);
-        $pagos = $data['pagos'];
+        $data   = $this->obtenerDatosConFiltros($request);
+        $pagos  = $data['pagos'];
         $filtros = $data['filtros'];
-        
-        // TEMPORAL: Si no hay datos, agregar información de debug
-        if ($pagos->count() === 0) {
-            $filtros[] = "DEBUG: Total pagos en DB: $totalPagosDB";
-            $filtros[] = "DEBUG: Usuario: " . $user->name;
-            $filtros[] = "DEBUG: Roles: " . implode(', ', $user->getRoleNames()->toArray());
-        }
 
-        // Generar PDF profesional
         $pdf = $this->reporteService->generarReportePagos($pagos, $filtros);
 
         $nombreArchivo = 'Reporte_Profesional_Pagos_' . now()->format('Y-m-d_H-i-s') . '.pdf';
@@ -229,22 +224,21 @@ class PagoExportNuevoController extends Controller
         $query = Pago::query();
         $filtros = [];
 
-        // TEMPORAL: Simplificar filtros de autorización para debug
         if ($user->hasRole('Asesor')) {
             $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
             if ($asesor) {
                 $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($asesor) {
                     $q->where('asesor_id', $asesor->id);
                 });
-                $filtros[] = 'Asesor: ' . ($asesor->persona ? $asesor->persona->nombres . ' ' . $asesor->persona->apellidos : 'N/A');
+                $nombre = $asesor->persona
+                    ? trim($asesor->persona->nombre . ' ' . $asesor->persona->apellidos)
+                    : 'N/A';
+                $filtros[] = 'Asesor: ' . $nombre;
             } else {
-                $filtros[] = 'Error: No se encontró asesor asociado';
+                abort(403, 'No tienes un asesor asociado.');
             }
         } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            $filtros[] = 'Error: No autorizado para ver todos los pagos';
-        } else {
-            // Para super_admin y jefes, no aplicar filtros de asesor
-            $filtros[] = 'Acceso completo: ' . implode(', ', $user->getRoleNames()->toArray());
+            abort(403);
         }
 
         // Aplicar filtros

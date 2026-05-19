@@ -10,6 +10,13 @@ class PagoPdfController extends Controller
 {
     public function exportar(Request $request)
     {
+        $request->validate([
+            'grupo'       => ['nullable', 'integer', 'min:1'],
+            'from'        => ['nullable', 'date'],
+            'until'       => ['nullable', 'date', 'after_or_equal:from'],
+            'estado_pago' => ['nullable', 'string', 'in:Aprobado,Pendiente,Rechazado,parcial'],
+        ]);
+
         $user = $request->user();
         $query = Pago::query();
 
@@ -46,9 +53,9 @@ class PagoPdfController extends Controller
 
         $pagos = $query->with(['cuotaGrupal.prestamo.grupo'])->get();
 
-        $pdf = Pdf::loadView('pdf.pagos', compact('pagos'))
-          ->setOptions(['isPhpEnabled' => true]);
+        // isPhpEnabled must remain false (default from config/dompdf.php) — PHP in PDF is an RCE vector
+        $pdf = Pdf::loadView('pdf.pagos', compact('pagos'));
 
-return $pdf->download('reporte_pagos.pdf');
+        return $pdf->download('reporte_pagos.pdf');
     }
 }

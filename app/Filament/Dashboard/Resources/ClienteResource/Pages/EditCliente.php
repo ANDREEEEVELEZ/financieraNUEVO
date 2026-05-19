@@ -13,10 +13,18 @@ class EditCliente extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Actualizar persona
         $this->record->persona->update($data['persona']);
         unset($data['persona']);
-        // No modificar el estado_cliente aquí para permitir su cambio
+
+        // Prevent Asesores from reassigning a client to a different asesor via a crafted POST
+        $user = auth()->user();
+        if ($user->hasRole('Asesor')) {
+            $asesor = \App\Services\CacheService::getAsesorByUserId($user->id);
+            if ($asesor) {
+                $data['asesor_id'] = $asesor->id;
+            }
+        }
+
         return $data;
     }
 

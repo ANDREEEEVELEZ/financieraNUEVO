@@ -13,6 +13,15 @@ class MoraPdfController extends Controller
 {
     public function exportar(Request $request)
     {
+        $request->validate([
+            'formato'     => ['nullable', 'string', 'in:pdf,excel'],
+            'grupo'       => ['nullable', 'string', 'max:255'],
+            'desde'       => ['nullable', 'date'],
+            'hasta'       => ['nullable', 'date', 'after_or_equal:desde'],
+            'monto'       => ['nullable', 'numeric', 'min:0'],
+            'estado_mora' => ['nullable', 'string', 'in:pendiente,pagada,parcialmente_pagada,parcial,Todos los estados'],
+        ]);
+
         $formato = $request->get('formato', 'pdf');
 
         if ($formato === 'excel') {

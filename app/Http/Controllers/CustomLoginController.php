@@ -10,10 +10,8 @@ class CustomLoginController extends Controller
 {
     public function store(Request $request)
     {
-        Log::debug('Login attempt', [
-            'email' => $request->input('email'),
-            'has_password' => !empty($request->input('password')),
-        ]);
+        // Log without PII — email/password never written to log storage
+        Log::debug('Login attempt', ['ip' => $request->ip()]);
 
         $credentials = $request->validate([
             'email' => ['required', 'email'],
@@ -22,19 +20,17 @@ class CustomLoginController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-            
+
             $user = Auth::user();
             Log::debug('Login successful', [
                 'user_id' => $user->id,
-                'name' => $user->name,
-                'active' => $user->active,
-                'roles' => $user->getRoleNames()->toArray()
+                'ip'      => $request->ip(),
             ]);
-            
+
             return redirect()->intended('dashboard');
         }
 
-        Log::debug('Login failed: Invalid credentials');
+        Log::debug('Login failed: Invalid credentials', ['ip' => $request->ip()]);
         
         return back()->withErrors([
             'email' => 'Las credenciales proporcionadas no coinciden con nuestros registros.',

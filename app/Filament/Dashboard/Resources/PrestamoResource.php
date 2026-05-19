@@ -744,10 +744,10 @@ class PrestamoResource extends Resource
                     }
                     $html = '<ul style="padding-left: 1em;">';
                     foreach ($detalles as $detalle) {
-                        $nombre = $detalle->cliente->persona->nombre . ' ' . $detalle->cliente->persona->apellidos;
+                        $nombre = e($detalle->cliente->persona->nombre) . ' ' . e($detalle->cliente->persona->apellidos);
                         $monto = number_format((float) $detalle->monto_prestado_individual, 2);
                         $devolver = number_format((float) $detalle->monto_devolver_individual, 2);
-                        $html .= "<li><b>$nombre</b>: Prestado S/ $monto | A devolver S/ $devolver</li>";
+                        $html .= "<li><b>{$nombre}</b>: Prestado S/ {$monto} | A devolver S/ {$devolver}</li>";
                     }
                     $html .= '</ul>';
                     return $html;
