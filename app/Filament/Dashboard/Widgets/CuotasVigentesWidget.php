@@ -3,12 +3,11 @@
 namespace App\Filament\Dashboard\Widgets;
 
 use App\Models\CuotasGrupales;
-use App\Models\Asesor;
 use App\Models\Prestamo;
+use App\Services\CacheService;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
-use Illuminate\Database\Eloquent\Builder;
 
 class CuotasVigentesWidget extends BaseWidget
 {
@@ -20,25 +19,21 @@ class CuotasVigentesWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
+        $user = request()->user();
+        $asesor = $user?->hasRole('Asesor') ? CacheService::getAsesorByUserId($user->id) : null;
+
         return $table
             ->query(
                 CuotasGrupales::query()
                     ->with(['prestamo.grupo.asesor.persona', 'mora'])
-                    ->whereHas('prestamo', function (Builder $q) {
-                        $q->whereIn('estado', Prestamo::ESTADOS_ACTIVOS);
-
-                        // Filtrar por asesor si el usuario es Asesor
-                        $user = request()->user();
-                        if ($user?->hasRole('Asesor')) {
-                            $asesor = Asesor::where('user_id', $user->id)->first();
-                            if ($asesor) {
-                                $q->whereHas('grupo', fn($g) => $g->where('asesor_id', $asesor->id));
-                            }
-                        }
-                    })
-                    ->where('estado_pago', '!=', 'pagado')
-                    ->whereBetween('fecha_vencimiento', [now()->startOfDay(), now()->addDays(7)->endOfDay()])
-                    ->orderBy('fecha_vencimiento', 'asc')
+                    ->join('prestamos', 'cuotas_grupales.prestamo_id', '=', 'prestamos.id')
+                    ->leftJoin('grupos', 'prestamos.grupo_id', '=', 'grupos.id')
+                    ->whereIn('prestamos.estado', Prestamo::ESTADOS_ACTIVOS)
+                    ->when($asesor, fn($q) => $q->where('grupos.asesor_id', $asesor->id))
+                    ->where('cuotas_grupales.estado_pago', '!=', 'pagado')
+                    ->whereBetween('cuotas_grupales.fecha_vencimiento', [now()->startOfDay(), now()->addDays(7)->endOfDay()])
+                    ->select('cuotas_grupales.*')
+                    ->orderBy('cuotas_grupales.fecha_vencimiento', 'asc')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('prestamo.grupo.nombre_grupo')

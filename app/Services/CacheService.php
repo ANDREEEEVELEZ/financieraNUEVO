@@ -41,6 +41,39 @@ class CacheService
      */
     private const SHORT_TTL = 60;
 
+    /**
+     * Tiempo máximo de espera para adquirir el lock (segundos)
+     */
+    private const LOCK_WAIT = 5;
+
+    /**
+     * Cache::remember con double-check locking para prevenir cache stampede.
+     * Usar solo para claves compartidas entre múltiples usuarios del mismo rol.
+     *
+     * @template T
+     * @param string   $key
+     * @param int      $ttl
+     * @param \Closure $callback
+     * @return T
+     */
+    private static function rememberWithLock(string $key, int $ttl, \Closure $callback): mixed
+    {
+        $cached = Cache::get($key);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        return Cache::lock($key . ':lock', 10)->block(self::LOCK_WAIT, function () use ($key, $ttl, $callback) {
+            $cached = Cache::get($key);
+            if ($cached !== null) {
+                return $cached;
+            }
+            $result = $callback();
+            Cache::put($key, $result, $ttl);
+            return $result;
+        });
+    }
+
     // =====================================================
     // ASESORES
     // =====================================================
@@ -57,8 +90,8 @@ class CacheService
             self::DEFAULT_TTL,
             function () {
                 return \App\Models\Asesor::with('persona:id,nombre,apellidos')
-                    ->where('estado', 'Activo')
-                    ->get(['id', 'persona_id', 'user_id', 'estado']);
+                    ->where('estado_asesor', 'Activo')
+                    ->get(['id', 'persona_id', 'user_id', 'estado_asesor']);
             }
         );
     }
@@ -231,16 +264,203 @@ class CacheService
                 }
 
                 return [
-                    'prestamos_activos' => (clone $prestamosQuery)->where('estado', 'Activo')->count(),
+                    'prestamos_activos' => (clone $prestamosQuery)->whereIn('estado', \App\Models\Prestamo::ESTADOS_ACTIVOS)->count(),
                     'prestamos_pendientes' => (clone $prestamosQuery)->where('estado', 'Pendiente')->count(),
                     'grupos_activos' => $gruposQuery->where('estado_grupo', 'Activo')->count(),
                     'total_clientes' => $clientesQuery->count(),
                     'monto_colocado' => (clone $prestamosQuery)
-                        ->whereIn('estado', ['Activo', 'Desembolsado', 'Ejecutado'])
+                        ->whereIn('estado', \App\Models\Prestamo::ESTADOS_ACTIVOS)
                         ->sum('monto_prestado_total'),
                 ];
             }
         );
+    }
+
+    // =====================================================
+    // KPIs DEL DASHBOARD POR ROL
+    // =====================================================
+
+    /**
+     * Obtiene KPIs para el dashboard del Asesor
+     *
+     * @param int $asesorId
+     * @return array
+     */
+    public static function getDashboardStatsAsesor(int $asesorId): array
+    {
+        return Cache::remember(
+            self::CACHE_PREFIX . "dashboard_asesor_{$asesorId}",
+            self::DEFAULT_TTL,
+            function () use ($asesorId) {
+                $gruposActivos = \App\Models\Grupo::where('asesor_id', $asesorId)
+                    ->where('estado_grupo', 'Activo')
+                    ->count();
+
+                // JOIN directo: elimina 4 EXISTS anidados por query
+                $cuotasSemana = \App\Models\CuotasGrupales::join('prestamos', 'cuotas_grupales.prestamo_id', '=', 'prestamos.id')
+                    ->join('grupos', 'prestamos.grupo_id', '=', 'grupos.id')
+                    ->where('grupos.asesor_id', $asesorId)
+                    ->whereIn('prestamos.estado', \App\Models\Prestamo::ESTADOS_ACTIVOS)
+                    ->whereBetween('cuotas_grupales.fecha_vencimiento', [\Illuminate\Support\Carbon::now()->startOfDay(), \Illuminate\Support\Carbon::now()->addDays(7)->endOfDay()])
+                    ->where('cuotas_grupales.estado_pago', '!=', 'pagado')
+                    ->count();
+
+                $montoCobradoMes = \App\Models\Pago::join('cuotas_grupales', 'pagos.cuota_grupal_id', '=', 'cuotas_grupales.id')
+                    ->join('prestamos', 'cuotas_grupales.prestamo_id', '=', 'prestamos.id')
+                    ->join('grupos', 'prestamos.grupo_id', '=', 'grupos.id')
+                    ->where('grupos.asesor_id', $asesorId)
+                    ->whereBetween('pagos.fecha_pago', [\Illuminate\Support\Carbon::now()->startOfMonth(), \Illuminate\Support\Carbon::now()->endOfMonth()])
+                    ->where('pagos.estado_pago', 'aprobado')
+                    ->sum('pagos.monto_pagado');
+
+                // Contamos grupos directamente: más semántico y evita DISTINCT sobre prestamos
+                $gruposEnMora = \App\Models\Grupo::where('asesor_id', $asesorId)
+                    ->whereHas('prestamos', fn($q) => $q->where('estado', 'En_Mora'))
+                    ->count();
+
+                return [
+                    'grupos_activos' => $gruposActivos,
+                    'cuotas_semana' => $cuotasSemana,
+                    'monto_cobrado_mes' => $montoCobradoMes,
+                    'grupos_en_mora' => $gruposEnMora,
+                ];
+            }
+        );
+    }
+
+    /**
+     * Obtiene KPIs para el dashboard del Jefe de Operaciones
+     *
+     * @return array
+     */
+    public static function getDashboardStatsJO(): array
+    {
+        return self::rememberWithLock(
+            self::CACHE_PREFIX . 'dashboard_jo',
+            self::SHORT_TTL,
+            function () {
+                $pagosPendientes = \App\Models\Pago::where('estado_pago', 'pendiente')->count();
+
+                $montoCobradoMes = \App\Models\Pago::whereBetween('fecha_pago', [\Illuminate\Support\Carbon::now()->startOfMonth(), \Illuminate\Support\Carbon::now()->endOfMonth()])
+                    ->where('estado_pago', 'aprobado')
+                    ->sum('monto_pagado');
+
+                $montoDesembolsadoMes = \App\Models\Egreso::where('tipo_egreso', 'desembolso')
+                    ->whereBetween('fecha', [\Illuminate\Support\Carbon::now()->startOfMonth(), \Illuminate\Support\Carbon::now()->endOfMonth()])
+                    ->sum('monto');
+
+                $gruposEnMora = \App\Models\Prestamo::where('estado', 'En_Mora')
+                    ->distinct('grupo_id')
+                    ->count();
+
+                return [
+                    'pagos_pendientes' => $pagosPendientes,
+                    'monto_cobrado_mes' => $montoCobradoMes,
+                    'monto_desembolsado_mes' => $montoDesembolsadoMes,
+                    'grupos_en_mora' => $gruposEnMora,
+                ];
+            }
+        );
+    }
+
+    /**
+     * Obtiene KPIs para el dashboard del Jefe de Créditos
+     *
+     * @return array
+     */
+    public static function getDashboardStatsJC(): array
+    {
+        return self::rememberWithLock(
+            self::CACHE_PREFIX . 'dashboard_jc',
+            self::SHORT_TTL,
+            function () {
+                $solicitudesPendientes = \App\Models\Prestamo::where('estado', 'Pendiente')->count();
+
+                $aprobadosSinFirmar = \App\Models\Prestamo::where('estado', 'Aprobado')->count();
+
+                $carteraActiva = \App\Models\Prestamo::whereIn('estado', \App\Models\Prestamo::ESTADOS_ACTIVOS)
+                    ->sum('monto_prestado_total');
+
+                // Un solo query con agregación condicional en lugar de dos queries separados
+                $moraStats = \App\Models\Prestamo::whereIn('estado', \App\Models\Prestamo::ESTADOS_ACTIVOS)
+                    ->selectRaw("count(*) as total, sum(case when estado = 'En_Mora' then 1 else 0 end) as en_mora")
+                    ->first();
+                $tasaMora = $moraStats->total > 0 ? ($moraStats->en_mora / $moraStats->total) * 100 : 0;
+
+                return [
+                    'solicitudes_pendientes' => $solicitudesPendientes,
+                    'aprobados_sin_firmar' => $aprobadosSinFirmar,
+                    'cartera_activa' => $carteraActiva,
+                    'tasa_mora' => round($tasaMora, 2),
+                ];
+            }
+        );
+    }
+
+    /**
+     * Obtiene KPIs ejecutivos para el dashboard del Admin/Super Admin
+     *
+     * @return array
+     */
+    public static function getDashboardStatsAdmin(): array
+    {
+        return self::rememberWithLock(
+            self::CACHE_PREFIX . 'dashboard_admin',
+            self::SHORT_TTL,
+            function () {
+                // Un solo query con agregación condicional para cartera + tasa de mora
+                $prestamoStats = \App\Models\Prestamo::whereIn('estado', \App\Models\Prestamo::ESTADOS_ACTIVOS)
+                    ->selectRaw("
+                        count(*) as total,
+                        sum(monto_prestado_total) as cartera,
+                        sum(case when estado = 'En_Mora' then 1 else 0 end) as en_mora
+                    ")
+                    ->first();
+
+                $carteraTotal = $prestamoStats->cartera ?? 0;
+                $tasaMora = $prestamoStats->total > 0
+                    ? ($prestamoStats->en_mora / $prestamoStats->total) * 100
+                    : 0;
+
+                $pagosPendientes = \App\Models\Pago::where('estado_pago', 'pendiente')->count();
+
+                $ingresosDelMes = \App\Models\Ingreso::whereBetween('fecha_hora', [\Illuminate\Support\Carbon::now()->startOfMonth(), \Illuminate\Support\Carbon::now()->endOfMonth()])
+                    ->sum('monto');
+
+                $egresosDelMes = \App\Models\Egreso::whereBetween('fecha', [\Illuminate\Support\Carbon::now()->startOfMonth(), \Illuminate\Support\Carbon::now()->endOfMonth()])
+                    ->sum('monto');
+
+                return [
+                    'cartera_total' => $carteraTotal,
+                    'pagos_pendientes' => $pagosPendientes,
+                    'tasa_mora' => round($tasaMora, 2),
+                    'ingresos_mes' => $ingresosDelMes,
+                    'egresos_mes' => $egresosDelMes,
+                    'flujo_neto_mes' => $ingresosDelMes - $egresosDelMes,
+                ];
+            }
+        );
+    }
+
+    /**
+     * Invalida todas las estadísticas del dashboard (todos los roles)
+     */
+    public static function invalidateDashboardCache(?int $asesorId = null): void
+    {
+        if ($asesorId) {
+            Cache::forget(self::CACHE_PREFIX . "dashboard_asesor_{$asesorId}");
+        } else {
+            Cache::forget(self::CACHE_PREFIX . 'dashboard_jo');
+            Cache::forget(self::CACHE_PREFIX . 'dashboard_jc');
+            Cache::forget(self::CACHE_PREFIX . 'dashboard_admin');
+
+            // Limpiar todas las claves por asesor (file cache no soporta wildcard delete)
+            \App\Models\Asesor::pluck('id')->each(function (int $id) {
+                Cache::forget(self::CACHE_PREFIX . "dashboard_asesor_{$id}");
+            });
+        }
+
+        Log::debug("CacheService: Invalidated dashboard cache");
     }
 
     // =====================================================
