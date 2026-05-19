@@ -22,7 +22,6 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
-        'password',
         'active',
     ];
 
@@ -77,28 +76,16 @@ class User extends Authenticatable
      */
 public function canAccessPanel(\Filament\Panel $panel): bool
 {
-    // Debug temporal
-    Log::info('canAccessPanel called for user: ' . $this->email);
-    Log::info('User active: ' . ($this->active ? 'true' : 'false'));
-    Log::info('User roles: ' . implode(', ', $this->getRoleNames()->toArray()));
-
-    // Simplificamos temporalmente para debug
-    // Si es super admin, siempre permitir acceso
-    if ($this->hasRole('super_admin')) {
-        Log::info('User has super_admin role - allowing access');
-        return true;
+    if (!$this->active) {
+        return false;
     }
 
-    $canAccess = $this->active && $this->hasAnyRole([
+    return $this->hasAnyRole([
         'super_admin',
         'Jefe de operaciones',
         'Jefe de creditos',
         'Asesor',
     ]);
-
-    Log::info('Can access panel: ' . ($canAccess ? 'true' : 'false'));
-
-    return $canAccess;
 }
 
 }

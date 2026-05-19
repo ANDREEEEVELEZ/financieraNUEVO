@@ -6,16 +6,50 @@ use Illuminate\Http\Request;
 use App\Models\Grupo;
 use App\Models\PrestamoIndividual;
 use App\Models\CuotasGrupales;
+use App\Services\CacheService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Log;
 
 class ContratoGrupoController extends Controller
 {
+    /**
+     * Abort 403 if the authenticated Asesor does not own the given group.
+     * Roles other than Asesor bypass the check (they see all groups).
+     */
+    private function authorizeAsesorForGrupo(Grupo $grupo): void
+    {
+        $user = request()->user();
+
+        if (!$user->hasRole('Asesor')) {
+            return;
+        }
+
+        $asesor = CacheService::getAsesorByUserId($user->id);
+
+        if (!$asesor || $grupo->asesor_id !== $asesor->id) {
+            abort(403, 'No tienes permiso para acceder a los documentos de este grupo.');
+        }
+    }
+
     public function imprimirContratosMasivos(Request $request)
     {
+        $request->validate([
+            'grupos'      => ['required', 'string', 'regex:/^[\d,]+$/'],
+            'estado'      => ['required', 'string', 'in:Aprobado,Activo,Al_Día,En_Mora,Finalizado'],
+            'fecha_desde' => ['nullable', 'date'],
+            'fecha_hasta' => ['nullable', 'date', 'after_or_equal:fecha_desde'],
+        ]);
+
         $user = $request->user();
-        $gruposIds = explode(',', $request->get('grupos', ''));
+        $gruposIds = array_filter(
+            array_map('intval', explode(',', $request->get('grupos', ''))),
+            fn($id) => $id > 0
+        );
+
+        if (count($gruposIds) > 50) {
+            abort(422, 'No se pueden generar contratos para más de 50 grupos a la vez.');
+        }
         $estado = $request->get('estado');
         $fechaDesde = $request->get('fecha_desde');
         $fechaHasta = $request->get('fecha_hasta');
@@ -35,6 +69,11 @@ class ContratoGrupoController extends Controller
                 $query->whereDate('fecha_prestamo', '<=', $fechaHasta);
             }
         }])->whereIn('id', $gruposIds)->get();
+
+        // Asesor must own every requested group
+        foreach ($grupos as $grupo) {
+            $this->authorizeAsesorForGrupo($grupo);
+        }
 
         if ($grupos->isEmpty()) {
             abort(404, 'No se encontraron grupos válidos.');
@@ -128,9 +167,8 @@ class ContratoGrupoController extends Controller
 
     public function imprimirContratos($grupoId)
     {
-        $user = request()->user();
-
         $grupo = Grupo::with(['clientes.persona', 'prestamos'])->findOrFail($grupoId);
+        $this->authorizeAsesorForGrupo($grupo);
         
         // Buscar el préstamo principal (no retanqueos) con estado válido para contratos
         $prestamoGrupal = $grupo->prestamos
@@ -214,10 +252,12 @@ class ContratoGrupoController extends Controller
      */
     public function imprimirContratosPrestamo($prestamoId)
     {
-        $user = request()->user();
-
         $prestamoGrupal = \App\Models\Prestamo::with(['grupo.clientes.persona'])->findOrFail($prestamoId);
-        
+
+        if ($prestamoGrupal->grupo) {
+            $this->authorizeAsesorForGrupo($prestamoGrupal->grupo);
+        }
+
         // Validar que el préstamo tiene estado válido para contratos
         if (!in_array($prestamoGrupal->estado, [\App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_ACTIVO, \App\Models\Prestamo::ESTADO_AL_DIA, \App\Models\Prestamo::ESTADO_EN_MORA, \App\Models\Prestamo::ESTADO_FINALIZADO])) {
             abort(403, 'Solo se pueden imprimir contratos de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
@@ -285,10 +325,12 @@ class ContratoGrupoController extends Controller
      */
     public function imprimirCartillaPrestamo($prestamoId)
     {
-        $user = request()->user();
-
         $prestamoGrupal = \App\Models\Prestamo::with(['grupo.clientes.persona'])->findOrFail($prestamoId);
-        
+
+        if ($prestamoGrupal->grupo) {
+            $this->authorizeAsesorForGrupo($prestamoGrupal->grupo);
+        }
+
         // Validar que el préstamo tiene estado válido para cartilla
         if (!in_array($prestamoGrupal->estado, [\App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_ACTIVO, \App\Models\Prestamo::ESTADO_AL_DIA, \App\Models\Prestamo::ESTADO_EN_MORA, \App\Models\Prestamo::ESTADO_FINALIZADO])) {
             abort(403, 'Solo se pueden imprimir cartillas de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');

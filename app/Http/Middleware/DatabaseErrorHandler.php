@@ -37,11 +37,13 @@ class DatabaseErrorHandler
         $message = $e->getMessage();
         $errors = [];
 
-        // Log del error para debugging
-        Log::error('DatabaseErrorHandler: ' . $message);
+        Log::error('DB constraint violation', [
+            'code'  => $e->errorInfo[1] ?? null,
+            'sqlstate' => $e->errorInfo[0] ?? null,
+        ]);
 
-        // Detectar tipo de error
-        if ($e->errorInfo[1] ?? null === 1062 || strpos($message, 'Duplicate entry') !== false) {
+        // Detectar tipo de error — paréntesis explícitos para evitar precedencia de ?? sobre ===
+        if (($e->errorInfo[1] ?? null) === 1062 || strpos($message, 'Duplicate entry') !== false) {
             // Error de clave duplicada
             if (strpos($message, 'personas_correo_unique') !== false || strpos($message, 'correo') !== false) {
                 $errors['persona.correo'] = ['El correo electrónico ya existe en el sistema.'];

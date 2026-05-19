@@ -12,16 +12,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Configuración de proxies de confianza para Railway
-        $middleware->trustProxies(at: '*');
+        // Trusted proxies: use TRUSTED_PROXIES env var (comma-separated IPs or CIDR).
+        // Set to null when the load balancer rewrites REMOTE_ADDR directly.
+        // NEVER use '*' — it allows X-Forwarded-For spoofing.
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES', null)
+        );
         
-        // Configuración de hosts de confianza
-        $middleware->trustHosts(at: [
-            'wonderful-fulfillment-production.up.railway.app',
-            'localhost',
-        ]);
+        // Trusted hosts — set TRUSTED_HOSTS in .env as a comma-separated list.
+        // Keeping the hostname out of source code avoids exposing infrastructure details.
+        $middleware->trustHosts(at: array_filter(
+            explode(',', env('TRUSTED_HOSTS', 'localhost'))
+        ));
         
         $middleware->web(append: [
+            \App\Http\Middleware\SecurityHeadersMiddleware::class,
         ]);
 
         $middleware->alias([

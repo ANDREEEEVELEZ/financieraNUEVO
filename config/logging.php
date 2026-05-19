@@ -63,6 +63,8 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            // RedactSensitiveProcessor scrubs PII before any log entry is written.
+            'tap' => [\App\Logging\RedactSensitiveProcessor::class],
         ],
 
         'daily' => [
@@ -71,6 +73,7 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+            'tap' => [\App\Logging\RedactSensitiveProcessor::class],
         ],
 
         'slack' => [
@@ -80,6 +83,7 @@ return [
             'emoji' => env('LOG_SLACK_EMOJI', ':boom:'),
             'level' => env('LOG_LEVEL', 'critical'),
             'replace_placeholders' => true,
+            'tap' => [\App\Logging\RedactSensitiveProcessor::class],
         ],
 
         'papertrail' => [

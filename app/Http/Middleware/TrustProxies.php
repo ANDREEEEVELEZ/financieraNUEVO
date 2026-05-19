@@ -12,7 +12,9 @@ class TrustProxies extends Middleware
      *
      * @var array<int, string>|string|null
      */
-    protected $proxies = '*';
+    // Use TRUSTED_PROXIES env var (comma-separated IPs/CIDRs) configured via bootstrap/app.php.
+    // null means the load balancer rewrites REMOTE_ADDR directly (no proxy header trust needed).
+    protected $proxies = null;
 
     /**
      * The headers that should be used to detect proxies.
