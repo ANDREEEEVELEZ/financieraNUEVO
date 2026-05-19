@@ -18,10 +18,12 @@ class SeparacionCliente extends Model
 
     protected $fillable = [
         'prestamo_origen_id',
+        'prestamo_nuevo_id',
         'grupo_origen_id',
         'cliente_id',
         'ejecutado_por',
         'deuda_capital',
+        'deuda_interes',
         'deuda_mora',
         'penalizacion_grupo',
         'motivo',
@@ -30,6 +32,7 @@ class SeparacionCliente extends Model
 
     protected $casts = [
         'deuda_capital' => 'decimal:2',
+        'deuda_interes' => 'decimal:2',
         'deuda_mora' => 'decimal:2',
         'penalizacion_grupo' => 'decimal:2',
     ];
@@ -39,6 +42,11 @@ class SeparacionCliente extends Model
     public function prestamoOrigen(): BelongsTo
     {
         return $this->belongsTo(Prestamo::class, 'prestamo_origen_id');
+    }
+
+    public function prestamoNuevo(): BelongsTo
+    {
+        return $this->belongsTo(Prestamo::class, 'prestamo_nuevo_id');
     }
 
     public function grupoOrigen(): BelongsTo
