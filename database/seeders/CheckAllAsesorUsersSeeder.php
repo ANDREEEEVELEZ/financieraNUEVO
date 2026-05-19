@@ -21,6 +21,7 @@ class CheckAllAsesorUsersSeeder extends Seeder
 
         $this->command->info("Encontrados {$asesores->count()} usuarios con rol 'Asesor'\n");
 
+        /** @var \App\Models\User $user */
         foreach ($asesores as $user) {
             $this->command->info("=== Usuario: {$user->name} ===");
             $this->command->line("  Email: {$user->email}");

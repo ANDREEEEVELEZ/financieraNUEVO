@@ -44,13 +44,13 @@ class TestDataSeeder extends Seeder
             [
                 'nombre' => 'Crédito Grupal Estándar',
                 'tipo' => 'GRUPAL',
-                'tasa_interes' => 5.0, // 5% mensual
+                'tasa_interes' => 17.0, // 17% mensual
                 'tasa_mora' => 1.0,    // 1% diario
                 'permite_condonacion_mora' => true,
                 'monto_minimo' => 1000,
                 'monto_maximo' => 50000,
-                'plazo_minimo_meses' => 3,
-                'plazo_maximo_meses' => 24,
+                'plazo_minimo_meses' => 4,
+                'plazo_maximo_meses' => 4,
                 'activo' => true
             ]
         );
@@ -112,7 +112,7 @@ class TestDataSeeder extends Seeder
         foreach ($grupos as $index => $grupo) {
             $montoIndividual = 2000;
             $montoTotal = $montoIndividual * 5;
-            $interesTotal = $montoTotal * 0.15; 
+            $interesTotal = $montoTotal * 0.15;
 
             // Crear el préstamo inicialmente como Pendiente
             $prestamo = Prestamo::create([
@@ -127,7 +127,7 @@ class TestDataSeeder extends Seeder
                 'estado' => 'Pendiente',
                 'descripcion' => "Préstamo de prueba para {$grupo->nombre_grupo}",
                 'titular_cuenta_desembolso' => "Presidente {$grupo->nombre_grupo}",
-                'numero_cuenta_desembolso' => "0011-0223-".str_pad($index, 8, '0', STR_PAD_LEFT)
+                'numero_cuenta_desembolso' => "0011-0223-" . str_pad($index, 8, '0', STR_PAD_LEFT)
             ]);
 
             // Crear detalles individuales
@@ -158,7 +158,7 @@ class TestDataSeeder extends Seeder
                 'estado' => 'Desembolsado',
                 'fecha_desembolso' => now()->subDays(5)
             ]);
-            
+
             // 4. Finalmente lo pasamos a Activo para que sea cobrable
             $prestamo->update(['estado' => 'Activo']);
             $prestamo->prestamoIndividual()->update(['estado' => 'Activo']);
@@ -169,8 +169,28 @@ class TestDataSeeder extends Seeder
 
     private function numberToText($n): string
     {
-        $map = [1=>'Uno', 2=>'Dos', 3=>'Tres', 4=>'Cuatro', 5=>'Cinco', 6=>'Seis', 7=>'Siete', 8=>'Ocho', 9=>'Nueve', 10=>'Diez',
-                11=>'Once', 12=>'Doce', 13=>'Trece', 14=>'Catorce', 15=>'Quince', 16=>'Dieciséis', 17=>'Diecisiete', 18=>'Dieciocho', 19=>'Diecinueve', 20=>'Veinte'];
-        return $map[$n] ?? (string)$n;
+        $map = [
+            1 => 'Uno',
+            2 => 'Dos',
+            3 => 'Tres',
+            4 => 'Cuatro',
+            5 => 'Cinco',
+            6 => 'Seis',
+            7 => 'Siete',
+            8 => 'Ocho',
+            9 => 'Nueve',
+            10 => 'Diez',
+            11 => 'Once',
+            12 => 'Doce',
+            13 => 'Trece',
+            14 => 'Catorce',
+            15 => 'Quince',
+            16 => 'Dieciséis',
+            17 => 'Diecisiete',
+            18 => 'Dieciocho',
+            19 => 'Diecinueve',
+            20 => 'Veinte'
+        ];
+        return $map[$n] ?? (string) $n;
     }
 }

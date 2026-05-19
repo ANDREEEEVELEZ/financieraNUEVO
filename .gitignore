@@ -31,3 +31,5 @@ skills-lock.json
 
 # SDD Artifacts (Optional: comment out if you want to share design)
 # openspec/
+# Local Pi runtime state
+.atl/

@@ -52,7 +52,9 @@ class GrupoDetallePagos extends Page implements HasTable
 
     protected function getTableQuery(): Builder
     {
-        return Pago::query()
+        /** @var Builder $query */
+        $query = Pago::query();
+        return $query
             ->whereHas('cuotaGrupal', function ($query) {
                 $query->where('prestamo_id', $this->prestamo->id);
             })
@@ -219,12 +221,12 @@ public function table(Table $table): Table
                                 ->action(function ($livewire, $record) {
                                     try {
                                         app(PagoService::class)->aprobarPago($record);
-                                        \Filament\Notifications\Notification::make()
+                                        Notification::make()
                                             ->title('Pago aprobado correctamente')
                                             ->success()
                                             ->send();
-                                    } catch (\Exception $e) {
-                                        \Filament\Notifications\Notification::make()
+                                    } catch (Exception $e) {
+                                        Notification::make()
                                             ->title('Error al aprobar')
                                             ->body($e->getMessage())
                                             ->danger()
@@ -244,12 +246,12 @@ public function table(Table $table): Table
                                 ->action(function ($livewire, $record) {
                                     try {
                                         app(PagoService::class)->rechazarPago($record);
-                                        \Filament\Notifications\Notification::make()
+                                        Notification::make()
                                             ->title('Pago rechazado correctamente')
                                             ->danger()
                                             ->send();
-                                    } catch (\Exception $e) {
-                                        \Filament\Notifications\Notification::make()
+                                    } catch (Exception $e) {
+                                        Notification::make()
                                             ->title('Error al rechazar')
                                             ->body($e->getMessage())
                                             ->danger()
@@ -662,7 +664,7 @@ public function table(Table $table): Table
                                                     $set('../../../monto_pagado', $sumaTotal);
                                                 } catch (Exception $e2) {
                                                     // Si no se puede establecer, al menos mostrar una notificación
-                                                    \Filament\Notifications\Notification::make()
+                                                    Notification::make()
                                                         ->title('Suma calculada')
                                                         ->body('Total: S/. ' . number_format($sumaTotal, 2))
                                                         ->info()
@@ -895,7 +897,7 @@ public function table(Table $table): Table
                                 ->title('Pago aprobado correctamente')
                                 ->success()
                                 ->send();
-                        } catch (\Exception $e) {
+                        } catch (Exception $e) {
                             Notification::make()
                                 ->title('Error al aprobar')
                                 ->body($e->getMessage())
@@ -921,7 +923,7 @@ public function table(Table $table): Table
                                 ->title('Pago rechazado')
                                 ->danger()
                                 ->send();
-                        } catch (\Exception $e) {
+                        } catch (Exception $e) {
                             Notification::make()
                                 ->title('Error al rechazar')
                                 ->body($e->getMessage())
@@ -948,7 +950,7 @@ public function table(Table $table): Table
                                 try {
                                     app(PagoService::class)->aprobarPago($record);
                                     $aprobados++;
-                                } catch (\Exception $e) {
+                                } catch (Exception $e) {
                                     // Continuar con el siguiente si falla uno
                                 }
                             }

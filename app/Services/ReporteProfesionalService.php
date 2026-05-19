@@ -18,11 +18,11 @@ class ReporteProfesionalService
 
         $html = $this->generarHTMLProfesional($pagos, $totalRegistros, $totalMonto, $totalMora, $fechaGeneracion, $filtros);
 
+        // isPhpEnabled and isRemoteEnabled MUST remain false (config/dompdf.php defaults).
+        // PHP-in-PDF is an RCE vector; remote resources enable SSRF.
         $pdf = Pdf::loadHTML($html)
             ->setOptions([
-                'isPhpEnabled' => true,
                 'defaultFont' => 'Arial',
-                'isRemoteEnabled' => true,
                 'defaultPaperSize' => 'a4',
                 'dpi' => 150,
                 'fontHeightRatio' => 1.1,
