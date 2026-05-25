@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -196,6 +197,39 @@ class Prestamo extends Model
         return $this->hasOne(Retanqueo::class, 'prestamo_nuevo_id');
     }
 
+
+    // ── Scopes para el panel asesor ─────────────────────────────────────
+
+    /**
+     * Préstamos asociados a un asesor, ya sea via grupo.asesor_id o cliente.asesor_id.
+     * Both group loans and individual loans are covered.
+     *
+     * @param  Builder  $query
+     * @param  \App\Models\Asesor  $asesor
+     */
+    public function scopeOfAsesor(Builder $query, \App\Models\Asesor $asesor): Builder
+    {
+        return $query->where(function (Builder $inner) use ($asesor) {
+            $inner->whereHas('grupo', fn (Builder $g) => $g->where('asesor_id', $asesor->id))
+                  ->orWhereHas('cliente', fn (Builder $c) => $c->where('asesor_id', $asesor->id));
+        });
+    }
+
+    /**
+     * Préstamos en cualquier estado activo (Activo, Al_Día, En_Mora).
+     */
+    public function scopeActivo(Builder $query): Builder
+    {
+        return $query->whereIn('estado', self::ESTADOS_ACTIVOS);
+    }
+
+    /**
+     * Préstamos en estado En_Mora.
+     */
+    public function scopeEnMora(Builder $query): Builder
+    {
+        return $query->where('estado', self::ESTADO_EN_MORA);
+    }
 
     public function scopeVisiblePorUsuario($query, $user)
     {

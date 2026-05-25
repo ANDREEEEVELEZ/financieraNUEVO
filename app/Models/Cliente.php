@@ -1,11 +1,12 @@
 <?php
 
-
 namespace App\Models;
 
-
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 
 class Cliente extends Model
@@ -168,5 +169,54 @@ class Cliente extends Model
     public function puedeSubirCiclo()
     {
         return \App\Helpers\CicloHelper::puedeSubirCiclo($this->ciclo, $this->prestamos_completados_count);
+    }
+
+    /**
+     * Préstamos directamente asociados a este cliente (préstamos individuales en el modelo Prestamo).
+     */
+    public function prestamos(): HasMany
+    {
+        return $this->hasMany(Prestamo::class, 'cliente_id');
+    }
+
+    /**
+     * Scoring vigente del cliente.
+     */
+    public function scoringVigente(): HasOne
+    {
+        return $this->hasOne(ClienteScoring::class)->where('vigente', true)->latestOfMany();
+    }
+
+    // ── Scopes para el panel asesor ─────────────────────────────────────
+
+    /**
+     * Filtra clientes del asesor por su asesor_id (apunta a asesores.id).
+     *
+     * @param  Builder  $query
+     * @param  Asesor   $asesor
+     */
+    public function scopeOfAsesor(Builder $query, Asesor $asesor): Builder
+    {
+        return $query->where('asesor_id', $asesor->id);
+    }
+
+    /**
+     * Clientes que tienen al menos un préstamo en estado activo.
+     */
+    public function scopeActivo(Builder $query): Builder
+    {
+        return $query->whereHas('prestamos', function (Builder $q) {
+            $q->whereIn('estado', Prestamo::ESTADOS_ACTIVOS);
+        });
+    }
+
+    /**
+     * Clientes que tienen al menos una cuota_individual en estado vencida.
+     */
+    public function scopeConMoraActiva(Builder $query): Builder
+    {
+        return $query->whereHas('prestamos.cuotasIndividuales', function (Builder $q) {
+            $q->where('estado', 'vencida');
+        });
     }
 }

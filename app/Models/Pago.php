@@ -5,6 +5,7 @@ namespace App\Models;
 
 
 use App\Models\AplicacionPago;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -75,6 +76,24 @@ class Pago extends Model
     public function scopeSinIngreso($query)
     {
         return $query->whereDoesntHave('ingreso');
+    }
+
+    // ── Scopes para el panel asesor ─────────────────────────────────────
+
+    /**
+     * Pagos pendientes de aprobación.
+     */
+    public function scopePendientes(Builder $query): Builder
+    {
+        return $query->where('estado_pago', 'pendiente');
+    }
+
+    /**
+     * Pagos aprobados.
+     */
+    public function scopeAprobados(Builder $query): Builder
+    {
+        return $query->where('estado_pago', 'aprobado');
     }
 
 

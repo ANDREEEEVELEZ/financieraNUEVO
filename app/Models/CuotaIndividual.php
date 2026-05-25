@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
@@ -137,5 +138,37 @@ class CuotaIndividual extends Model
     public function scopeDelCliente($query, $clienteId)
     {
         return $query->where('cliente_id', $clienteId);
+    }
+
+    // ── Scopes para el panel asesor ─────────────────────────────────────
+
+    /**
+     * Cuotas con fecha de vencimiento hoy y estado pendiente.
+     */
+    public function scopeDueToday(Builder $query): Builder
+    {
+        return $query->whereDate('fecha_vencimiento', today())
+                     ->where('estado', 'pendiente');
+    }
+
+    /**
+     * Cuotas en mora (estado vencida).
+     */
+    public function scopeEnMora(Builder $query): Builder
+    {
+        return $query->where('estado', 'vencida');
+    }
+
+    /**
+     * Cuotas pertenecientes a clientes del asesor dado.
+     *
+     * @param  Builder  $query
+     * @param  \App\Models\Asesor  $asesor
+     */
+    public function scopeOfAsesor(Builder $query, \App\Models\Asesor $asesor): Builder
+    {
+        return $query->whereHas('prestamo.cliente', fn (Builder $q) =>
+            $q->where('asesor_id', $asesor->id)
+        );
     }
 }
