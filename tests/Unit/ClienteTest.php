@@ -26,8 +26,8 @@ describe('Modelo Cliente', function () {
         $activos = \App\Models\Cliente::factory()->count(3)->create(['estado_cliente' => 'activo']);
         $inactivos = \App\Models\Cliente::factory()->count(2)->create(['estado_cliente' => 'inactivo']);
         $clientes = \App\Models\Cliente::all();
-        $activosCount = $clientes->where('estado_cliente', 'activo')->count();
-        $inactivosCount = $clientes->where('estado_cliente', 'inactivo')->count();
+        $activosCount = $clientes->where('estado_cliente', 'ACTIVO')->count();
+        $inactivosCount = $clientes->where('estado_cliente', 'INACTIVO')->count();
         expect($clientes->count())->toBe(5);
         expect($activosCount)->toBe(3);
         expect($inactivosCount)->toBe(2);

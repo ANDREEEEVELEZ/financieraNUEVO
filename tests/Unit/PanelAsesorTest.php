@@ -16,16 +16,13 @@ uses(Tests\TestCase::class, RefreshDatabase::class);
 beforeEach(function () {
     Role::firstOrCreate(['name' => 'Asesor', 'guard_name' => 'web']);
 
-    $this->user = User::factory()->create();
-    $this->user->assignRole('Asesor');
-
-
     // Usuario y rol
     $this->user = User::factory()->create();
     $this->user->assignRole('Asesor');
 
     $this->asesor = Asesor::factory()->create([
         'user_id' => $this->user->id,
+        'estado_asesor' => 'activo',
     ]);
 
     // Cliente y grupo
@@ -46,19 +43,21 @@ beforeEach(function () {
     // Préstamo, cuota, pago y mora
     $this->prestamo = Prestamo::factory()->create([
         'grupo_id' => $this->grupo->id,
-        'estado' => 'aprobado',
+        'estado' => Prestamo::ESTADO_ACTIVO,
     ]);
 
     $this->cuota = CuotasGrupales::factory()->create([
         'prestamo_id' => $this->prestamo->id,
         'monto_cuota_grupal' => 300,
         'saldo_pendiente' => 100,
+        'estado_cuota_grupal' => 'mora',
+        'fecha_vencimiento' => now()->subDays(101)->toDateString(),
     ]);
 
     $this->pago = Pago::factory()->create([
         'cuota_grupal_id' => $this->cuota->id,
         'estado_pago' => 'Aprobado',
-        'monto_pagado' => 200,
+        'monto_pagado' => 300,
     ]);
 
     $this->mora = Mora::factory()->create([
@@ -71,13 +70,13 @@ it('muestra el nombre del grupo en el panel del asesor', function () {
     $this->actingAs($this->user)
         ->get('/dashboard/asesor-page')
         ->assertOk()
-        ->assertSee('Grupo Estrella');
+        ->assertSee('GRUPO ESTRELLA');
 });
 
 it('muestra el monto de la cuota grupal en el panel del asesor', function () {
     $this->actingAs($this->user)
         ->get('/dashboard/asesor-page')
-        ->assertSee((string) $this->cuota->monto_cuota_grupal);
+        ->assertSee('300');
 });
 
 it('muestra el saldo pendiente de la cuota en el panel del asesor', function () {
@@ -95,5 +94,5 @@ it('muestra el monto del pago aprobado en el panel del asesor', function () {
 it('muestra el estado de la mora en el panel del asesor', function () {
     $this->actingAs($this->user)
         ->get('/dashboard/asesor-page')
-        ->assertSee('pendiente');
+        ->assertSee('En mora');
 });

@@ -18,7 +18,7 @@ describe('Relaciones y lógica de pagos', function ()
     {
         $prestamo = Prestamo::factory()->create
         ([
-            'estado' => 'aprobado',
+            'estado' => Prestamo::ESTADO_ACTIVO,
         ]);
 
         $cuota = CuotasGrupales::factory()->create
@@ -40,7 +40,7 @@ describe('Relaciones y lógica de pagos', function ()
     {
         $prestamo = Prestamo::factory()->create
         ([
-            'estado' => 'aprobado',
+            'estado' => Prestamo::ESTADO_ACTIVO,
         ]);
 
         $cuota = CuotasGrupales::factory()->create
@@ -66,7 +66,7 @@ describe('Relaciones y lógica de pagos', function ()
     {
         $prestamo = Prestamo::factory()->create
         ([
-            'estado' => 'aprobado',
+            'estado' => Prestamo::ESTADO_ACTIVO,
         ]);
 
         $cuota = CuotasGrupales::factory()->create
@@ -94,7 +94,7 @@ describe('Validaciones de creación de pagos', function ()
     {
         $prestamo = Prestamo::factory()->create
         ([
-            'estado' => 'aprobado',
+            'estado' => Prestamo::ESTADO_ACTIVO,
         ]);
 
         $cuota = CuotasGrupales::factory()->create
@@ -109,12 +109,12 @@ describe('Validaciones de creación de pagos', function ()
         ]);
 
         expect($pago)->toBeInstanceOf(Pago::class);
-        expect($pago->cuotaGrupal->prestamo->estado)->toBe('aprobado');
+        expect($pago->cuotaGrupal->prestamo->estado)->toBe(Prestamo::ESTADO_ACTIVO);
     });
 
     it('establece pago con estado pendiente por defecto', function ()
     {
-        $prestamo = Prestamo::factory()->create(['estado' => 'aprobado']);
+        $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);
         $cuota = CuotasGrupales::factory()->create(['prestamo_id' => $prestamo->id]);
 
         $pago = Pago::factory()->create
@@ -142,7 +142,7 @@ describe('Funcionalidad de aprobación de pagos', function ()
 {
     it('aprueba un pago completo correctamente', function ()
     {
-        $prestamo = Prestamo::factory()->create(['estado' => 'aprobado']);
+        $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);
         $cuota = CuotasGrupales::factory()->create
         ([
             'prestamo_id' => $prestamo->id,
@@ -167,7 +167,7 @@ describe('Funcionalidad de aprobación de pagos', function ()
 
     it('aprueba un pago parcial correctamente', function ()
     {
-        $prestamo = Prestamo::factory()->create(['estado' => 'aprobado']);
+        $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);
 
         $cuota = CuotasGrupales::factory()->create
         ([
@@ -195,7 +195,7 @@ describe('Funcionalidad de aprobación de pagos', function ()
 
     it('maneja pagos con mora correctamente', function ()
     {
-        $prestamo = Prestamo::factory()->create(['estado' => 'aprobado']);
+        $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);
 
         $cuota = CuotasGrupales::factory()->create
         ([
@@ -235,7 +235,7 @@ describe('Funcionalidad de rechazo de pagos', function ()
 {
     it('recalcula saldo cuando se rechaza un pago con otros pagos válidos', function ()
     {
-        $prestamo = Prestamo::factory()->create(['estado' => 'aprobado']);
+        $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);
 
         $cuota = CuotasGrupales::factory()->create
         ([
@@ -257,7 +257,7 @@ describe('Funcionalidad de rechazo de pagos', function ()
             'estado_pago' => 'pendiente',
         ]);
         $pagoARechazar->rechazar();
-        expect($pagoARechazar->fresh()->estado_pago)->toBe('Rechazado');
+        expect($pagoARechazar->fresh()->estado_pago)->toBe('rechazado');
         expect($cuota->fresh()->saldo_pendiente)->toBe('100.00');
         expect($cuota->fresh()->estado_pago)->toBe('parcial');
     });

@@ -19,8 +19,8 @@ class PagoPolicy
     public function viewAny(User $user): bool
     {
         return $user->can('view_any_pago')
-            || $user->hasPermissionTo('pagos.ver_todos')
-            || $user->hasPermissionTo('pagos.crear');
+            || $user->checkPermissionTo('pagos.ver_todos')
+            || $user->checkPermissionTo('pagos.crear');
     }
 
     /**
@@ -28,7 +28,7 @@ class PagoPolicy
      */
     public function view(User $user, Pago $pago): bool
     {
-        if ($user->hasPermissionTo('pagos.ver_todos')) {
+        if ($user->checkPermissionTo('pagos.ver_todos')) {
             return true;
         }
 
@@ -49,7 +49,7 @@ class PagoPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_pago') || $user->hasPermissionTo('pagos.crear');
+        return $user->can('create_pago') || $user->checkPermissionTo('pagos.crear');
     }
 
     public function update(User $user, Pago $pago): bool
@@ -104,7 +104,7 @@ class PagoPolicy
      */
     public function aprobar(User $user): bool
     {
-        return $user->hasPermissionTo('pagos.aprobar');
+        return $user->checkPermissionTo('pagos.aprobar');
     }
 
     /**
@@ -112,7 +112,7 @@ class PagoPolicy
      */
     public function anular(User $user): bool
     {
-        return $user->hasPermissionTo('pagos.anular');
+        return $user->checkPermissionTo('pagos.anular');
     }
 
     /**
@@ -120,6 +120,6 @@ class PagoPolicy
      */
     public function revertir(User $user): bool
     {
-        return $user->hasPermissionTo('pagos.revertir');
+        return $user->checkPermissionTo('pagos.revertir');
     }
 }

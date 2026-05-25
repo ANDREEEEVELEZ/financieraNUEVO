@@ -497,7 +497,7 @@ class PagoService
 
             // Ingreso (partida doble)
             Ingreso::create([
-                'tipo_ingreso' => 'pago canónico',
+                'tipo_ingreso' => 'pago de cuota de grupo',
                 'pago_id'      => $pago->id,
                 'grupo_id'     => $prestamo->grupo_id ?? null,
                 'fecha_hora'   => now(),

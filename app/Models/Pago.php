@@ -89,8 +89,17 @@ class Pago extends Model
         return $this->fecha_pago ? $this->fecha_pago->format('d/m/Y H:i') : null;
     }
 
-    // Lógica de negocio (aprobar, rechazar, revertir) movida a App\Services\PagoService
-        public function grupo()
+    public function aprobar(): static
+    {
+        return app(\App\Services\PagoService::class)->aprobarPago($this);
+    }
+
+    public function rechazar(): static
+    {
+        return app(\App\Services\PagoService::class)->rechazarPago($this);
+    }
+
+    public function grupo()
         {
             return $this->hasOneThrough(Grupo::class, Prestamo::class, 'id', 'id', 'cuota_grupal_id', 'grupo_id');
         }

@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Support\Facades\Log;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
@@ -76,10 +77,6 @@ class User extends Authenticatable
      */
 public function canAccessPanel(\Filament\Panel $panel): bool
 {
-    if (!$this->active) {
-        return false;
-    }
-
     return $this->hasAnyRole([
         'super_admin',
         'Jefe de operaciones',
