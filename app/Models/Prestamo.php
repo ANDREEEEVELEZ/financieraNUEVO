@@ -231,6 +231,25 @@ class Prestamo extends Model
         return $query->where('estado', self::ESTADO_EN_MORA);
     }
 
+    /**
+     * Préstamos elegibles para retanqueo.
+     * A loan is eligible if all cuota_individual records with numero_cuota less than
+     * the maximum (i.e. all non-last quotas) have estado = 'pagada'.
+     * The last quota state is irrelevant. Single-cuota loans are always eligible.
+     */
+    public function scopeRetanqueoElegible(Builder $query): Builder
+    {
+        return $query->whereNotExists(function ($sub) {
+            $sub->selectRaw('1')
+                ->from('cuota_individual as ci')
+                ->whereColumn('ci.prestamo_id', 'prestamos.id')
+                ->where('ci.estado', '!=', 'pagada')
+                ->whereRaw(
+                    'ci.numero_cuota < (SELECT MAX(ci2.numero_cuota) FROM cuota_individual ci2 WHERE ci2.prestamo_id = prestamos.id)'
+                );
+        });
+    }
+
     public function scopeVisiblePorUsuario($query, $user)
     {
         if ($user->hasRole('Asesor')) {

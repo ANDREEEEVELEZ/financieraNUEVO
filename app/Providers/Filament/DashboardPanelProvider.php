@@ -46,10 +46,9 @@ class DashboardPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Dashboard/Pages'), for: 'App\\Filament\\Dashboard\\Pages')
             ->pages([
                 Dashboard::class,
-                // Comentamos temporalmente las páginas adicionales para simplificar
                 // AsistenteVirtual::class,
                 // Moras::class,
-                // \App\Filament\Dashboard\Pages\AsesorPage::class,
+                \App\Filament\Dashboard\Pages\AsesorPage::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Dashboard/Widgets'), for: 'App\\Filament\\Dashboard\\Widgets')
             ->widgets([
