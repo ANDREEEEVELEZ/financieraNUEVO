@@ -31,8 +31,18 @@ class AsesorDashboard extends Page
     public string  $period              = 'mes';
     public array   $meta                = [];
     public array   $gradoData           = [];
+    public array   $tabOrder            = [];
     public bool    $isOperacionesLocked = true;
     public bool    $isFiltered          = true; // false = jefe sees all asesores
+
+    // Tab definitions — label + key
+    private const TABS = [
+        'cobranza'   => 'Cobranza',
+        'colocacion' => 'Colocación',
+        'cartera'    => 'Cartera',
+        'pagos'      => 'Pagos',
+        'operaciones'=> 'Operaciones',
+    ];
 
     public function mount(MetaCobranzaService $metaService): void
     {
@@ -40,6 +50,7 @@ class AsesorDashboard extends Page
         $asesor = $this->resolveAsesor($user);
         $this->isFiltered          = $asesor !== null;
         $this->isOperacionesLocked = ! $user->hasAnyRole(['Jefe de operaciones', 'super_admin']);
+        [$this->activeTab, $this->tabOrder] = $this->resolveTabLayout($user);
 
         if ($asesor) {
             $this->meta = $metaService->calcular($user, now()->startOfMonth());
@@ -72,6 +83,23 @@ class AsesorDashboard extends Page
                 ->pluck('cnt', 'grado')
                 ->toArray();
         }
+    }
+
+    /** Returns [defaultTab, orderedTabKeys] based on the user's role focus. */
+    private function resolveTabLayout($user): array
+    {
+        if ($user->hasRole('Jefe de creditos')) {
+            // JC focus: colocación → cartera → cobranza → pagos → operaciones
+            return ['colocacion', ['colocacion', 'cartera', 'cobranza', 'pagos', 'operaciones']];
+        }
+
+        if ($user->hasRole('Jefe de operaciones')) {
+            // JO focus: cobranza → pagos → operaciones → cartera → colocación
+            return ['cobranza', ['cobranza', 'pagos', 'operaciones', 'cartera', 'colocacion']];
+        }
+
+        // Asesor default
+        return ['cobranza', ['cobranza', 'colocacion', 'cartera', 'pagos', 'operaciones']];
     }
 
     // Returns the Asesor model for asesor users, null for jefes/admins

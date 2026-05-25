@@ -45,21 +45,24 @@
     {{-- 5-tab card --}}
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
 
-        {{-- Tab navigation bar --}}
+        {{-- Tab navigation bar — order driven by role via $tabOrder --}}
+        @php
+            $tabLabels = [
+                'cobranza'    => 'Cobranza',
+                'colocacion'  => 'Colocación',
+                'cartera'     => 'Cartera',
+                'pagos'       => 'Pagos',
+                'operaciones' => 'Operaciones',
+            ];
+        @endphp
         <div class="flex border-b border-gray-200 overflow-x-auto">
-            @foreach([
-                ['key' => 'cobranza',    'label' => 'Cobranza'],
-                ['key' => 'colocacion',  'label' => 'Colocación'],
-                ['key' => 'cartera',     'label' => 'Cartera'],
-                ['key' => 'pagos',       'label' => 'Pagos'],
-                ['key' => 'operaciones', 'label' => 'Operaciones'],
-            ] as $tab)
-            <button wire:click="setTab('{{ $tab['key'] }}')"
+            @foreach($tabOrder as $tabKey)
+            <button wire:click="setTab('{{ $tabKey }}')"
                 class="px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
-                    {{ $activeTab === $tab['key']
+                    {{ $activeTab === $tabKey
                         ? 'border-primary-600 text-primary-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                {{ $tab['label'] }}
+                {{ $tabLabels[$tabKey] }}
             </button>
             @endforeach
         </div>
