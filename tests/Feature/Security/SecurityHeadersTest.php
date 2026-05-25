@@ -1,77 +1,48 @@
 <?php
 
-namespace Tests\Feature\Security;
+it('has X-Frame-Options header on login page', function () {
+    $this->get('/dashboard/login')
+        ->assertHeader('X-Frame-Options', 'SAMEORIGIN');
+});
 
-use Tests\TestCase;
+it('has X-Content-Type-Options header', function () {
+    $this->get('/dashboard/login')
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
+});
 
-/**
- * PR-2a | Task 2.1 – Security headers must be present on all web responses.
- */
-class SecurityHeadersTest extends TestCase
-{
-    public function test_x_frame_options_header_present_on_login_page(): void
-    {
-        $response = $this->get('/dashboard/login');
+it('has Strict-Transport-Security header with max-age', function () {
+    $response = $this->get('/dashboard/login');
 
-        $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
-    }
+    expect($response->headers->has('Strict-Transport-Security'))->toBeTrue()
+        ->and($response->headers->get('Strict-Transport-Security'))
+        ->toContain('max-age=31536000');
+});
 
-    public function test_x_content_type_options_header_present(): void
-    {
-        $response = $this->get('/dashboard/login');
+it('has Referrer-Policy header', function () {
+    $this->get('/dashboard/login')
+        ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+});
 
-        $response->assertHeader('X-Content-Type-Options', 'nosniff');
-    }
+it('CSP is enforced, not Report-Only', function () {
+    $response = $this->get('/dashboard/login');
 
-    public function test_strict_transport_security_header_present(): void
-    {
-        $response = $this->get('/dashboard/login');
+    expect($response->headers->has('Content-Security-Policy'))->toBeTrue()
+        ->and($response->headers->has('Content-Security-Policy-Report-Only'))->toBeFalse();
+});
 
-        $this->assertTrue($response->headers->has('Strict-Transport-Security'));
-        $this->assertStringContainsString('max-age=31536000', $response->headers->get('Strict-Transport-Security'));
-    }
+it('CSP contains required directives', function () {
+    $csp = $this->get('/dashboard/login')->headers->get('Content-Security-Policy');
 
-    public function test_referrer_policy_header_present(): void
-    {
-        $response = $this->get('/dashboard/login');
+    expect($csp)
+        ->toContain("default-src 'self'")
+        ->toContain('script-src');
+});
 
-        $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    }
+it('has Permissions-Policy header with camera and payment blocked', function () {
+    $response = $this->get('/dashboard/login');
+    $policy   = $response->headers->get('Permissions-Policy');
 
-    public function test_csp_is_enforced_not_report_only(): void
-    {
-        $response = $this->get('/dashboard/login');
-
-        $this->assertTrue(
-            $response->headers->has('Content-Security-Policy'),
-            'Content-Security-Policy must be enforced (not Report-Only)'
-        );
-        $this->assertFalse(
-            $response->headers->has('Content-Security-Policy-Report-Only'),
-            'Content-Security-Policy-Report-Only must not be present in production mode'
-        );
-    }
-
-    public function test_csp_contains_required_directives(): void
-    {
-        $response  = $this->get('/dashboard/login');
-        $cspHeader = $response->headers->get('Content-Security-Policy');
-
-        $this->assertStringContainsString("default-src 'self'", $cspHeader);
-        $this->assertStringContainsString("script-src", $cspHeader);
-    }
-
-    public function test_permissions_policy_header_present(): void
-    {
-        $response = $this->get('/dashboard/login');
-
-        $this->assertTrue(
-            $response->headers->has('Permissions-Policy'),
-            'Permissions-Policy header must be present'
-        );
-
-        $policy = $response->headers->get('Permissions-Policy');
-        $this->assertStringContainsString('camera=()', $policy);
-        $this->assertStringContainsString('payment=()', $policy);
-    }
-}
+    expect($response->headers->has('Permissions-Policy'))->toBeTrue()
+        ->and($policy)->toContain('camera=()')
+        ->and($policy)->toContain('payment=()');
+});

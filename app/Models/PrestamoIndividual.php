@@ -9,6 +9,11 @@ class PrestamoIndividual extends Model
 {
     use HasFactory;
 
+    const ESTADO_PENDIENTE  = 'Pendiente';
+    const ESTADO_ACTIVO     = 'Activo';
+    const ESTADO_FINALIZADO = 'Finalizado';
+    const ESTADO_CANCELADO  = 'Cancelado';
+
     // Tabla asociada
     protected $table = 'prestamo_individual';
 

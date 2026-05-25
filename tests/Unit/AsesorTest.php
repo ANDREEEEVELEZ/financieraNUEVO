@@ -27,7 +27,7 @@ describe('Modelo Asesor', function () {
         $asesor->estado_asesor = 'inactivo';
         $asesor->save();
         $asesor->refresh();
-        expect($asesor->estado_asesor)->toBe('inactivo');
+        expect($asesor->estado_asesor)->toBe('INACTIVO');
     });
 
     it('Verifica si se puede eliminar lógicamente un asesor', function () {

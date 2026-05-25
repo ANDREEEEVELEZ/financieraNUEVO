@@ -742,8 +742,8 @@ class Prestamo extends Model
                 ]);
             }
 
-            // Sincronizar montos del préstamo grupal
-            $this->sincronizarMontosTotal();
+            // Actualizar el total del grupo directamente
+            $this->updateQuietly(['monto_prestado_total' => $nuevoMontoTotal]);
 
             // Registrar en log
             Log::info('Monto de préstamo reducido', [

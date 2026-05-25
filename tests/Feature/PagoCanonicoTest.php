@@ -11,12 +11,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
-uses(TestCase::class);
 
 describe('PagoService - Canonical Payment Path', function () {
     it('registrarCanonico crea un Pago y AplicacionPago sin usar cuota_grupal_id', function () {
         // Preparar
-        $prestamo = Prestamo::factory()->create(['estado' => 'aprobado']);
+        $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);
         $cuotaIndividual = CuotaIndividual::factory()->create([
             'prestamo_id' => $prestamo->id,
             'numero_cuota' => 1,

@@ -24,7 +24,11 @@ class Cliente extends Model
         'actividad',
         'condicion_personal',
         'estado_cliente',
-        'asesor_id', // Relación con Asesor
+        'asesor_id',
+    ];
+
+    protected $casts = [
+        'ciclo' => 'integer',
     ];
 
 

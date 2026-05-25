@@ -34,16 +34,13 @@ describe('CicloService', function () {
         $cliente = Cliente::factory()->create(['ciclo' => 1]);
         $prestamo = Prestamo::factory()->create(['estado' => 'Activo']);
 
-        PrestamoIndividual::factory()->create([
-            'cliente_id'  => $cliente->id,
-            'prestamo_id' => $prestamo->id,
-            'estado'      => 'Finalizado',
-        ]);
+        // Se necesitan 2 préstamos completados para subir de ciclo 1 → 2
+        PrestamoIndividual::factory()->create(['cliente_id' => $cliente->id, 'prestamo_id' => $prestamo->id, 'estado' => 'Finalizado']);
+        PrestamoIndividual::factory()->create(['cliente_id' => $cliente->id, 'prestamo_id' => $prestamo->id, 'estado' => 'Finalizado']);
 
         $this->service->actualizarCicloCliente($cliente->fresh());
 
-        $nuevoCiclo = $cliente->fresh()->ciclo;
-        expect($nuevoCiclo)->toBeGreaterThan(1);
+        expect($cliente->fresh()->ciclo)->toBeGreaterThan(1);
     });
 
     it('es idempotente — no sube dos veces el mismo ciclo', function () {
@@ -75,11 +72,9 @@ describe('CicloService', function () {
         $clientes = Cliente::factory()->count(3)->create(['ciclo' => 1]);
         foreach ($clientes as $cliente) {
             $grupo->clientes()->attach($cliente->id, ['fecha_ingreso' => now()]);
-            PrestamoIndividual::factory()->create([
-                'cliente_id'  => $cliente->id,
-                'prestamo_id' => $prestamo->id,
-                'estado'      => 'Finalizado',
-            ]);
+            // Se necesitan 2 completados por cliente para subir de ciclo 1 → 2
+            PrestamoIndividual::factory()->create(['cliente_id' => $cliente->id, 'prestamo_id' => $prestamo->id, 'estado' => 'Finalizado']);
+            PrestamoIndividual::factory()->create(['cliente_id' => $cliente->id, 'prestamo_id' => $prestamo->id, 'estado' => 'Finalizado']);
         }
 
         $prestamo->load('grupo.clientes');

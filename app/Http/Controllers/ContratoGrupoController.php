@@ -191,7 +191,7 @@ class ContratoGrupoController extends Controller
         
         // Validar que encontramos un préstamo válido
         if (!$prestamoGrupal) {
-            abort(403, 'No se encontró un préstamo válido para imprimir contratos. Solo se pueden imprimir contratos de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
+            abort(404, 'No se encontró un préstamo válido para imprimir contratos. Solo se pueden imprimir contratos de préstamos con estados: Aprobado, Activo, Parcialmente Retanqueado o Finalizado.');
         }
 
         $contratosHtml = '';

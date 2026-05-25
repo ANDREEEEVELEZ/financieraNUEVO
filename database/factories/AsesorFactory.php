@@ -23,7 +23,7 @@ class AsesorFactory extends Factory
             'user_id' => User::factory(),
             'codigo_asesor' => 'ASR-' . str_pad($this->faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
             'fecha_ingreso' => now()->toDateString(),
-            'estado_asesor' => fake()->randomElement(['activo', 'inactivo']),
+            'estado_asesor' => 'activo',
         ];
     }
 }

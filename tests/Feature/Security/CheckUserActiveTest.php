@@ -1,78 +1,62 @@
 <?php
 
-namespace Tests\Feature\Security;
-
 use App\Models\Asesor;
 use App\Models\User;
-use App\Services\CacheService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Role;
-use Tests\TestCase;
 
-class CheckUserActiveTest extends TestCase
-{
-    use RefreshDatabase;
+uses(RefreshDatabase::class);
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        foreach (['super_admin', 'Jefe de creditos', 'Jefe de operaciones', 'Asesor'] as $rol) {
-            Role::firstOrCreate(['name' => $rol, 'guard_name' => 'web']);
-        }
+beforeEach(function () {
+    foreach (['super_admin', 'Jefe de creditos', 'Jefe de operaciones', 'Asesor'] as $rol) {
+        Role::firstOrCreate(['name' => $rol, 'guard_name' => 'web']);
     }
+});
 
-    public function test_inactive_user_is_logged_out_and_session_invalidated(): void
-    {
-        $user = User::factory()->create(['active' => false]);
-        $user->assignRole('Asesor');
+it('inactive user is redirected to login and session is destroyed', function () {
+    $user = User::factory()->create(['active' => false]);
+    $user->assignRole('Asesor');
 
-        $response = $this->actingAs($user)->get('/dashboard');
+    $this->actingAs($user)->get('/dashboard')->assertRedirect('/dashboard/login');
+    $this->assertGuest();
+});
 
-        $response->assertRedirect('/dashboard/login');
-        $this->assertGuest();
-    }
+it('active user passes through CheckUserActive', function () {
+    $user = User::factory()->create(['active' => true]);
+    $user->assignRole('Asesor');
 
-    public function test_active_user_passes_through(): void
-    {
-        $user = User::factory()->create(['active' => true]);
-        $user->assignRole('Asesor');
+    $response = $this->actingAs($user)->get('/dashboard');
 
-        // Active user should not be redirected by CheckUserActive
-        // (may still redirect to login for other reasons — we just confirm it's not a 302 to /dashboard/login from CheckUserActive)
-        $response = $this->actingAs($user)->get('/dashboard');
+    expect($response->headers->get('Location'))->not->toBe('/dashboard/login');
+});
 
-        $this->assertNotEquals('/dashboard/login', $response->headers->get('Location'));
-    }
+it('asesor with INACTIVO estado triggers logout on next request', function () {
+    $user   = User::factory()->create(['active' => true]);
+    $asesor = Asesor::factory()->create(['user_id' => $user->id, 'estado_asesor' => 'INACTIVO']);
+    $user->assignRole('Asesor');
 
-    public function test_inactive_asesor_record_triggers_logout(): void
-    {
-        $user   = User::factory()->create(['active' => true]);
-        $asesor = Asesor::factory()->create(['user_id' => $user->id, 'estado_asesor' => 'INACTIVO']);
-        $user->assignRole('Asesor');
+    Cache::put('ec_asesor_user_' . $user->id, $asesor, 300);
 
-        // Prime the cache with the inactive asesor so CheckUserActive finds it
-        Cache::put(
-            'ec_asesor_user_' . $user->id,
-            $asesor,
-            300
-        );
+    $this->actingAs($user)->get('/dashboard')->assertRedirect('/dashboard/login');
+    $this->assertGuest();
+});
 
-        $response = $this->actingAs($user)->get('/dashboard');
+it('inactive user gets 403 on JSON requests', function () {
+    $user = User::factory()->create(['active' => false]);
+    $user->assignRole('Asesor');
 
-        $response->assertRedirect('/dashboard/login');
-        $this->assertGuest();
-    }
+    $this->actingAs($user)->getJson('/api/notifications')->assertStatus(403);
+});
 
-    public function test_json_request_from_inactive_user_returns_403(): void
-    {
-        $user = User::factory()->create(['active' => false]);
-        $user->assignRole('Asesor');
+it('active asesor with role reaches dashboard without login redirect', function () {
+    $user   = User::factory()->create(['active' => true]);
+    $asesor = Asesor::factory()->create(['user_id' => $user->id, 'estado_asesor' => 'activo']);
+    $user->assignRole('Asesor');
 
-        $response = $this->actingAs($user)
-            ->getJson('/api/notifications');
+    $response = $this->actingAs($user)->get('/dashboard');
 
-        $response->assertStatus(403);
-    }
-}
+    expect($response->headers->get('Location'))->not->toBe('/dashboard/login');
+    expect(Auth::check())->toBeTrue();
+});

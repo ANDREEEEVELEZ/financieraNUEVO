@@ -1,119 +1,81 @@
 <?php
 
-namespace Tests\Feature;
-
 use App\Models\Grupo;
 use App\Models\Cliente;
 use App\Models\Prestamo;
-use App\Models\Persona;
-use App\Models\Asesor;
-use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
-class GestionIntegrantesTest extends TestCase
+uses(RefreshDatabase::class);
+
+function crearGrupoConClientes(int $cantidad = 5): array
 {
-    use RefreshDatabase;
+    $grupo = Grupo::factory()->create(['estado_grupo' => 'Activo']);
+    $clientes = [];
 
-    public function test_puede_remover_integrante_sin_prestamos()
-    {
-        // Crear un grupo sin préstamos
-        $grupo = Grupo::factory()->create(['estado_grupo' => 'Activo']);
+    for ($i = 0; $i < $cantidad; $i++) {
         $cliente = Cliente::factory()->create();
-        
-        // Agregar cliente al grupo
         $grupo->clientes()->attach($cliente->id, [
             'fecha_ingreso' => now(),
-            'estado_grupo_cliente' => 'Activo'
+            'estado_grupo_cliente' => 'Activo',
         ]);
-        
-        // Verificar que el cliente está en el grupo
-        $this->assertTrue($grupo->clientes()->where('cliente_id', $cliente->id)->exists());
-        
-        // Remover cliente
-        $resultado = $grupo->removerCliente($cliente->id);
-        
-        // Verificar que se removió correctamente
-        $this->assertTrue($resultado);
-        $this->assertFalse($grupo->clientes()->where('cliente_id', $cliente->id)->exists());
-        $this->assertTrue($grupo->exIntegrantes()->where('cliente_id', $cliente->id)->exists());
+        $clientes[] = $cliente;
     }
 
-    public function test_no_puede_remover_integrante_con_prestamos()
-    {
-        // Crear un grupo con préstamo activo
-        $grupo = Grupo::factory()->create(['estado_grupo' => 'Activo']);
-        $cliente = Cliente::factory()->create();
-        
-        // Agregar cliente al grupo
-        $grupo->clientes()->attach($cliente->id, [
-            'fecha_ingreso' => now(),
-            'estado_grupo_cliente' => 'Activo'
-        ]);
-        
-        // Crear préstamo activo
-        Prestamo::factory()->create([
-            'grupo_id' => $grupo->id,
-            'estado' => 'Aprobado'
-        ]);
-        
-        // Intentar remover cliente debe fallar
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('No se puede remover integrantes de un grupo con préstamos activos.');
-        
-        $grupo->removerCliente($cliente->id);
-    }
-
-    public function test_puede_transferir_integrante_sin_prestamos()
-    {
-        // Crear dos grupos sin préstamos
-        $grupoOrigen = Grupo::factory()->create(['estado_grupo' => 'Activo']);
-        $grupoDestino = Grupo::factory()->create(['estado_grupo' => 'Activo']);
-        $cliente = Cliente::factory()->create();
-        
-        // Agregar cliente al grupo origen
-        $grupoOrigen->clientes()->attach($cliente->id, [
-            'fecha_ingreso' => now(),
-            'estado_grupo_cliente' => 'Activo'
-        ]);
-        
-        // Transferir cliente
-        $resultado = $grupoOrigen->transferirClienteAGrupo($cliente->id, $grupoDestino->id);
-        
-        // Verificar transferencia
-        $this->assertTrue($resultado);
-        $this->assertFalse($grupoOrigen->clientes()->where('cliente_id', $cliente->id)->exists());
-        $this->assertTrue($grupoOrigen->exIntegrantes()->where('cliente_id', $cliente->id)->exists());
-        $this->assertTrue($grupoDestino->clientes()->where('cliente_id', $cliente->id)->exists());
-    }
-
-    public function test_detecta_prestamos_activos_correctamente()
-    {
-        $grupo = Grupo::factory()->create(['estado_grupo' => 'Activo']);
-        
-        // Sin préstamos
-        $this->assertFalse($grupo->tienePrestamosActivos());
-        
-        // Con préstamo pendiente
-        Prestamo::factory()->create([
-            'grupo_id' => $grupo->id,
-            'estado' => 'Pendiente'
-        ]);
-        $this->assertTrue($grupo->tienePrestamosActivos());
-        
-        // Limpiar y probar con préstamo aprobado
-        $grupo->prestamos()->delete();
-        Prestamo::factory()->create([
-            'grupo_id' => $grupo->id,
-            'estado' => 'Aprobado'
-        ]);
-        $this->assertTrue($grupo->tienePrestamosActivos());
-        
-        // Con préstamo finalizado no debe bloquear
-        $grupo->prestamos()->delete();
-        Prestamo::factory()->create([
-            'grupo_id' => $grupo->id,
-            'estado' => 'Finalizado'
-        ]);
-        $this->assertFalse($grupo->tienePrestamosActivos());
-    }
+    return [$grupo, $clientes];
 }
+
+it('puede remover integrante sin prestamos', function () {
+    [$grupo, $clientes] = crearGrupoConClientes(5);
+    $clienteARemover = $clientes[0];
+
+    expect($grupo->clientes()->where('cliente_id', $clienteARemover->id)->exists())->toBeTrue();
+
+    $resultado = $grupo->removerCliente($clienteARemover->id);
+
+    expect($resultado)->toBeTrue();
+    expect($grupo->clientes()->where('cliente_id', $clienteARemover->id)->exists())->toBeFalse();
+    expect($grupo->exIntegrantes()->where('cliente_id', $clienteARemover->id)->exists())->toBeTrue();
+});
+
+it('no puede remover integrante con prestamos activos', function () {
+    [$grupo, $clientes] = crearGrupoConClientes(5);
+    $clienteARemover = $clientes[0];
+
+    Prestamo::factory()->create([
+        'grupo_id' => $grupo->id,
+        'estado' => 'Aprobado',
+    ]);
+
+    expect(fn () => $grupo->removerCliente($clienteARemover->id))
+        ->toThrow(\Exception::class, 'No se puede remover integrantes de un grupo con préstamos activos.');
+});
+
+it('puede transferir integrante entre grupos sin prestamos', function () {
+    [$grupoOrigen, $clientes] = crearGrupoConClientes(5);
+    $grupoDestino = Grupo::factory()->create(['estado_grupo' => 'Activo']);
+    $clienteATransferir = $clientes[0];
+
+    $resultado = $grupoOrigen->transferirClienteAGrupo($clienteATransferir->id, $grupoDestino->id);
+
+    expect($resultado)->toBeTrue();
+    expect($grupoOrigen->clientes()->where('cliente_id', $clienteATransferir->id)->exists())->toBeFalse();
+    expect($grupoOrigen->exIntegrantes()->where('cliente_id', $clienteATransferir->id)->exists())->toBeTrue();
+    expect($grupoDestino->clientes()->where('cliente_id', $clienteATransferir->id)->exists())->toBeTrue();
+});
+
+it('detecta prestamos activos correctamente', function () {
+    $grupo = Grupo::factory()->create(['estado_grupo' => 'Activo']);
+
+    expect($grupo->tienePrestamosActivos())->toBeFalse();
+
+    Prestamo::factory()->create(['grupo_id' => $grupo->id, 'estado' => 'Pendiente']);
+    expect($grupo->tienePrestamosActivos())->toBeTrue();
+
+    $grupo->prestamos()->delete();
+    Prestamo::factory()->create(['grupo_id' => $grupo->id, 'estado' => 'Aprobado']);
+    expect($grupo->tienePrestamosActivos())->toBeTrue();
+
+    $grupo->prestamos()->delete();
+    Prestamo::factory()->create(['grupo_id' => $grupo->id, 'estado' => 'Finalizado']);
+    expect($grupo->tienePrestamosActivos())->toBeFalse();
+});

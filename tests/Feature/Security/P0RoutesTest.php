@@ -1,54 +1,25 @@
 <?php
 
-namespace Tests\Feature\Security;
+it('force-auth backdoor route does not exist', function () {
+    $this->get('/force-auth/test@example.com')->assertNotFound();
+});
 
-use Tests\TestCase;
+it('generar-esquema route does not exist', function () {
+    $this->get('/generar-esquema')->assertNotFound();
+});
 
-/**
- * PR-1 | Task 1.1 – P0 Backdoor Routes must not exist.
- * All of these routes expose unauthenticated attack surfaces and MUST return 404.
- */
-class P0RoutesTest extends TestCase
-{
-    public function test_force_auth_route_does_not_exist(): void
-    {
-        $response = $this->get('/force-auth/test@example.com');
+it('fix-routes route does not exist', function () {
+    $this->get('/fix-routes')->assertNotFound();
+});
 
-        $response->assertStatus(404);
-    }
+it('check-filament route does not exist', function () {
+    $this->get('/check-filament')->assertNotFound();
+});
 
-    public function test_generar_esquema_route_does_not_exist(): void
-    {
-        $response = $this->get('/generar-esquema');
+it('force-logout route does not exist', function () {
+    $this->get('/force-logout')->assertNotFound();
+});
 
-        $response->assertStatus(404);
-    }
-
-    public function test_fix_routes_route_does_not_exist(): void
-    {
-        $response = $this->get('/fix-routes');
-
-        $response->assertStatus(404);
-    }
-
-    public function test_check_filament_route_does_not_exist(): void
-    {
-        $response = $this->get('/check-filament');
-
-        $response->assertStatus(404);
-    }
-
-    public function test_force_logout_route_does_not_exist(): void
-    {
-        $response = $this->get('/force-logout');
-
-        $response->assertStatus(404);
-    }
-
-    public function test_auth_check_route_does_not_exist(): void
-    {
-        $response = $this->get('/auth-check');
-
-        $response->assertStatus(404);
-    }
-}
+it('auth-check route does not exist', function () {
+    $this->get('/auth-check')->assertNotFound();
+});

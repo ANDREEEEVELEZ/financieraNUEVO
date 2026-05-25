@@ -27,6 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
         
         $middleware->web(append: [
             \App\Http\Middleware\SecurityHeadersMiddleware::class,
+            \App\Http\Middleware\CheckUserActive::class,
+        ]);
+
+        $middleware->api(append: [
+            \App\Http\Middleware\CheckUserActive::class,
         ]);
 
         $middleware->alias([

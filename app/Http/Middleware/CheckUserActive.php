@@ -26,7 +26,7 @@ class CheckUserActive
 
             // Verificar si el usuario es un asesor y está inactivo
             $asesor = \App\Services\CacheService::getAsesorByUserId($user->id);
-            if ($asesor && $asesor->estado_asesor === 'Inactivo') {
+            if ($asesor && strtolower($asesor->estado_asesor) === 'inactivo') {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

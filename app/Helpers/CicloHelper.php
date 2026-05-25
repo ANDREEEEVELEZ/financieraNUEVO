@@ -232,22 +232,23 @@ class CicloHelper
     /**
      * Calcula el ciclo que debería tener un cliente basado en préstamos completados
      */
-    public static function calcularCicloPorPrestamos($prestamosCompletados)
+    public static function calcularCicloPorPrestamos(int $prestamosCompletados): int
     {
-        // Cada 2 préstamos completados sube un ciclo
-        // Ciclo base = 1 (I), máximo = 4 (IV)
-        $nuevoCiclo = min(4, 1 + floor($prestamosCompletados / 2));
-        return self::toRoman($nuevoCiclo);
+        return min(4, 1 + (int) floor($prestamosCompletados / 2));
     }
 
     /**
-     * Verifica si un cliente puede subir de ciclo
+     * Verifica si un cliente puede subir de ciclo.
+     * Acepta ciclo como entero o como numeral romano.
      */
-    public static function puedeSubirCiclo($cicloActual, $prestamosCompletados)
+    public static function puedeSubirCiclo($cicloActual, int $prestamosCompletados): bool
     {
-        $cicloActualNumero = self::toInteger($cicloActual);
-        $cicloCalculado = 1 + floor($prestamosCompletados / 2);
-        
+        $cicloActualNumero = is_numeric($cicloActual)
+            ? (int) $cicloActual
+            : self::toInteger((string) $cicloActual);
+
+        $cicloCalculado = 1 + (int) floor($prestamosCompletados / 2);
+
         return $cicloCalculado > $cicloActualNumero && $cicloActualNumero < 4;
     }
 }
