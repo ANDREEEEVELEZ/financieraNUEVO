@@ -12,7 +12,7 @@ use App\Services\CarteraService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
-uses(Tests\TestCase::class, RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 it('returns correct shape with all five keys', function () {
     $user    = User::factory()->create();
