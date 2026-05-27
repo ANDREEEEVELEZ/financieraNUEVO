@@ -11,7 +11,7 @@ use App\Models\CuotasGrupales;
 use App\Models\CuotaIndividual;
 use App\Models\AplicacionPago;
 use App\Models\Pago;
-use App\Services\PagoService;
+use App\Domain\Pagos\PagoService;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -89,7 +89,7 @@ beforeEach(function () {
 });
 
 // ====================================================
-// FASE 1.3 — Observer: CuotaIndividual se crea al desembolsar
+// FASE 1.3 — Event-driven: CuotaIndividual se crea al desembolsar
 // ====================================================
 
 it('desembolso crea cuota individual por cada integrante y cuota', function () {
@@ -97,17 +97,15 @@ it('desembolso crea cuota individual por cada integrante y cuota', function () {
 
     expect(CuotaIndividual::where('prestamo_id', $this->prestamo->id)->count())->toBe(0);
 
-    $this->prestamo->estado = Prestamo::ESTADO_DESEMBOLSADO;
-    $this->prestamo->fecha_desembolso = now()->toDateString();
-    $this->prestamo->save();
+    $this->prestamo->updateQuietly(['estado' => Prestamo::ESTADO_FIRMADO]);
+    $this->prestamo->desembolsar(now()->toDateString());
 
     expect(CuotaIndividual::where('prestamo_id', $this->prestamo->id)->count())->toBe($totalEsperado);
 });
 
 it('cada cuota individual tiene monto capital e interes correctos', function () {
-    $this->prestamo->estado = Prestamo::ESTADO_DESEMBOLSADO;
-    $this->prestamo->fecha_desembolso = now()->toDateString();
-    $this->prestamo->save();
+    $this->prestamo->updateQuietly(['estado' => Prestamo::ESTADO_FIRMADO]);
+    $this->prestamo->desembolsar(now()->toDateString());
 
     $primerCliente = $this->clientes[0];
     $pi = PrestamoIndividual::where('prestamo_id', $this->prestamo->id)
@@ -135,9 +133,8 @@ it('cada cuota individual tiene monto capital e interes correctos', function () 
 // ====================================================
 
 it('aprobar pago crea aplicacion pago por cada integrante', function () {
-    $this->prestamo->estado = Prestamo::ESTADO_DESEMBOLSADO;
-    $this->prestamo->fecha_desembolso = now()->toDateString();
-    $this->prestamo->save();
+    $this->prestamo->updateQuietly(['estado' => Prestamo::ESTADO_FIRMADO]);
+    $this->prestamo->desembolsar(now()->toDateString());
 
     $cuotaGrupal = CuotasGrupales::where('prestamo_id', $this->prestamo->id)->orderBy('numero_cuota')->first()
         ?? CuotasGrupales::create([
@@ -149,8 +146,6 @@ it('aprobar pago crea aplicacion pago por cada integrante', function () {
             'estado_cuota_grupal' => 'vigente',
             'estado_pago'         => 'pendiente',
         ]);
-
-    $this->prestamo->update(['estado' => Prestamo::ESTADO_ACTIVO]);
 
     $pago = Pago::create([
         'cuota_grupal_id'  => $cuotaGrupal->id,
@@ -178,9 +173,8 @@ it('aprobar pago crea aplicacion pago por cada integrante', function () {
 });
 
 it('aprobar pago tiene aplicaciones con cuota individual valida', function () {
-    $this->prestamo->estado = Prestamo::ESTADO_DESEMBOLSADO;
-    $this->prestamo->fecha_desembolso = now()->toDateString();
-    $this->prestamo->save();
+    $this->prestamo->updateQuietly(['estado' => Prestamo::ESTADO_FIRMADO]);
+    $this->prestamo->desembolsar(now()->toDateString());
 
     $cuotaGrupal = CuotasGrupales::where('prestamo_id', $this->prestamo->id)->orderBy('numero_cuota')->first()
         ?? CuotasGrupales::create([
@@ -192,8 +186,6 @@ it('aprobar pago tiene aplicaciones con cuota individual valida', function () {
             'estado_cuota_grupal' => 'vigente',
             'estado_pago'         => 'pendiente',
         ]);
-
-    $this->prestamo->update(['estado' => Prestamo::ESTADO_ACTIVO]);
 
     $pago = Pago::create([
         'cuota_grupal_id'  => $cuotaGrupal->id,

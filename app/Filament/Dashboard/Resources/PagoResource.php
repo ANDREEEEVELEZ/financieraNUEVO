@@ -5,7 +5,7 @@ namespace App\Filament\Dashboard\Resources;
 use App\Filament\Dashboard\Resources\PagoResource\Pages;
 use App\Models\Pago;
 use App\Models\CuotasGrupales;
-use App\Services\PagoService;
+use App\Domain\Pagos\PagoService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;

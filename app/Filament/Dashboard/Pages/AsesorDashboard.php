@@ -13,7 +13,7 @@ use App\Models\MetaMensual;
 use App\Models\MetricaDiariaAsesor;
 use App\Models\Pago;
 use App\Models\Prestamo;
-use App\Services\MetaCobranzaService;
+use App\Domain\Cartera\MetaCobranzaService;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;

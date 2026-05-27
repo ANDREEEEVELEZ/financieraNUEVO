@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\WidgetStatsService;
+use App\Domain\Cartera\WidgetStatsService;
 
 // NOTE: Alias-mock delegation tests (Mockery::mock('alias:...')) require process
 // isolation (->isolate()) which is only available in Pest 4+. This project uses

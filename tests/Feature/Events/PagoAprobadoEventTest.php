@@ -7,7 +7,7 @@ use App\Models\CuotasGrupales;
 use App\Models\Pago;
 use App\Models\PrestamoIndividual;
 use App\Models\Prestamo;
-use App\Services\PagoService;
+use App\Domain\Pagos\PagoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 

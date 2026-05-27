@@ -6,7 +6,7 @@ use App\Models\CuotaIndividual;
 use App\Models\Pago;
 use App\Models\AplicacionPago;
 use App\Models\Ingreso;
-use App\Services\PagoService;
+use App\Domain\Pagos\PagoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 

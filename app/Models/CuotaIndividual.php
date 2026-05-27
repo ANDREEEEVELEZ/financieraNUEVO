@@ -160,14 +160,17 @@ class CuotaIndividual extends Model
     }
 
     /**
-     * Cuotas pertenecientes a clientes del asesor dado.
+     * Cuotas belonging to clients of the given asesor.
+     *
+     * Corrected: prestamos.cliente_id does not exist in the schema.
+     * The correct path is cuota_individual → prestamos → grupos (via grupo_id) → asesor_id.
      *
      * @param  Builder  $query
      * @param  \App\Models\Asesor  $asesor
      */
     public function scopeOfAsesor(Builder $query, \App\Models\Asesor $asesor): Builder
     {
-        return $query->whereHas('prestamo.cliente', fn (Builder $q) =>
+        return $query->whereHas('prestamo.grupo', fn (Builder $q) =>
             $q->where('asesor_id', $asesor->id)
         );
     }

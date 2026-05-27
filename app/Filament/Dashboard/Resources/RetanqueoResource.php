@@ -6,7 +6,7 @@ use App\Filament\Dashboard\Resources\RetanqueoResource\Pages;
 use App\Models\Retanqueo;
 use App\Models\Grupo;
 use App\Models\Prestamo;
-use App\Services\RetanqueoService;
+use App\Domain\Prestamos\RetanqueoService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;

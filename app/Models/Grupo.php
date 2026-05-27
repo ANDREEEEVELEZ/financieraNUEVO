@@ -284,7 +284,7 @@ class Grupo extends Model
             );
         }
 
-        return app(\App\Services\MorosoSeparationService::class)->separar(
+        return app(\App\Domain\Grupos\MorosoSeparationService::class)->separar(
             $prestamo->id,
             $clienteId,
             $ejecutadoPorId,

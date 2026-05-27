@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\RetanqueoService;
+use App\Domain\Prestamos\RetanqueoService;
 use App\Models\Retanqueo;
 use App\Models\Grupo;
 use App\Models\Prestamo;

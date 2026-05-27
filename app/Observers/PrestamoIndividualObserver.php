@@ -4,7 +4,7 @@ namespace App\Observers;
 
 use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
-use App\Services\CicloService;
+use App\Domain\Grupos\CicloService;
 
 class PrestamoIndividualObserver
 {

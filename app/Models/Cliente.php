@@ -172,19 +172,36 @@ class Cliente extends Model
     }
 
     /**
-     * Préstamos directamente asociados a este cliente (préstamos individuales en el modelo Prestamo).
+     * Direct prestamo_individual records for this client.
+     *
+     * Note: group loans (Prestamo) belong to Grupo, not directly to Cliente.
+     * The original hasMany(Prestamo, 'cliente_id') was wrong — prestamos.cliente_id
+     * does not exist in the schema. Group loans are accessible via grupos → prestamos.
      */
     public function prestamos(): HasMany
     {
-        return $this->hasMany(Prestamo::class, 'cliente_id');
+        return $this->hasMany(PrestamoIndividual::class);
     }
 
     /**
-     * Scoring vigente del cliente.
+     * Scoring vigente del cliente — latest by id among vigente=true records.
+     *
+     * Uses ofMany() with an inline filter so the subquery respects vigente=true,
+     * instead of latestOfMany() which picks MAX(id) across ALL records first.
      */
     public function scoringVigente(): HasOne
     {
-        return $this->hasOne(ClienteScoring::class)->where('vigente', true)->latestOfMany();
+        return $this->hasOne(ClienteScoring::class)
+            ->ofMany(['id' => 'max'], fn (Builder $q) => $q->where('vigente', true));
+    }
+
+    /**
+     * Alias for scoring vigente — matches what ClienteResource expects via relationLoaded('scoring').
+     * Eager-load as: ->with(['scoring' => fn($q) => $q->where('vigente', true)])
+     */
+    public function scoring(): HasOne
+    {
+        return $this->hasOne(ClienteScoring::class)->latestOfMany();
     }
 
     // ── Scopes para el panel asesor ─────────────────────────────────────
@@ -201,21 +218,27 @@ class Cliente extends Model
     }
 
     /**
-     * Clientes que tienen al menos un préstamo en estado activo.
+     * Clientes that belong to a group with at least one active loan.
+     *
+     * Corrected: prestamos are linked to grupos, not directly to clientes.
+     * The original whereHas('prestamos') used a non-existent prestamos.cliente_id column.
      */
     public function scopeActivo(Builder $query): Builder
     {
-        return $query->whereHas('prestamos', function (Builder $q) {
+        return $query->whereHas('grupos.prestamos', function (Builder $q) {
             $q->whereIn('estado', Prestamo::ESTADOS_ACTIVOS);
         });
     }
 
     /**
-     * Clientes que tienen al menos una cuota_individual en estado vencida.
+     * Clientes with at least one overdue cuota_individual.
+     *
+     * Corrected: cuotas are linked via prestamos → cuota_individual, and prestamos
+     * belong to grupos, not directly to clientes.
      */
     public function scopeConMoraActiva(Builder $query): Builder
     {
-        return $query->whereHas('prestamos.cuotasIndividuales', function (Builder $q) {
+        return $query->whereHas('grupos.prestamos.cuotasIndividuales', function (Builder $q) {
             $q->where('estado', 'vencida');
         });
     }

@@ -12,6 +12,8 @@ class MetaMensual extends Model
 {
     use HasFactory;
 
+    protected $table = 'metas_mensuales';
+
     protected $fillable = [
         'asesor_id',
         'anio',

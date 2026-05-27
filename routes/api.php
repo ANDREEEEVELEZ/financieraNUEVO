@@ -1,45 +1,51 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Api\Auth\LoginController;
+use App\Http\Controllers\Api\Auth\LogoutController;
+use App\Http\Controllers\Api\ClienteController;
+use App\Http\Controllers\Api\CuotaController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\GrupoController;
+use App\Http\Controllers\Api\PagoController;
+use App\Http\Controllers\Api\PrestamoController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-use App\Services\NotificationService;
 
-Route::middleware(['web', 'auth'])->group(function () {
-    Route::get('/notifications', function (Request $request) {
-        try {
-            $notificationService = app(NotificationService::class);
-            $notifications = $notificationService->getNotifications();
+// ---------------------------------------------------------------------------
+// Public routes — no authentication required.
+// ---------------------------------------------------------------------------
+Route::post('/auth/login', LoginController::class)
+    ->middleware('throttle:api-auth')
+    ->name('api.auth.login');
 
-            $formattedNotifications = array_map(function ($notification) {
-                return [
-                    'id'          => $notification['id'],
-                    'type'        => $notification['type'],
-                    'title'       => $notification['title'],
-                    'description' => $notification['description'],
-                    'url'         => $notification['url'],
-                    'icon'        => $notification['icon'],
-                    'color'       => $notification['color'],
-                    'time'        => $notification['created_at']->diffForHumans(),
-                ];
-            }, $notifications);
+// ---------------------------------------------------------------------------
+// Protected routes — require a valid Sanctum bearer token and an active account.
+// ---------------------------------------------------------------------------
+Route::middleware(['auth:sanctum', \App\Http\Middleware\CheckUserActive::class])->group(function () {
 
-            return response()->json([
-                'notifications' => $formattedNotifications,
-                'unreadCount'   => count($formattedNotifications),
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Notification API error', [
-                'user_id' => Auth::id(),
-                'code'    => $e->getCode(),
-            ]);
+    Route::post('/auth/logout', LogoutController::class)->name('api.auth.logout');
 
-            return response()->json([
-                'error'         => 'Error interno del servidor.',
-                'notifications' => [],
-                'unreadCount'   => 0,
-            ], 500);
-        }
-    });
+    // Dashboard
+    Route::get('/dashboard', DashboardController::class)->name('api.dashboard');
+
+    // Grupos
+    Route::apiResource('grupos', GrupoController::class)->only(['index', 'show']);
+
+    // Clientes
+    Route::apiResource('clientes', ClienteController::class)->only(['index', 'show']);
+
+    // Prestamos
+    Route::apiResource('prestamos', PrestamoController::class)->only(['index', 'show', 'store']);
+    Route::patch('prestamos/{prestamo}/aprobar', [PrestamoController::class, 'aprobar'])->name('api.prestamos.aprobar');
+    Route::patch('prestamos/{prestamo}/rechazar', [PrestamoController::class, 'rechazar'])->name('api.prestamos.rechazar');
+    Route::patch('prestamos/{prestamo}/firmar', [PrestamoController::class, 'firmar'])->name('api.prestamos.firmar');
+    Route::patch('prestamos/{prestamo}/desembolsar', [PrestamoController::class, 'desembolsar'])->name('api.prestamos.desembolsar');
+
+    // Cuotas — hoy MUST be before {cuota} route model binding
+    Route::get('cuotas/hoy', [CuotaController::class, 'hoy'])->name('api.cuotas.hoy');
+    Route::apiResource('cuotas', CuotaController::class)->only(['index']);
+
+    // Pagos
+    Route::apiResource('pagos', PagoController::class)->only(['index', 'store']);
+    Route::patch('pagos/{pago}/aprobar', [PagoController::class, 'aprobar'])->name('api.pagos.aprobar');
+    Route::patch('pagos/{pago}/revertir', [PagoController::class, 'revertir'])->name('api.pagos.revertir');
 });

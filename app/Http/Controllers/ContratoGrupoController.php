@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Grupo;
 use App\Models\PrestamoIndividual;
 use App\Models\CuotasGrupales;
-use App\Services\CacheService;
+use App\Infrastructure\Cache\CacheService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Log;

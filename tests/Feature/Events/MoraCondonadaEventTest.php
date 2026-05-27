@@ -7,7 +7,7 @@ use App\Models\CuotaIndividual;
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
 use App\Models\User;
-use App\Services\CondonacionMoraService;
+use App\Domain\Pagos\CondonacionMoraService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;

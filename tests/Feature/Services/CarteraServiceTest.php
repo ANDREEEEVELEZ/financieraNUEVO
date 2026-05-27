@@ -8,7 +8,7 @@ use App\Models\CuotaIndividual;
 use App\Models\Grupo;
 use App\Models\Prestamo;
 use App\Models\User;
-use App\Services\CarteraService;
+use App\Domain\Cartera\CarteraService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
@@ -29,9 +29,8 @@ it('cuotas_hoy is always live and not served from cache', function () {
     $cliente = Cliente::factory()->create(['asesor_id' => $asesor->id]);
     $grupo   = Grupo::factory()->create(['asesor_id' => $asesor->id]);
     $prestamo = Prestamo::factory()->create([
-        'grupo_id'   => $grupo->id,
-        'cliente_id' => $cliente->id,
-        'estado'     => 'Activo',
+        'grupo_id' => $grupo->id,
+        'estado'   => 'Activo',
     ]);
 
     $service = app(CarteraService::class);

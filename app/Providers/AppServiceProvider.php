@@ -26,7 +26,15 @@ use App\Observers\PrestamoIndividualObserver;
 use App\Observers\PrestamoObserver;
 use App\Observers\RetanqueoObserver;
 use App\Observers\SeparacionClienteObserver;
-use App\Services\NotificationService;
+use App\Contracts\AuditServiceInterface;
+use App\Contracts\CronogramaServiceInterface;
+use App\Contracts\PagoServiceInterface;
+use App\Contracts\SeparacionServiceInterface;
+use App\Domain\Pagos\PagoService;
+use App\Domain\Prestamos\CronogramaService;
+use App\Domain\Grupos\MorosoSeparationService;
+use App\Infrastructure\Notifications\NotificationService;
+use App\Infrastructure\Audit\AuditService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -38,6 +46,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NotificationService::class, function ($app) {
             return new NotificationService();
         });
+
+        $this->app->bind(PagoServiceInterface::class, PagoService::class);
+        $this->app->bind(CronogramaServiceInterface::class, CronogramaService::class);
+        $this->app->bind(AuditServiceInterface::class, AuditService::class);
+        $this->app->bind(SeparacionServiceInterface::class, MorosoSeparationService::class);
     }
 
     public function boot(): void

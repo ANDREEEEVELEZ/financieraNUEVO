@@ -3,7 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\SeparacionRealizada;
-use App\Services\CacheService;
+use App\Infrastructure\Cache\CacheService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Cache;
 

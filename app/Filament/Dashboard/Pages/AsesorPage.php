@@ -8,7 +8,7 @@ use App\Models\CuotaIndividual;
 use App\Models\Grupo;
 use App\Models\MetricaDiariaAsesor;
 use App\Models\Prestamo;
-use App\Services\CarteraService;
+use App\Domain\Cartera\CarteraService;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 

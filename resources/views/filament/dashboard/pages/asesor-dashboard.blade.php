@@ -240,7 +240,9 @@
                         ['label' => 'Desembolsados', 'count' => $prestamosMes, 'color' => 'bg-primary-500',
                          'sub' => $retanqueoCount . ' retanqueo elegible'],
                     ];
-                    $maxCount = max(array_column($funnelSteps, 'count') + [0], 1);
+                    $funnelCounts = array_column($funnelSteps, 'count');
+                    $maxCount = $funnelCounts ? max($funnelCounts) : 0;
+                    $maxCount = max($maxCount, 1);
                 @endphp
                 <div class="space-y-2">
                     @foreach($funnelSteps as $step)

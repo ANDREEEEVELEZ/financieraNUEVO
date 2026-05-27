@@ -100,26 +100,26 @@ class PagoPolicy
     // ─── Permisos de negocio (custom) ───────────────────────────────
 
     /**
-     * Aprobar pago: Solo JO verifica la transacción bancaria.
+     * Aprobar pago: JO or SA only.
      */
-    public function aprobar(User $user): bool
+    public function aprobar(User $user, Pago $pago): bool
     {
-        return $user->checkPermissionTo('pagos.aprobar');
+        return $user->hasAnyRole(['Jefe de operaciones', 'super_admin']);
     }
 
     /**
-     * Anular pago: Solo JO.
+     * Anular pago: JO or SA only.
      */
-    public function anular(User $user): bool
+    public function anular(User $user, Pago $pago): bool
     {
-        return $user->checkPermissionTo('pagos.anular');
+        return $user->hasAnyRole(['Jefe de operaciones', 'super_admin']);
     }
 
     /**
-     * Revertir pago aprobado: Solo JO, con motivo obligatorio.
+     * Revertir pago aprobado: JO or SA only.
      */
-    public function revertir(User $user): bool
+    public function revertir(User $user, Pago $pago): bool
     {
-        return $user->checkPermissionTo('pagos.revertir');
+        return $user->hasAnyRole(['Jefe de operaciones', 'super_admin']);
     }
 }

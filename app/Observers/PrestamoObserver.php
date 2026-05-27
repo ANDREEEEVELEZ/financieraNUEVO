@@ -4,8 +4,8 @@ namespace App\Observers;
 
 use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
-use App\Services\CacheService;
-use App\Services\NotificationService;
+use App\Infrastructure\Cache\CacheService;
+use App\Infrastructure\Notifications\NotificationService;
 use Illuminate\Support\Facades\Log;
 
 class PrestamoObserver

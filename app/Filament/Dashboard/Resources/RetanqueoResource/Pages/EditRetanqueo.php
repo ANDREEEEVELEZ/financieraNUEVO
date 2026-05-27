@@ -3,7 +3,7 @@
 namespace App\Filament\Dashboard\Resources\RetanqueoResource\Pages;
 
 use App\Filament\Dashboard\Resources\RetanqueoResource;
-use App\Services\RetanqueoService;
+use App\Domain\Prestamos\RetanqueoService;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
