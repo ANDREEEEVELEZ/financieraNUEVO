@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Domain\Prestamos\RetanqueoService;
+use App\Contracts\RetanqueoQueryInterface;
 use App\Models\Retanqueo;
 use App\Models\Grupo;
 use App\Models\Prestamo;
@@ -71,9 +71,9 @@ class RetanqueoStatus extends Command
     {
         $this->info("\n✅ GRUPOS ELEGIBLES PARA RETANQUEO:");
         
-        $retanqueoService = new RetanqueoService();
-        $gruposElegibles = $retanqueoService->obtenerGruposElegibles();
-        
+        $queryService = app(RetanqueoQueryInterface::class);
+        $gruposElegibles = $queryService->obtenerGruposElegibles();
+
         if ($gruposElegibles->isEmpty()) {
             $this->warn('No hay grupos elegibles para retanqueo en este momento.');
             return;
@@ -90,7 +90,7 @@ class RetanqueoStatus extends Command
                 ->first();
 
             if ($prestamoActivo) {
-                $estadoPrestamo = $retanqueoService->calcularEstadoPrestamo($prestamoActivo->id);
+                $estadoPrestamo = $queryService->calcularEstadoPrestamo($prestamoActivo->id);
                 $datos[] = [
                     $grupo->id,
                     $grupo->nombre_grupo,

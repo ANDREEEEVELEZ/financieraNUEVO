@@ -24,6 +24,7 @@ return new class extends Migration {
             $table->unsignedTinyInteger('plazo_minimo_meses')->default(3);
             $table->unsignedTinyInteger('plazo_maximo_meses')->default(24);
             $table->json('config_json')->nullable(); // Reglas adicionales
+            $table->decimal('porcentaje_minimo_retanqueo', 5, 4)->default(0.5100)->comment('Porcentaje mínimo de quórum requerido para la elegibilidad de retanqueo grupal.');
             $table->boolean('activo')->default(true);
             $table->timestamps();
         });

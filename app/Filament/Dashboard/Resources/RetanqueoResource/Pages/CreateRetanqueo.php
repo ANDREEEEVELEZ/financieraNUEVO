@@ -3,7 +3,7 @@
 namespace App\Filament\Dashboard\Resources\RetanqueoResource\Pages;
 
 use App\Filament\Dashboard\Resources\RetanqueoResource;
-use App\Domain\Prestamos\RetanqueoService;
+use App\Contracts\RetanqueoWorkflowInterface;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
@@ -38,12 +38,10 @@ class CreateRetanqueo extends CreateRecord
     protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
     {
         try {
-            $retanqueoService = new RetanqueoService();
-            
             // Extraer participantes del array de datos
             $participantes = $data['participantes'] ?? [];
             $prestamoId = $data['prestamo_id'];
-            
+
             // Extraer datos de cuenta para crear el préstamo pendiente
             $datosCuenta = [];
             if (!empty($data['titular_cuenta_desembolso'])) {
@@ -52,16 +50,16 @@ class CreateRetanqueo extends CreateRecord
             if (!empty($data['numero_cuenta_desembolso'])) {
                 $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
             }
-            
+
             // Datos adicionales del retanqueo
             $datosRetanqueo = [
                 'cantidad_cuotas' => $data['cantidad_cuotas_nuevo'] ?? 4, // Fijo en 4 cuotas como préstamos regulares
-                'monto_cuota' => null, // Se calculará automáticamente
-                'datos_cuenta' => $datosCuenta // Pasar datos de cuenta para crear préstamo pendiente
+                'monto_cuota'     => null, // Se calculará automáticamente
+                'datos_cuenta'    => $datosCuenta, // Pasar datos de cuenta para crear préstamo pendiente
             ];
 
             // Crear la solicitud usando el servicio (ahora también crea el préstamo pendiente)
-            $retanqueo = $retanqueoService->crearSolicitudRetanqueo(
+            $retanqueo = app(RetanqueoWorkflowInterface::class)->crearSolicitudRetanqueo(
                 $prestamoId,
                 $participantes,
                 $datosRetanqueo

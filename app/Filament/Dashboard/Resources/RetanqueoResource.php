@@ -6,7 +6,9 @@ use App\Filament\Dashboard\Resources\RetanqueoResource\Pages;
 use App\Models\Retanqueo;
 use App\Models\Grupo;
 use App\Models\Prestamo;
-use App\Domain\Prestamos\RetanqueoService;
+use App\Contracts\RetanqueoQueryInterface;
+use App\Contracts\RetanqueoWorkflowInterface;
+use App\Contracts\RetanqueoEjecucionInterface;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -43,7 +45,7 @@ class RetanqueoResource extends Resource
     public static function form(Form $form): Form
     {
         $user = request()->user();
-        $retanqueoService = new RetanqueoService();
+        $retanqueoService = app(RetanqueoQueryInterface::class);
 
         return $form
             ->schema([
@@ -635,8 +637,7 @@ class RetanqueoResource extends Resource
                         ->modalDescription('¿Está seguro de que desea aprobar este retanqueo?')
                         ->action(function ($record) {
                             try {
-                                $retanqueoService = new RetanqueoService();
-                                $retanqueoService->aprobarRetanqueo($record->id);
+                                app(RetanqueoWorkflowInterface::class)->aprobarRetanqueo($record->id);
 
                                 Notification::make()
                                     ->title('Retanqueo Aprobado')
@@ -663,8 +664,7 @@ class RetanqueoResource extends Resource
                         ->modalDescription('¿Está seguro de que desea rechazar este retanqueo?')
                         ->action(function ($record) {
                             try {
-                                $retanqueoService = new RetanqueoService();
-                                $retanqueoService->rechazarRetanqueo($record->id);
+                                app(RetanqueoWorkflowInterface::class)->rechazarRetanqueo($record->id);
 
                                 Notification::make()
                                     ->title('Retanqueo Rechazado')
@@ -745,8 +745,6 @@ class RetanqueoResource extends Resource
                         ->modalSubmitActionLabel('Ejecutar Retanqueo')
                         ->action(function ($record, array $data) {
                             try {
-                                $retanqueoService = new RetanqueoService();
-
                                 // SEGURO: Preparar datos de cuenta con validación
                                 $datosCuenta = [];
                                 if (!empty($data['titular_cuenta_desembolso'])) {
@@ -756,7 +754,7 @@ class RetanqueoResource extends Resource
                                     $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
                                 }
 
-                                $retanqueoService->ejecutarRetanqueo($record->id, $datosCuenta);
+                                app(RetanqueoEjecucionInterface::class)->ejecutarRetanqueo($record->id, $datosCuenta);
 
                                 Notification::make()
                                     ->title('Retanqueo Ejecutado')

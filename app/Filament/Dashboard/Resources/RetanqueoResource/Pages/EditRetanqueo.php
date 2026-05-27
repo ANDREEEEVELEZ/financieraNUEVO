@@ -3,7 +3,7 @@
 namespace App\Filament\Dashboard\Resources\RetanqueoResource\Pages;
 
 use App\Filament\Dashboard\Resources\RetanqueoResource;
-use App\Domain\Prestamos\RetanqueoService;
+use App\Contracts\RetanqueoQueryInterface;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
@@ -58,8 +58,7 @@ class EditRetanqueo extends EditRecord
 
         // Cargar información del estado del préstamo
         try {
-            $retanqueoService = new RetanqueoService();
-            $estadoPrestamo = $retanqueoService->calcularEstadoPrestamo($retanqueo->prestamo_id);
+            $estadoPrestamo = app(RetanqueoQueryInterface::class)->calcularEstadoPrestamo($retanqueo->prestamo_id);
             $data['estado_prestamo_info'] = [
                 'monto_prestado' => $estadoPrestamo['monto_prestado_original'],
                 'saldo_pendiente' => $estadoPrestamo['saldo_pendiente_total'],
@@ -117,14 +116,14 @@ class EditRetanqueo extends EditRecord
     protected function handleRecordUpdate(\Illuminate\Database\Eloquent\Model $record, array $data): \Illuminate\Database\Eloquent\Model
     {
         try {
-            $retanqueoService = new RetanqueoService();
-            
+            $queryService = app(RetanqueoQueryInterface::class);
+
             // Extraer participantes del array de datos
             $participantes = $data['participantes'] ?? [];
-            
+
             // Eliminar retanqueos individuales existentes
             $record->retanqueosIndividuales()->delete();
-            
+
             // Crear nuevos retanqueos individuales
             $totalRetanqueo = 0;
             $totalCobertura = 0;
@@ -147,7 +146,7 @@ class EditRetanqueo extends EditRecord
                 // Calcular aporte de cobertura si retanquea
                 $aporteCobertura = 0;
                 if ($participante['participacion_tipo'] === 'retanquea') {
-                    $estadoPrestamo = $retanqueoService->calcularEstadoPrestamo($record->prestamo_id);
+                    $estadoPrestamo = $queryService->calcularEstadoPrestamo($record->prestamo_id);
                     $integrantesQueRetanquean = collect($participantes)->where('participacion_tipo', 'retanquea')->count();
                     
                     if ($integrantesQueRetanquean > 0) {
@@ -177,7 +176,7 @@ class EditRetanqueo extends EditRecord
             }
 
             // Actualizar totales del retanqueo
-            $estadoPrestamo = $retanqueoService->calcularEstadoPrestamo($record->prestamo_id);
+            $estadoPrestamo = $queryService->calcularEstadoPrestamo($record->prestamo_id);
             $saldoRestante = max(0, $estadoPrestamo['saldo_pendiente_total'] - $totalCobertura);
 
             $record->update([
