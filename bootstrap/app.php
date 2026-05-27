@@ -32,8 +32,11 @@ return Application::configure(basePath: dirname(__DIR__))
             explode(',', env('TRUSTED_HOSTS', 'localhost'))
         ));
 
+        // SecurityHeaders runs as the outermost global middleware so it adds headers
+        // to ALL responses, including 429s from ThrottleRequests (filament-login).
+        $middleware->prepend(\App\Http\Middleware\SecurityHeadersMiddleware::class);
+
         $middleware->web(append: [
-            \App\Http\Middleware\SecurityHeadersMiddleware::class,
             \App\Http\Middleware\CheckUserActive::class,
         ]);
 
