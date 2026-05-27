@@ -7,12 +7,13 @@ use App\Models\Grupo;
 use App\Models\Pago;
 use App\Models\Asesor;
 use App\Models\Mora;
+use App\Contracts\NotificationServiceInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
-class NotificationService
+class NotificationService implements NotificationServiceInterface
 {
     /**
      * Obtiene todas las notificaciones para el usuario actual (con cache)
@@ -274,7 +275,7 @@ class NotificationService
      * Invalida el cache de notificaciones de un usuario
      * Llamar cuando se crea/actualiza un préstamo, pago o mora
      */
-    public static function invalidateNotificationsCache(int $userId): void
+    public function invalidateNotificationsCache(int $userId): void
     {
         Cache::forget('ec_notifications_user_' . $userId);
         Log::debug("NotificationService: Invalidated notifications cache for user {$userId}");

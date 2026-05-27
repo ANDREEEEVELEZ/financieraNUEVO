@@ -3,7 +3,7 @@
 namespace App\Livewire;
 
 use Livewire\Component;
-use App\Infrastructure\Notifications\NotificationService;
+use App\Contracts\NotificationServiceInterface;
 use Illuminate\Support\Facades\Auth;
 
 class NotificationComponent extends Component
@@ -16,7 +16,7 @@ class NotificationComponent extends Component
 
     public function mount()
     {
-        $this->notificationService = app(NotificationService::class);
+        $this->notificationService = app(NotificationServiceInterface::class);
         $this->loadNotifications();
     }
 

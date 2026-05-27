@@ -28,6 +28,7 @@ use App\Observers\RetanqueoObserver;
 use App\Observers\SeparacionClienteObserver;
 use App\Contracts\AuditServiceInterface;
 use App\Contracts\CacheServiceInterface;
+use App\Contracts\NotificationServiceInterface;
 use App\Infrastructure\Cache\CacheService;
 use App\Contracts\CronogramaServiceInterface;
 use App\Contracts\PagoServiceInterface;
@@ -52,7 +53,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(NotificationService::class, function ($app) {
+        $this->app->singleton(NotificationServiceInterface::class, function ($app) {
             return new NotificationService();
         });
 

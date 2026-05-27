@@ -3,14 +3,14 @@
 namespace App\Observers;
 
 use App\Contracts\CacheServiceInterface;
+use App\Contracts\NotificationServiceInterface;
 use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
-use App\Infrastructure\Notifications\NotificationService;
 use Illuminate\Support\Facades\Log;
 
 class PrestamoObserver
 {
-    public function __construct(private CacheServiceInterface $cache) {}
+    public function __construct(private CacheServiceInterface $cache, private NotificationServiceInterface $notifications) {}
 
     public function created(Prestamo $prestamo): void
     {
@@ -20,7 +20,7 @@ class PrestamoObserver
 
         $supervisores = \App\Models\User::role(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->get();
         foreach ($supervisores as $supervisor) {
-            NotificationService::invalidateNotificationsCache($supervisor->id);
+            $this->notifications->invalidateNotificationsCache($supervisor->id);
         }
     }
 
@@ -42,11 +42,11 @@ class PrestamoObserver
 
             $supervisores = \App\Models\User::role(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->get();
             foreach ($supervisores as $supervisor) {
-                NotificationService::invalidateNotificationsCache($supervisor->id);
+                $this->notifications->invalidateNotificationsCache($supervisor->id);
             }
 
             if ($prestamo->grupo && $prestamo->grupo->asesor && $prestamo->grupo->asesor->user_id) {
-                NotificationService::invalidateNotificationsCache($prestamo->grupo->asesor->user_id);
+                $this->notifications->invalidateNotificationsCache($prestamo->grupo->asesor->user_id);
             }
         }
     }
