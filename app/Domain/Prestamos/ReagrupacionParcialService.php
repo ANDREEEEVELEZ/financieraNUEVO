@@ -2,7 +2,7 @@
 
 namespace App\Domain\Prestamos;
 
-use App\Contracts\AuditServiceInterface;
+use App\Events\Domain\ReagrupacionEjecutada;
 use App\Models\Grupo;
 use App\Models\Prestamo;
 use App\Models\Reagrupacion;
@@ -68,7 +68,7 @@ class ReagrupacionParcialService
             throw new \Exception('No se puede trasladar a todos los integrantes. Al menos uno debe permanecer en el grupo original.');
         }
 
-        return DB::transaction(function () use ($prestamo, $grupoOrigen, $clientesTrasladados, $clientesRetenidos, $tipo, $observaciones) {
+        $reagrupacion = DB::transaction(function () use ($prestamo, $grupoOrigen, $clientesTrasladados, $clientesRetenidos, $tipo, $observaciones) {
             // 1. Crear nuevo grupo con los mismos datos base
             $grupoNuevo = Grupo::create([
                 'nombre_grupo' => $grupoOrigen->nombre_grupo . ' (Reagrupado)',
@@ -95,29 +95,9 @@ class ReagrupacionParcialService
                 'prestamo_origen_id' => $prestamo->id,
                 'ejecutado_por' => auth()->id(),
                 'tipo' => $tipo,
-                'clientes_trasladados' => $clientesTrasladados,
-                'clientes_retenidos' => array_values($clientesRetenidos),
                 'monto_descuento' => $montoDescuento,
                 'observaciones' => $observaciones,
             ]);
-
-            // 5. Auditoría
-            app(AuditServiceInterface::class)->registrar(
-                'reagrupar',
-                $reagrupacion,
-                [
-                    'grupo_origen_id' => $grupoOrigen->id,
-                    'integrantes_origen' => count($clientesDelGrupo ?? []),
-                ],
-                [
-                    'grupo_nuevo_id' => $grupoNuevo->id,
-                    'clientes_trasladados' => count($clientesTrasladados),
-                    'clientes_retenidos' => count($clientesRetenidos),
-                    'tipo' => $tipo,
-                    'monto_descuento' => $montoDescuento,
-                ],
-                "Reagrupación {$tipo}: {$observaciones}"
-            );
 
             Log::info('Reagrupación parcial ejecutada', [
                 'grupo_origen' => $grupoOrigen->id,
@@ -128,6 +108,11 @@ class ReagrupacionParcialService
 
             return $reagrupacion;
         });
+
+        // 5. Dispatch event OUTSIDE transaction — listener failure must not roll back committed data
+        ReagrupacionEjecutada::dispatch($reagrupacion);
+
+        return $reagrupacion;
     }
 
     /**

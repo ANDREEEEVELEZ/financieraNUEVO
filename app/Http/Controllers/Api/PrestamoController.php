@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Contracts\AuditServiceInterface;
+use App\Events\Domain\PrestamoAprobado;
 use App\Events\Domain\PrestamoDesembolsado;
 use App\Events\Domain\PrestamoFirmado;
+use App\Events\Domain\PrestamoRechazado;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Prestamo\StorePrestamoRequest;
 use App\Http\Resources\Api\PrestamoResource;
@@ -19,9 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 final class PrestamoController extends Controller
 {
-    public function __construct(
-        private readonly AuditServiceInterface $auditService,
-    ) {}
+    public function __construct() {}
 
     /**
      * List all prestamos visible to the authenticated user.
@@ -135,19 +134,11 @@ final class PrestamoController extends Controller
                 return ApiResponse::error('Estado inválido para esta transición.', 422);
             }
 
-            $estadoAnterior = $prestamo->estado;
-
-            DB::transaction(function () use ($prestamo, $estadoAnterior) {
+            DB::transaction(function () use ($prestamo) {
                 $prestamo->update(['estado' => Prestamo::ESTADO_APROBADO]);
-
-                $this->auditService->registrar(
-                    'prestamo.aprobado',
-                    $prestamo,
-                    ['estado' => $estadoAnterior],
-                    ['estado' => Prestamo::ESTADO_APROBADO],
-                    ''
-                );
             });
+
+            PrestamoAprobado::dispatch($prestamo->fresh());
 
             return ApiResponse::success(new PrestamoResource($prestamo->fresh()));
         } catch (AuthorizationException $e) {
@@ -171,22 +162,14 @@ final class PrestamoController extends Controller
                 return ApiResponse::error('Estado inválido para esta transición.', 422);
             }
 
-            $estadoAnterior = $prestamo->estado;
-
-            DB::transaction(function () use ($prestamo, $validated, $estadoAnterior) {
+            DB::transaction(function () use ($prestamo, $validated) {
                 $prestamo->update([
                     'estado'      => Prestamo::ESTADO_RECHAZADO,
                     'descripcion' => $validated['motivo'],
                 ]);
-
-                $this->auditService->registrar(
-                    'prestamo.rechazado',
-                    $prestamo,
-                    ['estado' => $estadoAnterior],
-                    ['estado' => Prestamo::ESTADO_RECHAZADO],
-                    $validated['motivo']
-                );
             });
+
+            PrestamoRechazado::dispatch($prestamo->fresh(), $validated['motivo']);
 
             return ApiResponse::success(new PrestamoResource($prestamo->fresh()));
         } catch (AuthorizationException $e) {
