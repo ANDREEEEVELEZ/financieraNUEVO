@@ -2,17 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Contracts\CacheServiceInterface;
 use Illuminate\Http\Request;
 use App\Models\Grupo;
 use App\Models\PrestamoIndividual;
 use App\Models\CuotasGrupales;
-use App\Infrastructure\Cache\CacheService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Log;
 
 class ContratoGrupoController extends Controller
 {
+    public function __construct(private CacheServiceInterface $cache) {}
+
     /**
      * Abort 403 if the authenticated Asesor does not own the given group.
      * Roles other than Asesor bypass the check (they see all groups).
@@ -25,7 +27,7 @@ class ContratoGrupoController extends Controller
             return;
         }
 
-        $asesor = CacheService::getAsesorByUserId($user->id);
+        $asesor = $this->cache->getAsesorByUserId($user->id);
 
         if (!$asesor || $grupo->asesor_id !== $asesor->id) {
             abort(403, 'No tienes permiso para acceder a los documentos de este grupo.');

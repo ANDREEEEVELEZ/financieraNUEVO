@@ -2,19 +2,21 @@
 
 namespace App\Observers;
 
+use App\Contracts\CacheServiceInterface;
 use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
-use App\Infrastructure\Cache\CacheService;
 use App\Infrastructure\Notifications\NotificationService;
 use Illuminate\Support\Facades\Log;
 
 class PrestamoObserver
 {
+    public function __construct(private CacheServiceInterface $cache) {}
+
     public function created(Prestamo $prestamo): void
     {
         Log::info('PrestamoObserver: Préstamo creado', ['prestamo_id' => $prestamo->id]);
 
-        CacheService::invalidateStatsCache();
+        $this->cache->invalidateStatsCache();
 
         $supervisores = \App\Models\User::role(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->get();
         foreach ($supervisores as $supervisor) {
@@ -36,7 +38,7 @@ class PrestamoObserver
                     ->update(['estado' => $prestamo->estado]);
             }
 
-            CacheService::invalidateStatsCache();
+            $this->cache->invalidateStatsCache();
 
             $supervisores = \App\Models\User::role(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->get();
             foreach ($supervisores as $supervisor) {

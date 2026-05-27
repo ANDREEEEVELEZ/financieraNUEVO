@@ -19,7 +19,7 @@ class EditCliente extends EditRecord
         // Prevent Asesores from reassigning a client to a different asesor via a crafted POST
         $user = auth()->user();
         if ($user->hasRole('Asesor')) {
-            $asesor = \App\Infrastructure\Cache\CacheService::getAsesorByUserId($user->id);
+            $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
             if ($asesor) {
                 $data['asesor_id'] = $asesor->id;
             }

@@ -2,13 +2,15 @@
 
 namespace App\Listeners;
 
+use App\Contracts\CacheServiceInterface;
 use App\Events\SeparacionRealizada;
-use App\Infrastructure\Cache\CacheService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Cache;
 
 class InvalidateSeparacionCache implements ShouldQueue
 {
+    public function __construct(private CacheServiceInterface $cache) {}
+
     public function handle(SeparacionRealizada $event): void
     {
         $s = $event->separacion->loadMissing(['prestamoOrigen.grupo']);
@@ -28,11 +30,11 @@ class InvalidateSeparacionCache implements ShouldQueue
         $asesorId = $s->prestamoOrigen?->grupo?->asesor_id;
 
         if ($asesorId) {
-            CacheService::invalidateDashboardCache($asesorId);
-            CacheService::invalidateAsesorCache($asesorId);
+            $this->cache->invalidateDashboardCache($asesorId);
+            $this->cache->invalidateAsesorCache($asesorId);
         }
 
         // Always invalidate shared role dashboards (admin, JO, JC)
-        CacheService::invalidateDashboardCache();
+        $this->cache->invalidateDashboardCache();
     }
 }

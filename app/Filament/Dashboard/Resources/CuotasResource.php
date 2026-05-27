@@ -6,7 +6,7 @@ use App\Filament\Dashboard\Resources\CuotasResource\Pages;
 use App\Filament\Dashboard\Resources\PagoResource;
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
-use App\Infrastructure\Cache\CacheService;
+use App\Contracts\CacheServiceInterface;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -35,7 +35,7 @@ class CuotasResource extends Resource
     public static function table(Table $table): Table
     {
         $user = Auth::user();
-        $asesor = $user?->hasRole('Asesor') ? CacheService::getAsesorByUserId($user->id) : null;
+        $asesor = $user?->hasRole('Asesor') ? app(CacheServiceInterface::class)->getAsesorByUserId($user->id) : null;
 
         return $table
             ->query(

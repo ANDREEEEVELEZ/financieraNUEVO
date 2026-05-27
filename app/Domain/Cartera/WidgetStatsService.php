@@ -2,28 +2,28 @@
 
 namespace App\Domain\Cartera;
 
-use App\Infrastructure\Cache\CacheService;
+use App\Contracts\CacheServiceInterface;
 
 class WidgetStatsService
 {
     public static function getAdminStats(): array
     {
-        return CacheService::getDashboardStatsAdmin();
+        return app(CacheServiceInterface::class)->getDashboardStatsAdmin();
     }
 
     public static function getAsesorStats(int $asesorId): array
     {
-        return CacheService::getDashboardStatsAsesor($asesorId);
+        return app(CacheServiceInterface::class)->getDashboardStatsAsesor($asesorId);
     }
 
     public static function getJefeOperacionesStats(): array
     {
-        return CacheService::getDashboardStatsJO();
+        return app(CacheServiceInterface::class)->getDashboardStatsJO();
     }
 
     public static function getJefeCreditosStats(): array
     {
-        return CacheService::getDashboardStatsJC();
+        return app(CacheServiceInterface::class)->getDashboardStatsJC();
     }
 
     public static function formatCurrency(float $amount): string

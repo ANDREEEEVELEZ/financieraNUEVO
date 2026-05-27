@@ -2,13 +2,15 @@
 
 namespace App\Observers;
 
+use App\Contracts\CacheServiceInterface;
 use App\Models\Grupo;
-use App\Infrastructure\Cache\CacheService;
 use Illuminate\Support\Facades\Log;
 
 class GrupoObserver
 {
     public bool $afterCommit = true;
+
+    public function __construct(private CacheServiceInterface $cache) {}
 
     public function updated(Grupo $grupo): void
     {
@@ -23,17 +25,17 @@ class GrupoObserver
             ]);
 
             if ($oldAsesorId) {
-                CacheService::invalidateDashboardCache($oldAsesorId);
-                CacheService::invalidateAsesorCache($oldAsesorId);
+                $this->cache->invalidateDashboardCache($oldAsesorId);
+                $this->cache->invalidateAsesorCache($oldAsesorId);
             }
             if ($newAsesorId) {
-                CacheService::invalidateDashboardCache($newAsesorId);
-                CacheService::invalidateAsesorCache($newAsesorId);
+                $this->cache->invalidateDashboardCache($newAsesorId);
+                $this->cache->invalidateAsesorCache($newAsesorId);
             }
         }
 
         if ($grupo->wasChanged('estado_grupo')) {
-            CacheService::invalidateDashboardCache();
+            $this->cache->invalidateDashboardCache();
         }
     }
 }

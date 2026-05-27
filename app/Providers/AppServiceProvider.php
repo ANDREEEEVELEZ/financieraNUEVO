@@ -27,6 +27,8 @@ use App\Observers\PrestamoObserver;
 use App\Observers\RetanqueoObserver;
 use App\Observers\SeparacionClienteObserver;
 use App\Contracts\AuditServiceInterface;
+use App\Contracts\CacheServiceInterface;
+use App\Infrastructure\Cache\CacheService;
 use App\Contracts\CronogramaServiceInterface;
 use App\Contracts\PagoServiceInterface;
 use App\Contracts\RetanqueoEjecucionInterface;
@@ -54,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
             return new NotificationService();
         });
 
+        $this->app->bind(CacheServiceInterface::class, CacheService::class);
         $this->app->bind(PagoServiceInterface::class, PagoService::class);
         $this->app->bind(CronogramaServiceInterface::class, CronogramaService::class);
         $this->app->bind(AuditServiceInterface::class, AuditService::class);

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Dashboard\Widgets;
 
-use App\Infrastructure\Cache\CacheService;
+use App\Contracts\CacheServiceInterface;
 use App\Domain\Cartera\WidgetStatsService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -14,7 +14,7 @@ class KPIAsesorWidget extends BaseWidget
     protected function getStats(): array
     {
         $user = auth()->user();
-        $asesor = $user ? CacheService::getAsesorByUserId($user->id) : null;
+        $asesor = $user ? app(CacheServiceInterface::class)->getAsesorByUserId($user->id) : null;
 
         if (!$asesor) {
             return [

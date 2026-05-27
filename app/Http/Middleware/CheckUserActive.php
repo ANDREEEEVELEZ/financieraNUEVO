@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Contracts\CacheServiceInterface;
 use App\Http\Responses\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
@@ -16,6 +17,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class CheckUserActive
 {
+    public function __construct(private CacheServiceInterface $cache) {}
+
     /**
      * Handle an incoming request.
      *
@@ -30,7 +33,7 @@ class CheckUserActive
         $user = Auth::user();
 
         // Check if the authenticated asesor is marked as inactive.
-        $asesor = \App\Infrastructure\Cache\CacheService::getAsesorByUserId($user->id);
+        $asesor = $this->cache->getAsesorByUserId($user->id);
         if ($asesor && strtolower($asesor->estado_asesor) === 'inactivo') {
             return $this->deactivate(
                 $request,

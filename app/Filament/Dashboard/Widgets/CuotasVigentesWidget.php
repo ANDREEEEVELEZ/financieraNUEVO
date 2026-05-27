@@ -4,7 +4,7 @@ namespace App\Filament\Dashboard\Widgets;
 
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
-use App\Infrastructure\Cache\CacheService;
+use App\Contracts\CacheServiceInterface;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -22,7 +22,7 @@ class CuotasVigentesWidget extends BaseWidget
     public function table(Table $table): Table
     {
         $user = request()->user();
-        $asesor = $user?->hasRole('Asesor') ? CacheService::getAsesorByUserId($user->id) : null;
+        $asesor = $user?->hasRole('Asesor') ? app(CacheServiceInterface::class)->getAsesorByUserId($user->id) : null;
 
         return $table
             ->query(

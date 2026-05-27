@@ -594,7 +594,7 @@ class ClienteResource extends Resource
 
         if ($user->hasRole('Asesor')) {
             // Usar CacheService para obtener el asesor (evita query repetida)
-            $asesor = \App\Infrastructure\Cache\CacheService::getAsesorByUserId($user->id);
+            $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
 
             if ($asesor) {
                 $query->where('asesor_id', $asesor->id);

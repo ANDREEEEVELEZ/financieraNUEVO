@@ -10,16 +10,18 @@ use App\Models\CuotaIndividual;
 use App\Models\Grupo;
 use App\Models\Prestamo;
 use App\Models\User;
-use App\Infrastructure\Cache\CacheService;
+use App\Contracts\CacheServiceInterface;
 use Illuminate\Support\Facades\Cache;
 
 final class CarteraService
 {
+    public function __construct(private CacheServiceInterface $cache) {}
+
     public function resumen(User $user): array
     {
         $key = "cartera_resumen:{$user->id}";
 
-        $asesor = CacheService::getAsesorByUserId($user->id);
+        $asesor = $this->cache->getAsesorByUserId($user->id);
 
         $numericos = Cache::remember($key, 300, function () use ($asesor) {
             if ($asesor === null) {

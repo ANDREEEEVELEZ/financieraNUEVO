@@ -2,13 +2,15 @@
 
 namespace App\Observers;
 
+use App\Contracts\CacheServiceInterface;
 use App\Models\Cliente;
-use App\Infrastructure\Cache\CacheService;
 use Illuminate\Support\Facades\Log;
 
 class ClienteObserver
 {
     public bool $afterCommit = true;
+
+    public function __construct(private CacheServiceInterface $cache) {}
 
     public function updated(Cliente $cliente): void
     {
@@ -23,12 +25,12 @@ class ClienteObserver
             ]);
 
             if ($oldAsesorId) {
-                CacheService::invalidateDashboardCache($oldAsesorId);
-                CacheService::invalidateAsesorCache($oldAsesorId);
+                $this->cache->invalidateDashboardCache($oldAsesorId);
+                $this->cache->invalidateAsesorCache($oldAsesorId);
             }
             if ($newAsesorId && $newAsesorId !== $oldAsesorId) {
-                CacheService::invalidateDashboardCache($newAsesorId);
-                CacheService::invalidateAsesorCache($newAsesorId);
+                $this->cache->invalidateDashboardCache($newAsesorId);
+                $this->cache->invalidateAsesorCache($newAsesorId);
             }
         }
 
@@ -39,7 +41,7 @@ class ClienteObserver
                 'new_estado'    => $cliente->estado_cliente,
             ]);
 
-            CacheService::invalidateDashboardCache();
+            $this->cache->invalidateDashboardCache();
         }
     }
 }

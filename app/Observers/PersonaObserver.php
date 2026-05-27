@@ -2,11 +2,13 @@
 
 namespace App\Observers;
 
+use App\Contracts\CacheServiceInterface;
 use App\Models\Persona;
-use App\Infrastructure\Cache\CacheService;
 
 class PersonaObserver
 {
+    public function __construct(private CacheServiceInterface $cache) {}
+
     public function updating(Persona $persona): void
     {
         if (!$persona->isDirty('correo')) {
@@ -18,7 +20,7 @@ class PersonaObserver
         $asesor = $persona->asesor ?? null;
 
         if ($asesor?->user_id) {
-            CacheService::invalidateUserCache($asesor->user_id);
+            $this->cache->invalidateUserCache($asesor->user_id);
         }
     }
 }

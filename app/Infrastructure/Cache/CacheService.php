@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Cache;
 
+use App\Contracts\CacheServiceInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Log;
  *
  * @version 1.0.0
  */
-class CacheService
+class CacheService implements CacheServiceInterface
 {
     /**
      * Prefijo para todas las claves de caché de la aplicación
@@ -56,7 +57,7 @@ class CacheService
      * @param \Closure $callback
      * @return T
      */
-    private static function rememberWithLock(string $key, int $ttl, \Closure $callback): mixed
+    private function rememberWithLock(string $key, int $ttl, \Closure $callback): mixed
     {
         $cached = Cache::get($key);
         if ($cached !== null) {
@@ -83,7 +84,7 @@ class CacheService
      *
      * @return \Illuminate\Support\Collection
      */
-    public static function getAsesoresActivos()
+    public function getAsesoresActivos()
     {
         return Cache::remember(
             self::CACHE_PREFIX . 'asesores_activos',
@@ -102,7 +103,7 @@ class CacheService
      * @param int $userId
      * @return \App\Models\Asesor|null
      */
-    public static function getAsesorByUserId(int $userId)
+    public function getAsesorByUserId(int $userId)
     {
         return Cache::remember(
             self::CACHE_PREFIX . "asesor_user_{$userId}",
@@ -123,7 +124,7 @@ class CacheService
      * @param int $asesorId
      * @return \Illuminate\Support\Collection
      */
-    public static function getGruposActivosPorAsesor(int $asesorId)
+    public function getGruposActivosPorAsesor(int $asesorId)
     {
         return Cache::remember(
             self::CACHE_PREFIX . "grupos_asesor_{$asesorId}",
@@ -142,7 +143,7 @@ class CacheService
      *
      * @return \Illuminate\Support\Collection
      */
-    public static function getGruposActivos()
+    public function getGruposActivos()
     {
         return Cache::remember(
             self::CACHE_PREFIX . 'grupos_activos',
@@ -165,7 +166,7 @@ class CacheService
      *
      * @return \Illuminate\Support\Collection
      */
-    public static function getProductosFinancieros()
+    public function getProductosFinancieros()
     {
         return Cache::remember(
             self::CACHE_PREFIX . 'productos_financieros',
@@ -188,7 +189,7 @@ class CacheService
      *
      * @return array
      */
-    public static function getMontosPorCiclo()
+    public function getMontosPorCiclo()
     {
         return Cache::remember(
             self::CACHE_PREFIX . 'montos_ciclo',
@@ -209,7 +210,7 @@ class CacheService
      *
      * @return array
      */
-    public static function getSegurosPorMonto()
+    public function getSegurosPorMonto()
     {
         return Cache::remember(
             self::CACHE_PREFIX . 'seguros_monto',
@@ -243,7 +244,7 @@ class CacheService
      * @param int|null $asesorId - Si es null, obtiene todas
      * @return array
      */
-    public static function getEstadisticasDashboard(?int $asesorId = null)
+    public function getEstadisticasDashboard(?int $asesorId = null)
     {
         $cacheKey = $asesorId
             ? self::CACHE_PREFIX . "stats_asesor_{$asesorId}"
@@ -286,7 +287,7 @@ class CacheService
      * @param int $asesorId
      * @return array
      */
-    public static function getDashboardStatsAsesor(int $asesorId): array
+    public function getDashboardStatsAsesor(int $asesorId): array
     {
         return Cache::remember(
             self::CACHE_PREFIX . "dashboard_asesor_{$asesorId}",
@@ -333,9 +334,9 @@ class CacheService
      *
      * @return array
      */
-    public static function getDashboardStatsJO(): array
+    public function getDashboardStatsJO(): array
     {
-        return self::rememberWithLock(
+        return $this->rememberWithLock(
             self::CACHE_PREFIX . 'dashboard_jo',
             self::SHORT_TTL,
             function () {
@@ -368,9 +369,9 @@ class CacheService
      *
      * @return array
      */
-    public static function getDashboardStatsJC(): array
+    public function getDashboardStatsJC(): array
     {
-        return self::rememberWithLock(
+        return $this->rememberWithLock(
             self::CACHE_PREFIX . 'dashboard_jc',
             self::SHORT_TTL,
             function () {
@@ -402,9 +403,9 @@ class CacheService
      *
      * @return array
      */
-    public static function getDashboardStatsAdmin(): array
+    public function getDashboardStatsAdmin(): array
     {
-        return self::rememberWithLock(
+        return $this->rememberWithLock(
             self::CACHE_PREFIX . 'dashboard_admin',
             self::SHORT_TTL,
             function () {
@@ -445,7 +446,7 @@ class CacheService
     /**
      * Invalida todas las estadísticas del dashboard (todos los roles)
      */
-    public static function invalidateDashboardCache(?int $asesorId = null): void
+    public function invalidateDashboardCache(?int $asesorId = null): void
     {
         if ($asesorId) {
             Cache::forget(self::CACHE_PREFIX . "dashboard_asesor_{$asesorId}");
@@ -473,7 +474,7 @@ class CacheService
      *
      * @param int $asesorId
      */
-    public static function invalidateAsesorCache(int $asesorId): void
+    public function invalidateAsesorCache(int $asesorId): void
     {
         Cache::forget(self::CACHE_PREFIX . "grupos_asesor_{$asesorId}");
         Cache::forget(self::CACHE_PREFIX . "stats_asesor_{$asesorId}");
@@ -487,7 +488,7 @@ class CacheService
      *
      * @param int $userId
      */
-    public static function invalidateUserCache(int $userId): void
+    public function invalidateUserCache(int $userId): void
     {
         Cache::forget(self::CACHE_PREFIX . "asesor_user_{$userId}");
 
@@ -498,7 +499,7 @@ class CacheService
      * Invalida el caché global de grupos
      * Llamar cuando se crea, modifica o elimina un grupo
      */
-    public static function invalidateGruposCache(): void
+    public function invalidateGruposCache(): void
     {
         Cache::forget(self::CACHE_PREFIX . 'grupos_activos');
 
@@ -508,7 +509,7 @@ class CacheService
     /**
      * Invalida el caché de productos financieros
      */
-    public static function invalidateProductosCache(): void
+    public function invalidateProductosCache(): void
     {
         Cache::forget(self::CACHE_PREFIX . 'productos_financieros');
 
@@ -518,7 +519,7 @@ class CacheService
     /**
      * Invalida todas las estadísticas del dashboard
      */
-    public static function invalidateStatsCache(): void
+    public function invalidateStatsCache(): void
     {
         Cache::forget(self::CACHE_PREFIX . 'stats_global');
         // También podríamos invalidar stats de asesores individuales si es necesario
@@ -530,7 +531,7 @@ class CacheService
      * Limpia TODO el caché de la aplicación
      * Use with caution in production
      */
-    public static function clearAllCache(): void
+    public function clearAllCache(): void
     {
         Cache::flush();
 
@@ -547,7 +548,7 @@ class CacheService
      *
      * @return array
      */
-    public static function getCacheInfo(): array
+    public function getCacheInfo(): array
     {
         return [
             'driver' => config('cache.default'),
