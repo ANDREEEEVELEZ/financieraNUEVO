@@ -736,15 +736,13 @@ class PrestamoResource extends Resource
                 ->label('Detalle Individual')
                 ->html()
                 ->getStateUsing(function ($record) {
-                    $detalles = \App\Models\PrestamoIndividual::where('prestamo_id', $record->id)
-                        ->with('cliente.persona')
-                        ->get();
+                    $detalles = $record->prestamoIndividual;
                     if ($detalles->isEmpty()) {
                         return '<span style="color: #888">Sin datos</span>';
                     }
                     $html = '<ul style="padding-left: 1em;">';
                     foreach ($detalles as $detalle) {
-                        $nombre = e($detalle->cliente->persona->nombre) . ' ' . e($detalle->cliente->persona->apellidos);
+                        $nombre = e($detalle->cliente->persona->nombre ?? '') . ' ' . e($detalle->cliente->persona->apellidos ?? '');
                         $monto = number_format((float) $detalle->monto_prestado_individual, 2);
                         $devolver = number_format((float) $detalle->monto_devolver_individual, 2);
                         $html .= "<li><b>{$nombre}</b>: Prestado S/ {$monto} | A devolver S/ {$devolver}</li>";
