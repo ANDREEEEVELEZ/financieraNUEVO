@@ -13,7 +13,6 @@ it('domain and infrastructure service classes exist in their new namespaces', fu
         \App\Domain\Grupos\CicloService::class,
         \App\Domain\Grupos\MorosoSeparationService::class,
         \App\Domain\Documentos\DeclaracionJuradaService::class,
-        \App\Domain\Documentos\LibreOfficeTemplateService::class,
         \App\Domain\Documentos\ReporteProfesionalService::class,
         \App\Domain\Documentos\WordTemplateService::class,
         \App\Infrastructure\Audit\AuditService::class,
@@ -24,6 +23,11 @@ it('domain and infrastructure service classes exist in their new namespaces', fu
     foreach ($classes as $class) {
         expect(class_exists($class))->toBeTrue("Class {$class} does not exist");
     }
+});
+
+it('LibreOfficeTemplateService is absent from all namespaces (SR-7)', function () {
+    expect(class_exists('App\Domain\Documentos\LibreOfficeTemplateService'))->toBeFalse();
+    expect(class_exists('App\Services\LibreOfficeTemplateService'))->toBeFalse();
 });
 
 it('old App\\Services namespace classes no longer exist for moved services', function () {
@@ -39,7 +43,6 @@ it('old App\\Services namespace classes no longer exist for moved services', fun
         'App\Services\CicloService',
         'App\Services\MorosoSeparationService',
         'App\Services\DeclaracionJuradaService',
-        'App\Services\LibreOfficeTemplateService',
         'App\Services\ReporteProfesionalService',
         'App\Services\WordTemplateService',
         'App\Services\AuditService',

@@ -2,7 +2,6 @@
 
 namespace App\Domain\Pagos;
 
-use App\Contracts\AuditServiceInterface;
 use App\Events\Domain\MoraCondonada;
 use App\Models\AjusteDeuda;
 use App\Models\CuotaIndividual;
@@ -41,18 +40,11 @@ class CondonacionMoraService
             throw new \Exception('El motivo es obligatorio para condonar mora.');
         }
 
-        return DB::transaction(function () use ($objetivo, $montoCondonado, $tipoPenalizacion, $montoPenalizacion, $motivo) {
-            // Determinar la cuota según el tipo de objetivo
+        $ajuste = DB::transaction(function () use ($objetivo, $montoCondonado, $tipoPenalizacion, $montoPenalizacion, $motivo) {
             $cuota = $objetivo instanceof CuotaIndividual
                 ? $objetivo
                 : $this->obtenerCuotaDesdeMora($objetivo);
 
-            $datosAnteriores = [
-                'estado_mora' => $objetivo instanceof Mora ? $objetivo->estado_mora : null,
-                'monto_mora' => $objetivo instanceof Mora ? $objetivo->monto_mora_calculado : $cuota->moraCalculada(),
-            ];
-
-            // 1. Crear el registro de ajuste de deuda
             $ajuste = AjusteDeuda::create([
                 'cuota_id' => $cuota->id,
                 'tipo' => 'condonacion_mora',
@@ -61,39 +53,26 @@ class CondonacionMoraService
                 'usuario_id' => auth()->id(),
             ]);
 
-            // 2. Actualizar estado de mora si aplica
             if ($objetivo instanceof Mora) {
                 $moraRestante = max(0, $objetivo->monto_mora_calculado - $montoCondonado);
                 $objetivo->estado_mora = $moraRestante <= 0 ? 'condonada' : 'parcialmente_pagada';
                 $objetivo->save();
             }
 
-            // 3. Registrar auditoría
-            app(AuditServiceInterface::class)->registrar(
-                'condonar_mora',
-                $objetivo,
-                $datosAnteriores,
-                [
-                    'monto_condonado' => $montoCondonado,
-                    'tipo_penalizacion' => $tipoPenalizacion,
-                    'monto_penalizacion' => $montoPenalizacion,
-                    'estado_mora' => $objetivo instanceof Mora ? $objetivo->estado_mora : 'condonada',
-                ],
-                $motivo
-            );
-
-            MoraCondonada::dispatch($objetivo, $montoCondonado);
-
-            Log::info('Mora condonada exitosamente', [
-                'objetivo_tipo' => get_class($objetivo),
-                'objetivo_id' => $objetivo->id,
-                'monto' => $montoCondonado,
-                'penalizacion' => $montoPenalizacion,
-                'usuario_id' => auth()->id(),
-            ]);
-
             return $ajuste;
         });
+
+        // Dispatch outside transaction — listener failures must not roll back committed data
+        MoraCondonada::dispatch($objetivo, $montoCondonado);
+
+        Log::info('Mora condonada exitosamente', [
+            'objetivo_tipo' => get_class($objetivo),
+            'objetivo_id'   => $objetivo->id,
+            'monto'         => $montoCondonado,
+            'usuario_id'    => auth()->id(),
+        ]);
+
+        return $ajuste;
     }
 
     /**
