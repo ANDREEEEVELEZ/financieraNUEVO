@@ -1,0 +1,41 @@
+{
+  "project": "EMPRENDE CONMIGO SAC (financieraNUEVO)",
+  "typography": {
+    "fontFamily": {
+      "primary": "Poppins, sans-serif",
+      "sans": "Instrument Sans, ui-sans-serif, system-ui, sans-serif"
+    }
+  },
+  "colors": {
+    "primary": {
+      "default": "#9b2c4d",
+      "hover": "#7d243f",
+      "active": "#9b2c4d"
+    },
+    "sidebar": {
+      "background": "#8a2e4a",
+      "text": "#ffffff",
+      "icons": "#f7c3d1",
+      "hover": "#a53e5d",
+      "active": "#9b2c4d"
+    },
+    "layout": {
+      "mainBackground": "#f9f9f9",
+      "headerBackground": "#f9f9f9",
+      "headerText": "#9b2c4d"
+    },
+    "components": {
+      "button": {
+        "background": "#9b2c4d",
+        "hover": "#7d243f",
+        "text": "#ffffff"
+      },
+      "logoutButton": {
+        "background": "rgb(255, 65, 65)",
+        "text": "#ffffff"
+      }
+    }
+  },
+  "framework": "Laravel + Filament V3",
+  "styling": "Tailwind CSS + Custom CSS Themes"
+}

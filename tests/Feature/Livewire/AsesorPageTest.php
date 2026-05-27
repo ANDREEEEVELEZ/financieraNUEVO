@@ -87,3 +87,28 @@ it('zero-cartera asesor does not crash on mount', function () {
         ->assertHasNoErrors()
         ->assertSet('cobradoHoy', 0.0);
 });
+
+// ── R-20: Shield authorization ───────────────────────────────────────────────
+
+it('redirects unauthenticated users away from AsesorPage', function () {
+    $this->get('/dashboard/asesor-page')->assertRedirect();
+});
+
+it('allows Jefe de operaciones to access AsesorPage', function () {
+    $jefe = User::factory()->create(['active' => true]);
+    $jefe->assignRole('Jefe de operaciones');
+    Asesor::factory()->create(['user_id' => $jefe->id]);
+
+    $this->actingAs($jefe);
+
+    Livewire::test(AsesorPage::class)->assertHasNoErrors();
+});
+
+it('allows Jefe de creditos to access AsesorPage', function () {
+    $jefe = User::factory()->create(['active' => true]);
+    $jefe->assignRole('Jefe de creditos');
+
+    $this->actingAs($jefe);
+
+    Livewire::test(AsesorPage::class)->assertHasNoErrors();
+});

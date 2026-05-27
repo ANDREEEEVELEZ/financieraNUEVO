@@ -7,7 +7,9 @@ use App\Models\Prestamo;
 use App\Models\Grupo;
 use App\Models\Mora;
 use App\Models\Ingreso;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
@@ -140,6 +142,8 @@ describe('Validaciones de creación de pagos', function ()
 
 describe('Funcionalidad de aprobación de pagos', function ()
 {
+    beforeEach(fn () => Auth::login(User::factory()->create()));
+
     it('aprueba un pago completo correctamente', function ()
     {
         $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);

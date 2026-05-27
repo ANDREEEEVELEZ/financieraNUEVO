@@ -261,7 +261,7 @@ class GrupoResource extends Resource
                 ->searchable(),
             Tables\Columns\TextColumn::make('numero_integrantes_real')
                 ->label('N° Integrantes')
-                ->getStateUsing(fn($record) => $record->clientes()->count()),
+                ->getStateUsing(fn($record) => $record->clientes->count()),
             Tables\Columns\TextColumn::make('fecha_registro')
                 ->date()
                 ->sortable(),
@@ -276,26 +276,28 @@ class GrupoResource extends Resource
             Tables\Columns\TextColumn::make('lider_grupal')
                 ->label('Líder Grupal')
                 ->getStateUsing(function ($record) {
-                    $lider = $record->clientes()->wherePivot('rol', 'Líder Grupal')->with('persona')->first();
+                    $lider = $record->clientes->first(function ($cliente) {
+                        return $cliente->pivot && $cliente->pivot->rol === 'Líder Grupal';
+                    });
                     return $lider ? ($lider->persona->nombre . ' ' . $lider->persona->apellidos) : '-';
                 }),
             Tables\Columns\TextColumn::make('ex_integrantes')
                 ->label('Ex-integrantes')
                 ->getStateUsing(function ($record) {
-                    $count = $record->exIntegrantes()->count();
+                    $count = $record->exIntegrantes->count();
                     return $count > 0 ? $count . ' ex-integrantes' : '-';
                 })
                 ->badge()
                 ->color(fn($state) => $state === '-' ? 'gray' : 'warning')
                 ->tooltip(function ($record) {
-                    $exIntegrantes = $record->exIntegrantes()->with('persona')->get();
+                    $exIntegrantes = $record->exIntegrantes;
                     if ($exIntegrantes->isEmpty()) {
                         return 'No hay ex-integrantes';
                     }
                     return $exIntegrantes->map(function ($cliente) {
                         $fechaSalida = $cliente->pivot->fecha_salida ?
                             ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
-                        return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
+                        return ($cliente->persona->nombre ?? '') . ' ' . ($cliente->persona->apellidos ?? '') . $fechaSalida;
                     })->implode("\n");
                 }),
             Tables\Columns\IconColumn::make('tiene_prestamos_activos')
@@ -448,12 +450,15 @@ class GrupoResource extends Resource
                 'asesor.persona:id,nombre,apellidos',
                 'clientes:id,persona_id,ciclo,estado_cliente',
                 'clientes.persona:id,nombre,apellidos,DNI',
+                'exIntegrantes:id,persona_id,ciclo,estado_cliente',
+                'exIntegrantes.persona:id,nombre,apellidos,DNI',
+                'prestamos:id,grupo_id,estado',
             ])
             ->withCount('clientes');  // Para número de integrantes
 
         if ($user->hasRole('Asesor')) {
             // Usar CacheService para obtener el asesor (evita query repetida)
-            $asesor = \App\Services\CacheService::getAsesorByUserId($user->id);
+            $asesor = \App\Infrastructure\Cache\CacheService::getAsesorByUserId($user->id);
 
             if ($asesor) {
                 $query->where('asesor_id', $asesor->id);

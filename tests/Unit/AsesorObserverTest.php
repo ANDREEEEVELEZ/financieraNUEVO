@@ -2,7 +2,7 @@
 
 use App\Models\Asesor;
 use App\Models\User;
-use App\Services\CacheService;
+use App\Infrastructure\Cache\CacheService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Role;

@@ -20,7 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
-use App\Services\DeclaracionJuradaService;
+use App\Domain\Documentos\DeclaracionJuradaService;
 
 class ClienteResource extends Resource
 {
@@ -594,7 +594,7 @@ class ClienteResource extends Resource
 
         if ($user->hasRole('Asesor')) {
             // Usar CacheService para obtener el asesor (evita query repetida)
-            $asesor = \App\Services\CacheService::getAsesorByUserId($user->id);
+            $asesor = \App\Infrastructure\Cache\CacheService::getAsesorByUserId($user->id);
 
             if ($asesor) {
                 $query->where('asesor_id', $asesor->id);

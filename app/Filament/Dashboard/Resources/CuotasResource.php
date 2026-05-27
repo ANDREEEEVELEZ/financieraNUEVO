@@ -6,7 +6,7 @@ use App\Filament\Dashboard\Resources\CuotasResource\Pages;
 use App\Filament\Dashboard\Resources\PagoResource;
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
-use App\Services\CacheService;
+use App\Infrastructure\Cache\CacheService;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;

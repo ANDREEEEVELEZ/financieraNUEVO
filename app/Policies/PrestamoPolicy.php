@@ -83,39 +83,39 @@ class PrestamoPolicy
     // ─── Transiciones de estado ─────────────────────────────────────
 
     /**
-     * Aprobar: Pendiente → Aprobado (JC, super_admin).
+     * Aprobar (role gate only): JC or SA can perform this action.
+     * State validity is checked separately by the controller (returns 422 on invalid state).
      */
     public function aprobar(User $user, Prestamo $prestamo): bool
     {
-        return $prestamo->puedeSerAprobado()
-            && $user->hasAnyRole(['Jefe de creditos', 'super_admin']);
+        return $user->hasAnyRole(['Jefe de creditos', 'super_admin']);
     }
 
     /**
-     * Firmar contrato: Aprobado → Firmado (Asesor).
+     * Firmar contrato (role gate only): Asesor or SA.
+     * State validity is checked separately by the controller (returns 422 on invalid state).
      */
     public function firmar(User $user, Prestamo $prestamo): bool
     {
-        return $prestamo->puedeFirmar()
-            && $user->hasAnyRole(['Asesor', 'super_admin']);
+        return $user->hasAnyRole(['Asesor', 'super_admin']);
     }
 
     /**
-     * Desembolsar: Firmado → Activo (JO, super_admin).
+     * Desembolsar (role gate only): JO or SA.
+     * State validity is checked separately by the controller (returns 422 on invalid state).
      */
     public function desembolsar(User $user, Prestamo $prestamo): bool
     {
-        return $prestamo->puedeDesembolsar()
-            && $user->hasAnyRole(['Jefe de operaciones', 'super_admin']);
+        return $user->hasAnyRole(['Jefe de operaciones', 'super_admin']);
     }
 
     /**
-     * Rechazar: Pendiente → Rechazado (JC, super_admin).
+     * Rechazar (role gate only): JC or SA.
+     * State validity is checked separately by the controller (returns 422 on invalid state).
      */
     public function rechazar(User $user, Prestamo $prestamo): bool
     {
-        return $prestamo->puedeSerRechazado()
-            && $user->hasAnyRole(['Jefe de creditos', 'super_admin']);
+        return $user->hasAnyRole(['Jefe de creditos', 'super_admin']);
     }
 
     /**

@@ -3,7 +3,7 @@
 use App\Models\Cliente;
 use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
-use App\Services\CicloService;
+use App\Domain\Grupos\CicloService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(Tests\TestCase::class, RefreshDatabase::class);

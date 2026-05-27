@@ -5,7 +5,7 @@ namespace App\Filament\Dashboard\Resources;
 use App\Filament\Dashboard\Resources\PagoResource\Pages;
 use App\Models\Pago;
 use App\Models\CuotasGrupales;
-use App\Services\PagoService;
+use App\Domain\Pagos\PagoService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -902,7 +902,7 @@ class PagoResource extends Resource
                             return 'N/A';
                         }
 
-                        $cuota = $record->cuotaGrupal?->fresh();
+                        $cuota = $record->cuotaGrupal;
 
                         if (!$cuota) {
                             return '-';
@@ -911,7 +911,8 @@ class PagoResource extends Resource
                         $montoCuota = floatval($cuota->monto_cuota_grupal);
                         $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
 
-                        $pagosAprobados = $cuota->pagos()
+                        // Usar colección en memoria para evitar consultas N+1
+                        $pagosAprobados = $cuota->pagos
                             ->where('estado_pago', 'Aprobado')
                             ->sum('monto_pagado');
 
@@ -1059,6 +1060,7 @@ class PagoResource extends Resource
                 'cuotaGrupal.prestamo',
                 'cuotaGrupal.prestamo.grupo',
                 'cuotaGrupal.mora',
+                'cuotaGrupal.pagos',
                 'detallesPago',
                 'detallesPago.prestamoIndividual',
                 'detallesPago.prestamoIndividual.cliente',

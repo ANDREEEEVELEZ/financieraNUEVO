@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\WidgetStatsService;
+use App\Domain\Cartera\WidgetStatsService;
 
 describe('WidgetStatsService', function () {
     describe('Admin Stats', function () {

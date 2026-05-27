@@ -4,7 +4,7 @@ namespace App\Filament\Dashboard\Widgets;
 
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
-use App\Services\CacheService;
+use App\Infrastructure\Cache\CacheService;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;

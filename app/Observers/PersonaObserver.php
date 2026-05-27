@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Persona;
-use App\Services\CacheService;
+use App\Infrastructure\Cache\CacheService;
 
 class PersonaObserver
 {

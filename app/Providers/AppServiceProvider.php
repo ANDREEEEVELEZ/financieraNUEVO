@@ -26,7 +26,22 @@ use App\Observers\PrestamoIndividualObserver;
 use App\Observers\PrestamoObserver;
 use App\Observers\RetanqueoObserver;
 use App\Observers\SeparacionClienteObserver;
-use App\Services\NotificationService;
+use App\Contracts\AuditServiceInterface;
+use App\Contracts\CronogramaServiceInterface;
+use App\Contracts\PagoServiceInterface;
+use App\Contracts\RetanqueoEjecucionInterface;
+use App\Contracts\RetanqueoQueryInterface;
+use App\Contracts\RetanqueoWorkflowInterface;
+use App\Contracts\SeparacionServiceInterface;
+use App\Domain\Pagos\PagoService;
+use App\Domain\Prestamos\CronogramaService;
+use App\Domain\Prestamos\RetanqueoEjecucionService;
+use App\Domain\Prestamos\RetanqueoQueryService;
+use App\Domain\Prestamos\RetanqueoWorkflowService;
+use App\Domain\Prestamos\Strategies\ElegibilidadRetanqueoIndividual;
+use App\Domain\Grupos\MorosoSeparationService;
+use App\Infrastructure\Notifications\NotificationService;
+use App\Infrastructure\Audit\AuditService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -38,6 +53,18 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(NotificationService::class, function ($app) {
             return new NotificationService();
         });
+
+        $this->app->bind(PagoServiceInterface::class, PagoService::class);
+        $this->app->bind(CronogramaServiceInterface::class, CronogramaService::class);
+        $this->app->bind(AuditServiceInterface::class, AuditService::class);
+        $this->app->bind(SeparacionServiceInterface::class, MorosoSeparationService::class);
+
+        // Retanqueo service decomposition — SR-4
+        $this->app->bind(RetanqueoQueryInterface::class, function ($app) {
+            return new RetanqueoQueryService(new ElegibilidadRetanqueoIndividual());
+        });
+        $this->app->bind(RetanqueoWorkflowInterface::class, RetanqueoWorkflowService::class);
+        $this->app->bind(RetanqueoEjecucionInterface::class, RetanqueoEjecucionService::class);
     }
 
     public function boot(): void

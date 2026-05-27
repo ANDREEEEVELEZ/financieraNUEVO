@@ -3,7 +3,7 @@
 namespace App\Livewire;
 
 use Livewire\Component;
-use App\Services\NotificationService;
+use App\Infrastructure\Notifications\NotificationService;
 use Illuminate\Support\Facades\Auth;
 
 class NotificationComponent extends Component

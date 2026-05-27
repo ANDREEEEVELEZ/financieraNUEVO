@@ -79,6 +79,14 @@ class Grupo extends Model
      */
     public function tienePrestamosActivos(): bool
     {
+        if ($this->relationLoaded('prestamos')) {
+            $estados = array_merge(
+                \App\Models\Prestamo::ESTADOS_ACTIVOS,
+                [\App\Models\Prestamo::ESTADO_PENDIENTE, \App\Models\Prestamo::ESTADO_APROBADO, \App\Models\Prestamo::ESTADO_FIRMADO]
+            );
+            return $this->prestamos->contains(fn($p) => in_array($p->estado, $estados));
+        }
+
         return $this->prestamos()
             ->whereIn('estado', array_merge(
                 \App\Models\Prestamo::ESTADOS_ACTIVOS,
@@ -92,10 +100,11 @@ class Grupo extends Model
      */
     public function getExIntegrantesNombresAttribute()
     {
-        return $this->exIntegrantes()->with('persona')->get()->map(function($cliente) {
+        $exIntegrantes = $this->relationLoaded('exIntegrantes') ? $this->exIntegrantes : $this->exIntegrantes()->with('persona')->get();
+        return $exIntegrantes->map(function($cliente) {
             $fechaSalida = $cliente->pivot->fecha_salida ?
                 ' (Salió: ' . \Carbon\Carbon::parse($cliente->pivot->fecha_salida)->format('d/m/Y') . ')' : '';
-            return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos . $fechaSalida;
+            return ($cliente->persona->nombre ?? '') . ' ' . ($cliente->persona->apellidos ?? '') . $fechaSalida;
         })->implode(', ');
     }
 
@@ -284,7 +293,7 @@ class Grupo extends Model
             );
         }
 
-        return app(\App\Services\MorosoSeparationService::class)->separar(
+        return app(\App\Domain\Grupos\MorosoSeparationService::class)->separar(
             $prestamo->id,
             $clienteId,
             $ejecutadoPorId,
@@ -299,8 +308,9 @@ class Grupo extends Model
 
     public function getIntegrantesNombresAttribute()
     {
-        return $this->clientes()->with('persona')->get()->map(function($cliente) {
-            return $cliente->persona->nombre . ' ' . $cliente->persona->apellidos;
+        $clientes = $this->relationLoaded('clientes') ? $this->clientes : $this->clientes()->with('persona')->get();
+        return $clientes->map(function($cliente) {
+            return ($cliente->persona->nombre ?? '') . ' ' . ($cliente->persona->apellidos ?? '');
         })->implode(', ');
     }
 

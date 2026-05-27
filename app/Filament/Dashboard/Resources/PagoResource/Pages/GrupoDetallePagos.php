@@ -16,7 +16,7 @@ use Filament\Actions;
 use Filament\Notifications\Notification;
 use Exception;
 use App\Models\Prestamo;
-use App\Services\PagoService;
+use App\Domain\Pagos\PagoService;
 
 class GrupoDetallePagos extends Page implements HasTable
 {

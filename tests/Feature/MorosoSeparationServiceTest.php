@@ -8,7 +8,7 @@ use App\Models\Prestamo;
 use App\Models\ProductoFinanciero;
 use App\Models\SeparacionCliente;
 use App\Models\User;
-use App\Services\MorosoSeparationService;
+use App\Domain\Grupos\MorosoSeparationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;

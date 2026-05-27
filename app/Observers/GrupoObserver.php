@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Grupo;
-use App\Services\CacheService;
+use App\Infrastructure\Cache\CacheService;
 use Illuminate\Support\Facades\Log;
 
 class GrupoObserver

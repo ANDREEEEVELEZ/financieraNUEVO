@@ -2,8 +2,8 @@
 
 namespace App\Filament\Dashboard\Widgets;
 
-use App\Services\CacheService;
-use App\Services\WidgetStatsService;
+use App\Infrastructure\Cache\CacheService;
+use App\Domain\Cartera\WidgetStatsService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 

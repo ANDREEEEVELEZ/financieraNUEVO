@@ -3,7 +3,8 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Services\RetanqueoService;
+use App\Contracts\RetanqueoQueryInterface;
+use App\Contracts\RetanqueoWorkflowInterface;
 use App\Models\Grupo;
 use App\Models\Prestamo;
 use App\Models\Cliente;
@@ -18,7 +19,8 @@ class RetanqueoTestSeeder extends Seeder
         $this->command->info('🚀 Iniciando seeder de prueba para Retanqueos...');
 
         try {
-            $retanqueoService = new RetanqueoService();
+            $retanqueoService = app(RetanqueoQueryInterface::class);
+            $retanqueoWorkflow = app(RetanqueoWorkflowInterface::class);
             
             // Buscar un grupo elegible para retanqueo con suficientes integrantes
             $gruposElegibles = $retanqueoService->obtenerGruposElegibles();
@@ -82,7 +84,7 @@ class RetanqueoTestSeeder extends Seeder
             }
 
             // Crear solicitud de retanqueo de prueba
-            $retanqueo = $retanqueoService->crearSolicitudRetanqueo(
+            $retanqueo = $retanqueoWorkflow->crearSolicitudRetanqueo(
                 $prestamo->id,
                 $participantes,
                 ['cantidad_cuotas' => 16]

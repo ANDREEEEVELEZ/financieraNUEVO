@@ -110,12 +110,12 @@ class Pago extends Model
 
     public function aprobar(): static
     {
-        return app(\App\Services\PagoService::class)->aprobarPago($this);
+        return app(\App\Domain\Pagos\PagoService::class)->aprobarPago($this);
     }
 
     public function rechazar(): static
     {
-        return app(\App\Services\PagoService::class)->rechazarPago($this);
+        return app(\App\Domain\Pagos\PagoService::class)->rechazarPago($this);
     }
 
     public function grupo()

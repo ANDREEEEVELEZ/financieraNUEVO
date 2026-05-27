@@ -3,7 +3,8 @@
 namespace App\Filament\Dashboard\Resources\RetanqueoResource\Pages;
 
 use App\Filament\Dashboard\Resources\RetanqueoResource;
-use App\Services\RetanqueoService;
+use App\Contracts\RetanqueoWorkflowInterface;
+use App\Contracts\RetanqueoEjecucionInterface;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists\Infolist;
@@ -44,9 +45,8 @@ class ViewRetanqueo extends ViewRecord
                     ->modalDescription('¿Está seguro de que desea aprobar este retanqueo?')
                     ->action(function () {
                         try {
-                            $retanqueoService = new RetanqueoService();
-                            $retanqueoService->aprobarRetanqueo($this->record->id);
-                            
+                            app(RetanqueoWorkflowInterface::class)->aprobarRetanqueo($this->record->id);
+
                             Notification::make()
                                 ->title('Retanqueo Aprobado')
                                 ->body('El retanqueo ha sido aprobado exitosamente.')
@@ -72,9 +72,8 @@ class ViewRetanqueo extends ViewRecord
                     ->modalDescription('¿Está seguro de que desea rechazar este retanqueo?')
                     ->action(function () {
                         try {
-                            $retanqueoService = new RetanqueoService();
-                            $retanqueoService->rechazarRetanqueo($this->record->id);
-                            
+                            app(RetanqueoWorkflowInterface::class)->rechazarRetanqueo($this->record->id);
+
                             Notification::make()
                                 ->title('Retanqueo Rechazado')
                                 ->body('El retanqueo ha sido rechazado.')
@@ -119,10 +118,8 @@ class ViewRetanqueo extends ViewRecord
                             ->modalSubmitActionLabel('Sí, Ejecutar Retanqueo')
                             ->action(function () {
                                 try {
-                                    $retanqueoService = new RetanqueoService();
-                                    
                                     // No necesitamos datos de cuenta porque ya están guardados
-                                    $retanqueoService->ejecutarRetanqueo($this->record->id, []);
+                                    app(RetanqueoEjecucionInterface::class)->ejecutarRetanqueo($this->record->id, []);
                                     
                                     Notification::make()
                                         ->title('Retanqueo Ejecutado')
@@ -185,8 +182,6 @@ class ViewRetanqueo extends ViewRecord
                             ->modalSubmitActionLabel('Ejecutar Retanqueo')
                             ->action(function (array $data) {
                                 try {
-                                    $retanqueoService = new RetanqueoService();
-                                
                                     // Preparar datos de cuenta con validación
                                     $datosCuenta = [];
                                     if (!empty($data['titular_cuenta_desembolso'])) {
@@ -195,9 +190,9 @@ class ViewRetanqueo extends ViewRecord
                                     if (!empty($data['numero_cuenta_desembolso'])) {
                                         $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
                                     }
-                                    
-                                    $retanqueoService->ejecutarRetanqueo($this->record->id, $datosCuenta);
-                                    
+
+                                    app(RetanqueoEjecucionInterface::class)->ejecutarRetanqueo($this->record->id, $datosCuenta);
+
                                     Notification::make()
                                         ->title('Retanqueo Ejecutado')
                                         ->body('El retanqueo ha sido ejecutado exitosamente. El préstamo ha sido activado con los datos bancarios.')
@@ -258,8 +253,6 @@ class ViewRetanqueo extends ViewRecord
                         ->modalSubmitActionLabel('Ejecutar Retanqueo')
                         ->action(function (array $data) {
                             try {
-                                $retanqueoService = new RetanqueoService();
-                            
                                 // SEGURO: Preparar datos de cuenta con validación
                                 $datosCuenta = [];
                                 if (!empty($data['titular_cuenta_desembolso'])) {
@@ -268,9 +261,9 @@ class ViewRetanqueo extends ViewRecord
                                 if (!empty($data['numero_cuenta_desembolso'])) {
                                     $datosCuenta['numero_cuenta_desembolso'] = trim($data['numero_cuenta_desembolso']);
                                 }
-                                
-                                $retanqueoService->ejecutarRetanqueo($this->record->id, $datosCuenta);
-                                
+
+                                app(RetanqueoEjecucionInterface::class)->ejecutarRetanqueo($this->record->id, $datosCuenta);
+
                                 Notification::make()
                                     ->title('Retanqueo Ejecutado')
                                     ->body('El retanqueo ha sido ejecutado exitosamente. Se ha creado el nuevo préstamo.')

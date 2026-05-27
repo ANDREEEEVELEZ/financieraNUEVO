@@ -9,7 +9,7 @@ use Filament\Forms;
 use Illuminate\Support\Facades\Auth;
 use Filament\Notifications\Notification;
 
-use App\Services\PagoService;
+use App\Domain\Pagos\PagoService;
 
 class EditPago extends EditRecord
 {

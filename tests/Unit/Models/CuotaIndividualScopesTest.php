@@ -13,8 +13,8 @@ uses(Tests\TestCase::class, RefreshDatabase::class);
 
 it('scopeDueToday includes pendiente cuota due today', function () {
     $grupo    = Grupo::factory()->create();
+    $prestamo = Prestamo::factory()->create(['grupo_id' => $grupo->id]);
     $cliente  = Cliente::factory()->create();
-    $prestamo = Prestamo::factory()->create(['grupo_id' => $grupo->id, 'cliente_id' => $cliente->id]);
 
     $cuota = CuotaIndividual::factory()->create([
         'prestamo_id'       => $prestamo->id,
@@ -30,8 +30,8 @@ it('scopeDueToday includes pendiente cuota due today', function () {
 
 it('scopeDueToday excludes vencida cuota from yesterday', function () {
     $grupo    = Grupo::factory()->create();
+    $prestamo = Prestamo::factory()->create(['grupo_id' => $grupo->id]);
     $cliente  = Cliente::factory()->create();
-    $prestamo = Prestamo::factory()->create(['grupo_id' => $grupo->id, 'cliente_id' => $cliente->id]);
 
     $cuota = CuotaIndividual::factory()->create([
         'prestamo_id'       => $prestamo->id,
@@ -47,8 +47,8 @@ it('scopeDueToday excludes vencida cuota from yesterday', function () {
 
 it('scopeEnMora returns cuotas with estado vencida', function () {
     $grupo    = Grupo::factory()->create();
+    $prestamo = Prestamo::factory()->create(['grupo_id' => $grupo->id]);
     $cliente  = Cliente::factory()->create();
-    $prestamo = Prestamo::factory()->create(['grupo_id' => $grupo->id, 'cliente_id' => $cliente->id]);
 
     $vencida   = CuotaIndividual::factory()->create([
         'prestamo_id' => $prestamo->id,
@@ -67,16 +67,17 @@ it('scopeEnMora returns cuotas with estado vencida', function () {
 });
 
 it('scopeOfAsesor excludes cuotas from another asesor', function () {
-    $asesorA  = Asesor::factory()->create();
-    $asesorB  = Asesor::factory()->create();
+    $asesorA = Asesor::factory()->create();
+    $asesorB = Asesor::factory()->create();
+
+    $grupoA = Grupo::factory()->create(['asesor_id' => $asesorA->id]);
+    $grupoB = Grupo::factory()->create(['asesor_id' => $asesorB->id]);
+
+    $prestamoA = Prestamo::factory()->create(['grupo_id' => $grupoA->id]);
+    $prestamoB = Prestamo::factory()->create(['grupo_id' => $grupoB->id]);
+
     $clienteA = Cliente::factory()->create(['asesor_id' => $asesorA->id]);
     $clienteB = Cliente::factory()->create(['asesor_id' => $asesorB->id]);
-
-    $grupoA   = Grupo::factory()->create(['asesor_id' => $asesorA->id]);
-    $grupoB   = Grupo::factory()->create(['asesor_id' => $asesorB->id]);
-
-    $prestamoA = Prestamo::factory()->create(['grupo_id' => $grupoA->id, 'cliente_id' => $clienteA->id]);
-    $prestamoB = Prestamo::factory()->create(['grupo_id' => $grupoB->id, 'cliente_id' => $clienteB->id]);
 
     $cuotaA = CuotaIndividual::factory()->create([
         'prestamo_id' => $prestamoA->id,

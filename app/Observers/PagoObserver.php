@@ -4,8 +4,6 @@ namespace App\Observers;
 
 use App\Models\Pago;
 use App\Models\Ingreso;
-use App\Models\AplicacionPago;
-use App\Models\CuotaIndividual;
 use App\Models\MovimientoFinanciero;
 use Illuminate\Support\Facades\Log;
 
@@ -21,10 +19,13 @@ class PagoObserver
 
     /**
      * Procesa un pago aprobado:
-     * 1. Crea AplicacionPago para cada cuota individual afectada
-     * 2. Actualiza saldos de las cuotas
-     * 3. Registra MovimientoFinanciero
-     * 4. Crea Ingreso para compatibilidad
+     * 1. Registra MovimientoFinanciero
+     * 2. Crea Ingreso para compatibilidad
+     *
+     * Note: AplicacionPago distribution is handled exclusively by
+     * PagoService::distribuirEnCuotasIndividuales() (BCMath proportional).
+     * The former FIFO path (aplicarPagoACuotasIndividuales) was removed to
+     * eliminate the double-write bug (SR-1).
      */
     private function procesarPagoAprobado(Pago $pago): void
     {
@@ -33,131 +34,11 @@ class PagoObserver
         $cuotaGrupal = $pago->cuotaGrupal;
         $grupo = $cuotaGrupal?->prestamo?->grupo;
 
-        // Obtener el cliente que realizó el pago
-        $clienteId = $this->determinarClienteDelPago($pago);
-
-        if ($clienteId) {
-            // Nuevo sistema: Aplicar a CuotaIndividual
-            $this->aplicarPagoACuotasIndividuales($pago, $clienteId);
-        }
-
         // Registrar MovimientoFinanciero
         $this->registrarMovimientoIngreso($pago);
 
         // Compatibilidad: Crear Ingreso si no existe
         $this->crearIngresoCompatibilidad($pago, $grupo);
-    }
-
-    /**
-     * Determina qué cliente realizó el pago.
-     * Por ahora usa la cuota grupal, pero podría mejorarse en el futuro.
-     */
-    private function determinarClienteDelPago(Pago $pago): ?int
-    {
-        // Si el pago tiene detalles, usar el primer cliente
-        if ($pago->detalles && $pago->detalles->isNotEmpty()) {
-            $primerDetalle = $pago->detalles->first();
-            if ($primerDetalle->prestamoIndividual) {
-                return $primerDetalle->prestamoIndividual->cliente_id;
-            }
-        }
-
-        // Intentar obtener desde la cuota grupal (fallback)
-        $cuotaGrupal = $pago->cuotaGrupal;
-        if ($cuotaGrupal && $cuotaGrupal->prestamo) {
-            $prestamo = $cuotaGrupal->prestamo;
-
-            // Si es préstamo individual, devolver el cliente directo
-            if ($prestamo->cliente_id) {
-                return $prestamo->cliente_id;
-            }
-
-            // Si es grupal, buscar en PrestamoIndividual
-            $prestamoInd = $prestamo->prestamoIndividual()->first();
-            if ($prestamoInd) {
-                return $prestamoInd->cliente_id;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Aplica el pago a las cuotas individuales del cliente.
-     * Usa FIFO: paga primero las cuotas más antiguas.
-     */
-    private function aplicarPagoACuotasIndividuales(Pago $pago, int $clienteId): void
-    {
-        // Buscar cuotas pendientes del cliente ordenadas por vencimiento
-        $cuotasPendientes = CuotaIndividual::where('cliente_id', $clienteId)
-            ->where('estado', '!=', 'pagada')
-            ->orderBy('fecha_vencimiento')
-            ->get();
-
-        if ($cuotasPendientes->isEmpty()) {
-            Log::warning('PagoObserver: No hay cuotas pendientes para el cliente', [
-                'pago_id' => $pago->id,
-                'cliente_id' => $clienteId,
-            ]);
-            return;
-        }
-
-        $montoRestante = (float) $pago->monto_pagado;
-
-        foreach ($cuotasPendientes as $cuota) {
-            if ($montoRestante <= 0)
-                break;
-
-            // Calcular mora de esta cuota
-            $mora = $cuota->moraCalculada();
-
-            // Prioridad: Mora > Interés > Capital
-            $moraAAplicar = min($montoRestante, $mora);
-            $montoRestante -= $moraAAplicar;
-
-            $interesAAplicar = min($montoRestante, (float) $cuota->saldo_interes);
-            $montoRestante -= $interesAAplicar;
-
-            $capitalAAplicar = min($montoRestante, (float) $cuota->saldo_capital);
-            $montoRestante -= $capitalAAplicar;
-
-            // Solo crear aplicación si realmente se aplicó algo
-            if ($moraAAplicar > 0 || $interesAAplicar > 0 || $capitalAAplicar > 0) {
-                AplicacionPago::create([
-                    'pago_id' => $pago->id,
-                    'cuota_id' => $cuota->id,
-                    'monto_aplicado_capital' => $capitalAAplicar,
-                    'monto_aplicado_interes' => $interesAAplicar,
-                    'monto_aplicado_mora' => $moraAAplicar,
-                    'fecha_aplicacion' => now(),
-                ]);
-
-                // Actualizar saldos de la cuota
-                $nuevoSaldoCapital = (float) $cuota->saldo_capital - $capitalAAplicar;
-                $nuevoSaldoInteres = (float) $cuota->saldo_interes - $interesAAplicar;
-
-                $cuota->update([
-                    'saldo_capital' => max(0, $nuevoSaldoCapital),
-                    'saldo_interes' => max(0, $nuevoSaldoInteres),
-                    'estado' => ($nuevoSaldoCapital <= 0 && $nuevoSaldoInteres <= 0) ? 'pagada' : $cuota->estado,
-                ]);
-
-                Log::info('PagoObserver: Aplicación de pago creada', [
-                    'pago_id' => $pago->id,
-                    'cuota_id' => $cuota->id,
-                    'capital' => $capitalAAplicar,
-                    'interes' => $interesAAplicar,
-                    'mora' => $moraAAplicar,
-                ]);
-            }
-        }
-
-        if ($montoRestante > 0) {
-            Log::warning('PagoObserver: Pago mayor que deuda', [
-                'pago_id' => $pago->id,
-                'sobrante' => $montoRestante,
-            ]);
-        }
     }
 
     /**
@@ -200,4 +81,3 @@ class PagoObserver
         Log::info('PagoObserver: Ingreso creado (compatibilidad)', ['pago_id' => $pago->id]);
     }
 }
-

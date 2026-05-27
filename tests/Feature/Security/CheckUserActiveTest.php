@@ -47,7 +47,7 @@ it('inactive user gets 403 on JSON requests', function () {
     $user = User::factory()->create(['active' => false]);
     $user->assignRole('Asesor');
 
-    $this->actingAs($user)->getJson('/api/notifications')->assertStatus(403);
+    $this->actingAs($user)->getJson('/api/grupos')->assertStatus(403);
 });
 
 it('active asesor with role reaches dashboard without login redirect', function () {
