@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Events\Domain\PrestamoDesembolsado;
+use App\Events\Domain\PrestamoFirmado;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -173,7 +175,9 @@ class Prestamo extends Model
 
     public function esIndividual(): bool
     {
-        return is_null($this->grupo_id) && !is_null($this->cliente_id);
+        // All loans in this schema are group-based (grupo_id required).
+        // This method is retained for compatibility but always returns false.
+        return false;
     }
 
     // Relaciones para retanqueos
@@ -201,18 +205,17 @@ class Prestamo extends Model
     // ── Scopes para el panel asesor ─────────────────────────────────────
 
     /**
-     * Préstamos asociados a un asesor, ya sea via grupo.asesor_id o cliente.asesor_id.
-     * Both group loans and individual loans are covered.
+     * Préstamos asociados a un asesor via grupo.asesor_id.
+     *
+     * Note: prestamos.cliente_id does NOT exist in the schema — all loans are group-based
+     * (linked via grupo_id). The previous orWhereHas('cliente', ...) used a non-existent FK.
      *
      * @param  Builder  $query
      * @param  \App\Models\Asesor  $asesor
      */
     public function scopeOfAsesor(Builder $query, \App\Models\Asesor $asesor): Builder
     {
-        return $query->where(function (Builder $inner) use ($asesor) {
-            $inner->whereHas('grupo', fn (Builder $g) => $g->where('asesor_id', $asesor->id))
-                  ->orWhereHas('cliente', fn (Builder $c) => $c->where('asesor_id', $asesor->id));
-        });
+        return $query->whereHas('grupo', fn (Builder $g) => $g->where('asesor_id', $asesor->id));
     }
 
     /**
@@ -667,6 +670,7 @@ class Prestamo extends Model
             return false;
         }
 
+        $committed = false;
         DB::beginTransaction();
         try {
             $this->estado = self::ESTADO_ACTIVO;
@@ -680,21 +684,24 @@ class Prestamo extends Model
             $this->prestamoIndividual()->update(['estado' => self::ESTADO_ACTIVO]);
 
             Log::info('Préstamo desembolsado y activado', [
-                'prestamo_id' => $this->id,
+                'prestamo_id'     => $this->id,
                 'fecha_desembolso' => $this->fecha_desembolso,
             ]);
 
             DB::commit();
-            return true;
-
+            $committed = true;
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Error al desembolsar préstamo', [
                 'prestamo_id' => $this->id,
-                'error' => $e->getMessage(),
+                'error'       => $e->getMessage(),
             ]);
             return false;
         }
+
+        // Dispatch outside the transaction — listener failures must not roll back committed data
+        PrestamoDesembolsado::dispatch($this);
+        return true;
     }
 
     // ─── Nuevos métodos de transición de estado ─────────────────────

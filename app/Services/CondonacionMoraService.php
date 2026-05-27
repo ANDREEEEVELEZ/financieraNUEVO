@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Contracts\AuditServiceInterface;
+use App\Events\Domain\MoraCondonada;
 use App\Models\AjusteDeuda;
 use App\Models\CuotaIndividual;
 use App\Models\Mora;
@@ -67,7 +69,7 @@ class CondonacionMoraService
             }
 
             // 3. Registrar auditoría
-            AuditService::registrar(
+            app(AuditServiceInterface::class)->registrar(
                 'condonar_mora',
                 $objetivo,
                 $datosAnteriores,
@@ -79,6 +81,8 @@ class CondonacionMoraService
                 ],
                 $motivo
             );
+
+            MoraCondonada::dispatch($objetivo, $montoCondonado);
 
             Log::info('Mora condonada exitosamente', [
                 'objetivo_tipo' => get_class($objetivo),
