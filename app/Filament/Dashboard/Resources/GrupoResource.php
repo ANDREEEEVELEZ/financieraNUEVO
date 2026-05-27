@@ -16,6 +16,7 @@ use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Contracts\CacheServiceInterface;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
@@ -458,7 +459,7 @@ class GrupoResource extends Resource
 
         if ($user->hasRole('Asesor')) {
             // Usar CacheService para obtener el asesor (evita query repetida)
-            $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
+            $asesor = app(CacheServiceInterface::class)->getAsesorByUserId($user->id);
 
             if ($asesor) {
                 $query->where('asesor_id', $asesor->id);

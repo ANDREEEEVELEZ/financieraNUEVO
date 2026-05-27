@@ -2,6 +2,7 @@
 
 namespace App\Filament\Dashboard\Resources\ClienteResource\Pages;
 
+use App\Contracts\CacheServiceInterface;
 use App\Filament\Dashboard\Resources\ClienteResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
@@ -19,7 +20,7 @@ class EditCliente extends EditRecord
         // Prevent Asesores from reassigning a client to a different asesor via a crafted POST
         $user = auth()->user();
         if ($user->hasRole('Asesor')) {
-            $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
+            $asesor = app(CacheServiceInterface::class)->getAsesorByUserId($user->id);
             if ($asesor) {
                 $data['asesor_id'] = $asesor->id;
             }

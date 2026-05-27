@@ -15,6 +15,7 @@ use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
+use App\Contracts\CacheServiceInterface;
 use Illuminate\Support\Facades\DB;
 
 class PrestamoResource extends Resource
@@ -1132,7 +1133,7 @@ class PrestamoResource extends Resource
 
         if ($user->hasRole('Asesor')) {
             // Usar CacheService para obtener el asesor (evita query repetida)
-            $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
+            $asesor = app(CacheServiceInterface::class)->getAsesorByUserId($user->id);
             if ($asesor) {
                 $query->whereHas('grupo', fn($q) => $q->where('asesor_id', $asesor->id));
             }
