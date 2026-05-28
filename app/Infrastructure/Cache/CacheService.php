@@ -115,6 +115,29 @@ class CacheService implements CacheServiceInterface
     }
 
     // =====================================================
+    // SUPERVISORES
+    // =====================================================
+
+    /**
+     * Returns the cached list of supervisor users.
+     * Roles included: super_admin, Jefe de operaciones, Jefe de creditos.
+     * Key: ec_supervisores | TTL: DEFAULT_TTL (300 s).
+     * Invalidation is manual — supervisor role changes are rare and admin-driven.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\User>
+     */
+    public function getSupervisores(): \Illuminate\Support\Collection
+    {
+        return $this->rememberWithLock(
+            self::CACHE_PREFIX . 'supervisores',
+            self::DEFAULT_TTL,
+            function () {
+                return \App\Models\User::role(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->get();
+            }
+        );
+    }
+
+    // =====================================================
     // GRUPOS
     // =====================================================
 
@@ -456,7 +479,14 @@ class CacheService implements CacheServiceInterface
             Cache::forget(self::CACHE_PREFIX . 'dashboard_admin');
 
             // Limpiar todas las claves por asesor (file cache no soporta wildcard delete)
-            \App\Models\Asesor::pluck('id')->each(function (int $id) {
+            // Cache the asesor ID list to avoid a per-event SELECT on the asesores table.
+            $asesorIds = Cache::remember(
+                'ec_asesor_ids_all',
+                self::SHORT_TTL,
+                fn () => \App\Models\Asesor::pluck('id')
+            ) ?? collect();
+
+            $asesorIds->each(function (int $id) {
                 Cache::forget(self::CACHE_PREFIX . "dashboard_asesor_{$id}");
             });
         }
@@ -479,6 +509,8 @@ class CacheService implements CacheServiceInterface
         Cache::forget(self::CACHE_PREFIX . "grupos_asesor_{$asesorId}");
         Cache::forget(self::CACHE_PREFIX . "stats_asesor_{$asesorId}");
         Cache::forget(self::CACHE_PREFIX . 'asesores_activos');
+        // Invalidate the asesor ID list so invalidateDashboardCache(null) re-fetches on the next call.
+        Cache::forget('ec_asesor_ids_all');
 
         Log::debug("CacheService: Invalidated cache for asesor {$asesorId}");
     }

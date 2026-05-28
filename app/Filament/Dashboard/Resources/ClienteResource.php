@@ -22,6 +22,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
 use App\Contracts\CacheServiceInterface;
 use App\Domain\Documentos\DeclaracionJuradaService;
+use Illuminate\Support\Facades\DB;
 
 class ClienteResource extends Resource
 {
@@ -440,21 +441,35 @@ class ClienteResource extends Resource
                                             ->label('Sí, trasladar todo el grupo')
                                             ->button()
                                             ->action(function () use ($grupo, $nuevoAsesorId, $nombreNuevoAsesor) {
-                                    // Trasladar grupo completo
-                                    $grupo->asesor_id = $nuevoAsesorId;
-                                    $grupo->save();
+                                    // Capture old asesor ID before update for cache invalidation
+                                    $oldAsesorId = (int) $grupo->asesor_id;
 
-                                    // Trasladar todos los clientes del grupo
-                                    $clientesGrupo = $grupo->clientes;
-                                    foreach ($clientesGrupo as $clienteGrupo) {
-                                        $clienteGrupo->asesor_id = $nuevoAsesorId;
-                                        $clienteGrupo->save();
+                                    // Batch UPDATE for grupo (single query, bypasses events — manual cache below)
+                                    \App\Models\Grupo::where('id', $grupo->id)->update(['asesor_id' => $nuevoAsesorId]);
+
+                                    // Batch UPDATE for all clientes in the grupo via pivot
+                                    $clienteIds = DB::table('grupo_cliente')
+                                        ->where('grupo_id', $grupo->id)
+                                        ->pluck('cliente_id');
+
+                                    $clienteCount = $clienteIds->count();
+
+                                    if ($clienteIds->isNotEmpty()) {
+                                        \App\Models\Cliente::whereIn('id', $clienteIds)
+                                            ->update(['asesor_id' => $nuevoAsesorId]);
                                     }
+
+                                    // Manually invalidate cache for both old and new asesor
+                                    $cache = app(\App\Contracts\CacheServiceInterface::class);
+                                    $cache->invalidateDashboardCache($oldAsesorId);
+                                    $cache->invalidateAsesorCache($oldAsesorId);
+                                    $cache->invalidateDashboardCache((int) $nuevoAsesorId);
+                                    $cache->invalidateAsesorCache((int) $nuevoAsesorId);
 
                                     \Filament\Notifications\Notification::make()
                                         ->success()
                                         ->title('Grupo Trasladado Exitosamente')
-                                        ->body("El grupo '{$grupo->nombre_grupo}' y todos sus {$clientesGrupo->count()} integrantes han sido trasladados al asesor {$nombreNuevoAsesor}.")
+                                        ->body("El grupo '{$grupo->nombre_grupo}' y todos sus {$clienteCount} integrantes han sido trasladados al asesor {$nombreNuevoAsesor}.")
                                         ->send();
                                 }),
                                         \Filament\Notifications\Actions\Action::make('cancel')

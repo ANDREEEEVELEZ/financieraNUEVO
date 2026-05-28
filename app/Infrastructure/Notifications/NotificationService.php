@@ -29,7 +29,7 @@ class NotificationService implements NotificationServiceInterface
 
         return Cache::remember(
             'ec_notifications_user_' . $user->id,
-            60, // 1 minuto de cache
+            300, // 5 minutos de cache
             function () use ($user) {
                 Log::debug('NotificationService: Cargando notificaciones (cache miss)', [
                     'user_id' => $user->id,
@@ -121,44 +121,10 @@ class NotificationService implements NotificationServiceInterface
     {
         $notifications = [];
 
-        // Debug: Log cuántos préstamos hay en cada estado
-        $todosLosPrestamos = Prestamo::select('estado')->get();
-        $prestamosPorEstado = $todosLosPrestamos->groupBy('estado')->map->count()->toArray();
-        Log::info('Préstamos por estado:', $prestamosPorEstado);
-
-        // TEMPORAL: Agregar notificaciones de prueba si no hay datos reales
-        if (empty($prestamosPorEstado)) {
-            Log::info('No hay préstamos en el sistema, agregando notificaciones de prueba');
-            $notifications[] = [
-                'id' => 'test_notification_1',
-                'type' => 'test',
-                'title' => '🧪 Notificación de Prueba',
-                'description' => 'El sistema de notificaciones está funcionando correctamente',
-                'url' => '/dashboard',
-                'icon' => '✅',
-                'color' => 'success',
-                'created_at' => Carbon::now(),
-            ];
-
-            $notifications[] = [
-                'id' => 'test_notification_2',
-                'type' => 'test',
-                'title' => '🎯 Sistema Activo',
-                'description' => 'Cuando tengas préstamos, pagos o moras pendientes aparecerán aquí',
-                'url' => '/dashboard',
-                'icon' => '🔔',
-                'color' => 'info',
-                'created_at' => Carbon::now()->subMinutes(5),
-            ];
-        }
-
-        // Préstamos pendientes de aprobación - buscar varios posibles estados
-        $estadosPendientes = ['Pendiente', 'pendiente', 'PENDIENTE', 'En revisión', 'en revision'];
-        $prestamosPendientes = Prestamo::whereIn('estado', $estadosPendientes)->get();
-        Log::info('Préstamos pendientes encontrados:', [
-            'count' => $prestamosPendientes->count(),
-            'estados_buscados' => $estadosPendientes
-        ]);
+        $prestamosPendientes = Prestamo::whereIn('estado', ['Pendiente'])
+            ->latest('created_at')
+            ->limit(20)
+            ->get();
 
         foreach ($prestamosPendientes as $prestamo) {
             $notifications[] = [
@@ -173,8 +139,11 @@ class NotificationService implements NotificationServiceInterface
             ];
         }
 
-        // Pagos pendientes de validación
-        $pagosPendientes = Pago::where('estado_pago', 'pendiente')->get();
+        // Pagos pendientes de validación (bounded to most recent 20)
+        $pagosPendientes = Pago::where('estado_pago', 'pendiente')
+            ->latest('created_at')
+            ->limit(20)
+            ->get();
 
         foreach ($pagosPendientes as $pago) {
             $notifications[] = [
@@ -215,9 +184,11 @@ class NotificationService implements NotificationServiceInterface
     {
         $morasPendientes = [];
 
-        // Obtener moras activas (pendientes)
+        // Obtener moras activas (pendientes), bounded to most recent 20
         $moras = Mora::where('estado_mora', 'pendiente')
             ->with(['cuotaGrupal.prestamo.grupo'])
+            ->latest('created_at')
+            ->limit(20)
             ->get();
 
         foreach ($moras as $mora) {

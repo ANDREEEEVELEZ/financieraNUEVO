@@ -54,10 +54,12 @@ class PrestamoIndividualObserver
             return;
         }
 
-        $individuales = PrestamoIndividual::where('prestamo_id', $prestamoId)->get();
+        $totals = PrestamoIndividual::where('prestamo_id', $prestamoId)
+            ->selectRaw('SUM(monto_prestado_individual) as tp, SUM(monto_devolver_individual) as td')
+            ->first();
 
-        $totalPrestado = $individuales->sum('monto_prestado_individual');
-        $totalDevolver = $individuales->sum('monto_devolver_individual');
+        $totalPrestado = (float) ($totals->tp ?? 0);
+        $totalDevolver = (float) ($totals->td ?? 0);
 
         if ($prestamo->monto_prestado_total != $totalPrestado || $prestamo->monto_devolver != $totalDevolver) {
             $prestamo->updateQuietly([

@@ -45,6 +45,16 @@ interface CacheServiceInterface
 
     public function getDashboardStatsAdmin(): array;
 
+    // ── Supervisores ──────────────────────────────────────────────────────────
+
+    /**
+     * Returns the cached list of supervisor users (super_admin, Jefe de operaciones, Jefe de creditos).
+     * TTL: DEFAULT_TTL (300 s). Manual invalidation required on role changes.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\User>
+     */
+    public function getSupervisores(): \Illuminate\Support\Collection;
+
     // ── Invalidación de caché ─────────────────────────────────────────────────
 
     public function invalidateDashboardCache(?int $asesorId = null): void;

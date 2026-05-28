@@ -18,8 +18,7 @@ class PrestamoObserver
 
         $this->cache->invalidateStatsCache();
 
-        $supervisores = \App\Models\User::role(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->get();
-        foreach ($supervisores as $supervisor) {
+        foreach ($this->cache->getSupervisores() as $supervisor) {
             $this->notifications->invalidateNotificationsCache($supervisor->id);
         }
     }
@@ -40,8 +39,7 @@ class PrestamoObserver
 
             $this->cache->invalidateStatsCache();
 
-            $supervisores = \App\Models\User::role(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])->get();
-            foreach ($supervisores as $supervisor) {
+            foreach ($this->cache->getSupervisores() as $supervisor) {
                 $this->notifications->invalidateNotificationsCache($supervisor->id);
             }
 

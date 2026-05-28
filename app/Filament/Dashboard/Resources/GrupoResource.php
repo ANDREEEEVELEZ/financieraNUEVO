@@ -17,6 +17,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Contracts\CacheServiceInterface;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
@@ -419,16 +420,36 @@ class GrupoResource extends Resource
                                 ->required(),
                         ])
                         ->action(function ($records, $data) {
-                            foreach ($records as $grupo) {
-                                $grupo->asesor_id = $data['asesor_id'];
-                                $grupo->save();
-                                // Actualizar asesor_id de todos los clientes activos en el grupo
-                                $clientes = $grupo->clientes()->get();
-                                foreach ($clientes as $cliente) {
-                                    $cliente->asesor_id = $data['asesor_id'];
-                                    $cliente->save();
-                                }
+                            $nuevoAsesorId = (int) $data['asesor_id'];
+
+                            // Capture old asesor IDs BEFORE the update so we can invalidate their caches
+                            $oldAsesorIds = $records->pluck('asesor_id')->unique()->filter()->values();
+
+                            $grupoIds = $records->pluck('id');
+
+                            // Single batch UPDATE on grupos (bypasses individual model events intentionally)
+                            \App\Models\Grupo::whereIn('id', $grupoIds)->update(['asesor_id' => $nuevoAsesorId]);
+
+                            // Also update all clientes in those grupos in a single batch
+                            // (grupo-cliente is many-to-many via grupo_cliente pivot)
+                            $clienteIds = DB::table('grupo_cliente')
+                                ->whereIn('grupo_id', $grupoIds)
+                                ->pluck('cliente_id');
+
+                            if ($clienteIds->isNotEmpty()) {
+                                \App\Models\Cliente::whereIn('id', $clienteIds)
+                                    ->update(['asesor_id' => $nuevoAsesorId]);
                             }
+
+                            // Manually invalidate cache for both old and new asesor IDs
+                            $cache = app(\App\Contracts\CacheServiceInterface::class);
+                            foreach ($oldAsesorIds as $oldId) {
+                                $cache->invalidateDashboardCache($oldId);
+                                $cache->invalidateAsesorCache($oldId);
+                            }
+                            $cache->invalidateDashboardCache($nuevoAsesorId);
+                            $cache->invalidateAsesorCache($nuevoAsesorId);
+
                             Notification::make()
                                 ->success()
                                 ->title('Asesor actualizado')

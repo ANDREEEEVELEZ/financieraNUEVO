@@ -43,7 +43,7 @@ class PrestamoResource extends Resource
             if ($user->hasRole('Asesor')) {
                 // Asesor solo puede editar si es creador y está en estado Pendiente
                 if ($prestamo) {
-                    $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+                    $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
                     $esCreador = $asesor && $prestamo->grupo && $prestamo->grupo->asesor_id == $asesor->id;
                     $puedeEditarCampos = $esCreador && $prestamo->estado === 'Pendiente';
                 } else {
@@ -146,20 +146,24 @@ class PrestamoResource extends Resource
                 ->relationship('grupo', 'nombre_grupo')
                 ->options(function () {
                     $user = request()->user();
+
+                    $query = \App\Models\Grupo::where('estado_grupo', 'Activo')
+                        ->whereDoesntHave('prestamos', function ($q) {
+                            $q->whereIn('estado', ['Pendiente', 'Aprobado'])
+                              ->whereHas('cuotasGrupales', fn($c) => $c->where('estado_pago', '!=', 'pagado'));
+                        });
+
                     if ($user->hasRole('Asesor')) {
-                        $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-                        $grupos = $asesor ? \App\Models\Grupo::where('asesor_id', $asesor->id)->where('estado_grupo', 'Activo')->get() : collect();
-                    } elseif ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                        $grupos = \App\Models\Grupo::where('estado_grupo', 'Activo')->get();
-                    } else {
-                        $grupos = collect();
+                        $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
+                        if (!$asesor) {
+                            return collect();
+                        }
+                        $query->where('asesor_id', $asesor->id);
+                    } elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+                        return collect();
                     }
 
-                    return $grupos->filter(function ($grupo) {
-                        return !$grupo->prestamos()->whereIn('estado', ['Pendiente', 'Aprobado'])
-                            ->whereHas('cuotasGrupales', fn($q) => $q->where('estado_pago', '!=', 'pagado'))
-                            ->exists();
-                    })->pluck('nombre_grupo', 'id');
+                    return $query->pluck('nombre_grupo', 'id');
                 })
                 ->searchable()
                 ->required()
@@ -1164,7 +1168,7 @@ class PrestamoResource extends Resource
 
         // Los asesores solo pueden editar sus propios préstamos
         if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
             if ($asesor && $record->grupo) {
                 return $record->grupo->asesor_id === $asesor->id;
             }
@@ -1183,7 +1187,7 @@ class PrestamoResource extends Resource
 
         // Los asesores solo pueden ver sus propios préstamos
         if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
+            $asesor = app(\App\Contracts\CacheServiceInterface::class)->getAsesorByUserId($user->id);
             if ($asesor && $record->grupo) {
                 return $record->grupo->asesor_id === $asesor->id;
             }
