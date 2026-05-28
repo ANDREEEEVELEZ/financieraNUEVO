@@ -181,7 +181,7 @@ class ClienteResource extends Resource
                                 Forms\Components\Hidden::make('dni_error'),
                                 Forms\Components\Hidden::make('celular_error'),
                                 Forms\Components\Hidden::make('correo_error'),
-                            ])->columns(2),
+                            ])->columns(['default' => 1, 'sm' => 2]),
 
                         Tabs\Tab::make('Información Cliente')
                             ->schema([
@@ -257,7 +257,7 @@ class ClienteResource extends Resource
                                     ->visible(fn() => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
                                     ->helperText('Seleccione el asesor responsable para este cliente.')
                                     ->prefixIcon('heroicon-o-user-group'),
-                            ])->columns(2),
+                            ])->columns(['default' => 1, 'sm' => 2]),
                     ])
             ]);
     }
@@ -269,8 +269,8 @@ class ClienteResource extends Resource
             Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre')->sortable()->searchable(),
             Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos')->sortable()->searchable(),
             Tables\Columns\TextColumn::make('persona.celular')->label('Celular'),
-            Tables\Columns\TextColumn::make('actividad')->label('Actividad'),
-            Tables\Columns\TextColumn::make('condicion_personal')->label('Condición Personal'),
+            Tables\Columns\TextColumn::make('actividad')->label('Actividad')->toggleable(isToggledHiddenByDefault: true),
+            Tables\Columns\TextColumn::make('condicion_personal')->label('Condición Personal')->toggleable(isToggledHiddenByDefault: true),
             Tables\Columns\TextColumn::make('estado_cliente')
                 ->label('Estado')
                 ->badge()
@@ -282,7 +282,8 @@ class ClienteResource extends Resource
             Tables\Columns\TextColumn::make('grupos')
                 ->label('Grupos Pertenecientes')
                 ->formatStateUsing(fn($record) => $record->grupos->pluck('nombre_grupo')->implode(' - ') ?: '-')
-                ->searchable(false),
+                ->searchable(false)
+                ->toggleable(isToggledHiddenByDefault: true),
         ];
 
         // Agregar columna de asesor solo para roles administrativos al final

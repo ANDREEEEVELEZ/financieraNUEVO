@@ -76,7 +76,7 @@ class RetanqueoResource extends Resource
                     ->description('Detalles generales del retanqueo')
                     ->icon('heroicon-o-information-circle')
                     ->schema([
-                        Grid::make(2)
+                        Grid::make(['default' => 1, 'sm' => 2])
                             ->schema([
                                 Select::make('prestamo_id')
                                     ->label('Préstamo a Retanquear')
@@ -208,7 +208,7 @@ class RetanqueoResource extends Resource
                         Repeater::make('participantes')
                             ->label('')
                             ->schema([
-                                Grid::make(6)
+                                Grid::make(['default' => 2, 'sm' => 3, 'lg' => 6])
                                     ->schema([
                                         // Selector de cliente (solo visible para nuevos elementos)
                                         Select::make('cliente_id')
@@ -520,7 +520,8 @@ class RetanqueoResource extends Resource
                 TextColumn::make('id')
                     ->label('ID')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('prestamoAntiguo.grupo.nombre_grupo')
                     ->label('Grupo')
@@ -549,7 +550,8 @@ class RetanqueoResource extends Resource
                 TextColumn::make('monto_usado_para_cubrir_antiguo')
                     ->label('Cobertura')
                     ->money('PEN')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('monto_desembolsar')
                     ->label('A Entregar')
@@ -558,7 +560,8 @@ class RetanqueoResource extends Resource
 
                 TextColumn::make('cantidad_cuotas_nuevo')
                     ->label('Cuotas')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 BadgeColumn::make('estado_retanqueo')
                     ->label('Estado')
@@ -585,7 +588,8 @@ class RetanqueoResource extends Resource
                     ->label('Fecha Aprobación')
                     ->date('d/m/Y')
                     ->sortable()
-                    ->placeholder('No aprobado'),
+                    ->placeholder('No aprobado')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('estado_retanqueo')

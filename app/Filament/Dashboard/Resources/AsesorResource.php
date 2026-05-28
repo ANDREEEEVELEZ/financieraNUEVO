@@ -149,7 +149,7 @@ class AsesorResource extends Resource
                 ])
                 ->native(false)
                 ->required(),
-        ])->columns(2)->relationship('persona'),
+        ])->columns(['default' => 1, 'sm' => 2])->relationship('persona'),
 
             ]),
                     Tabs\Tab::make('Datos de Usuario')->icon('heroicon-o-cog-6-tooth')
@@ -195,7 +195,7 @@ class AsesorResource extends Resource
                 Tables\Columns\TextColumn::make('persona.nombre')->label('Nombre') ->AlignLeft() ->searchable(),
                 Tables\Columns\TextColumn::make('persona.apellidos')->label('Apellidos') ->AlignLeft()->searchable(),
                 Tables\Columns\TextColumn::make('persona.DNI')->label('DNI') ->AlignLeft()->searchable(),
-                Tables\Columns\TextColumn::make('persona.correo')->label('Correo') ->AlignLeft(),
+                Tables\Columns\TextColumn::make('persona.correo')->label('Correo')->AlignLeft()->wrap()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('codigo_asesor')->label('Código Asesor') ->AlignLeft()->searchable(),
                 Tables\Columns\TextColumn::make('estado_asesor')
                     ->label('Estado')
@@ -205,7 +205,7 @@ class AsesorResource extends Resource
                         'INACTIVO' => 'danger',
                         default => 'warning',
                     }),
-                Tables\Columns\TextColumn::make('fecha_ingreso')->label('Fecha de Ingreso') ->AlignLeft(),
+                Tables\Columns\TextColumn::make('fecha_ingreso')->label('Fecha de Ingreso')->AlignLeft()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('estado_asesor')

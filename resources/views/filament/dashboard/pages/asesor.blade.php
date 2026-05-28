@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     {{-- KPI Strip (5 cells) --}}
-    <div class="grid grid-cols-5 gap-3 mb-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-4">
         @foreach([
             ['label' => 'Grupos',      'value' => $this->cartera['grupos_count'] ?? 0,    'color' => 'text-gray-900'],
             ['label' => 'Clientes',    'value' => $this->cartera['clientes_count'] ?? 0,  'color' => 'text-gray-900'],

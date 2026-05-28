@@ -4,7 +4,7 @@
         {{-- Información del Grupo --}}
         <div class="bg-white rounded-lg shadow p-4 md:p-6">
             {{-- Todas las tarjetas en dos columnas: 3 de un lado y 3 del otro --}}
-            <div class="grid grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {{-- Columna izquierda: 3 tarjetas --}}
                 <div class="space-y-4">
                     {{-- Pagos Aprobados --}}

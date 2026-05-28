@@ -95,7 +95,7 @@ class GrupoResource extends Resource
                     ->description('Selecciona los integrantes del grupo de forma dinámica')
                     ->icon('heroicon-o-user-group')
                     ->schema([
-                        Forms\Components\Grid::make(2)
+                        Forms\Components\Grid::make(['default' => 1, 'sm' => 2])
                             ->schema([
                                 Forms\Components\Card::make()
                                     ->schema([
@@ -282,7 +282,8 @@ class GrupoResource extends Resource
                         return $cliente->pivot && $cliente->pivot->rol === 'Líder Grupal';
                     });
                     return $lider ? ($lider->persona->nombre . ' ' . $lider->persona->apellidos) : '-';
-                }),
+                })
+                ->toggleable(isToggledHiddenByDefault: true),
             Tables\Columns\TextColumn::make('ex_integrantes')
                 ->label('Ex-integrantes')
                 ->getStateUsing(function ($record) {
@@ -291,6 +292,7 @@ class GrupoResource extends Resource
                 })
                 ->badge()
                 ->color(fn($state) => $state === '-' ? 'gray' : 'warning')
+                ->toggleable(isToggledHiddenByDefault: true)
                 ->tooltip(function ($record) {
                     $exIntegrantes = $record->exIntegrantes;
                     if ($exIntegrantes->isEmpty()) {
@@ -325,7 +327,8 @@ class GrupoResource extends Resource
                 ->formatStateUsing(fn($record) =>
                     $record->asesor ? ($record->asesor->persona->nombre . ' ' . $record->asesor->persona->apellidos) : '-')
                 ->sortable()
-                ->searchable();
+                ->searchable()
+                ->toggleable(isToggledHiddenByDefault: true);
         }
 
         return $table->columns($columns)

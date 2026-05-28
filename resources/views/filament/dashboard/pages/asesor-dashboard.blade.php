@@ -1,7 +1,8 @@
 <x-filament-panels::page>
+<div x-data="{ tab: $wire.entangle('activeTab') }">
     {{-- MetaHeroStrip: sticky 44px bar with cobrado / meta / progress / % chip --}}
-    <div style="position:sticky; top:64px; z-index:10; height:44px;"
-         class="bg-primary-50 border-b border-primary-200 flex items-center px-4 gap-4 mb-4">
+    {{-- T-06: removed inline style; added sticky top-16 z-10 h-11 as Tailwind classes --}}
+    <div class="sticky top-16 z-10 h-11 bg-primary-50 border-b border-primary-200 flex items-center px-4 gap-4 mb-4">
         <span class="font-mono font-bold text-gray-900">
             S/ {{ number_format($meta['cobrado'] ?? 0, 0, '.', ',') }}
         </span>
@@ -9,9 +10,10 @@
         <span class="text-gray-500">
             S/ {{ number_format($meta['meta'] ?? 0, 0, '.', ',') }}
         </span>
-        <div class="flex-1 bg-gray-200 rounded-full h-1.5 mx-2 max-w-xs">
-            <div class="h-1.5 rounded-full {{ ($meta['pct'] ?? 0) >= 100 ? 'bg-green-500' : (($meta['pct'] ?? 0) >= 70 ? 'bg-yellow-500' : 'bg-red-500') }}"
-                 style="width: {{ min($meta['pct'] ?? 0, 100) }}%"></div>
+        {{-- T-15: progress bar uses scaleX; parent has overflow-hidden --}}
+        <div class="flex-1 bg-gray-200 rounded-full h-1.5 mx-2 max-w-xs overflow-hidden">
+            <div class="h-1.5 rounded-full origin-left transition-transform [transition-duration:var(--duration-slow)] [transition-timing-function:var(--ease-std)] {{ ($meta['pct'] ?? 0) >= 100 ? 'bg-green-500' : (($meta['pct'] ?? 0) >= 70 ? 'bg-yellow-500' : 'bg-red-500') }}"
+                 style="transform: scaleX({{ min(($meta['pct'] ?? 0) / 100, 1) }})"></div>
         </div>
         <span class="text-xs font-semibold px-2 py-0.5 rounded-full
             {{ ($meta['pct'] ?? 0) >= 100 ? 'bg-green-100 text-green-700' : (($meta['pct'] ?? 0) >= 70 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700') }}">
@@ -23,10 +25,11 @@
     </div>
 
     {{-- Period selector pills --}}
+    {{-- T-07: px-3 py-2 min-h-[44px] inline-flex items-center justify-center + active:scale-95 transition-transform duration-100 --}}
     <div class="flex gap-2 mb-4">
         @foreach(['hoy' => 'Hoy', 'semana' => 'Semana', 'mes' => 'Mes'] as $key => $label)
         <button wire:click="setPeriod('{{ $key }}')"
-            class="px-3 py-1.5 text-xs font-medium rounded-full transition-colors
+            class="px-3 py-2 min-h-[44px] inline-flex items-center justify-center text-xs font-medium rounded-full transition-all duration-100 active:scale-95
                 {{ $period === $key
                     ? 'bg-primary-600 text-white'
                     : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300' }}">
@@ -35,7 +38,7 @@
         @endforeach
         @foreach(['trim' => 'Trim.', 'anio' => 'Año'] as $key => $label)
         <button title="Próximamente"
-            class="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-50 text-gray-400 border border-gray-100 cursor-not-allowed"
+            class="px-3 py-2 min-h-[44px] inline-flex items-center justify-center text-xs font-medium rounded-full bg-gray-50 text-gray-400 border border-gray-100 cursor-not-allowed"
             disabled>
             {{ $label }}
         </button>
@@ -55,27 +58,33 @@
                 'operaciones' => 'Operaciones',
             ];
         @endphp
+        {{-- T-08: @click Alpine tab setter; :class Alpine binding; transition-colors duration-150 --}}
         <div class="flex border-b border-gray-200 overflow-x-auto">
             @foreach($tabOrder as $tabKey)
-            <button wire:click="setTab('{{ $tabKey }}')"
-                class="px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
-                    {{ $activeTab === $tabKey
-                        ? 'border-primary-600 text-primary-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+            <button @click="tab = '{{ $tabKey }}'"
+                class="px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-150 whitespace-nowrap"
+                :class="tab === '{{ $tabKey }}' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
                 {{ $tabLabels[$tabKey] }}
             </button>
             @endforeach
         </div>
 
         {{-- COBRANZA TAB --}}
-        @if($activeTab === 'cobranza')
+        {{-- T-09: @if guard replaced with x-show + x-transition --}}
+        <div x-show="tab === 'cobranza'"
+             x-transition:enter="transition ease-out duration-[150ms]"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-[100ms]"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-1">
         @php
             $d   = $this->getCobranzaData();
             $pct = $meta['pct'] ?? 0;
         @endphp
         <div class="p-4 space-y-4">
-            {{-- 5 KPI cells --}}
-            <div class="grid grid-cols-5 gap-3">
+            {{-- T-10: 5 KPI cells — grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 --}}
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div class="bg-gray-50 rounded-lg px-3 py-2">
                     <p class="text-xs text-gray-500">Cobrado</p>
                     <p class="text-base font-bold text-gray-900">S/ {{ number_format(($meta['cobrado'] ?? 0) / 1000, 1) }}K</p>
@@ -101,9 +110,10 @@
             </div>
 
             {{-- Semáforo de mora --}}
+            {{-- T-11: grid-cols-3 sm:grid-cols-5 --}}
             <div class="border border-gray-200 rounded-lg p-3">
                 <p class="text-xs font-medium text-gray-600 mb-2">Semáforo de mora</p>
-                <div class="grid grid-cols-5 gap-2">
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     @php
                         $bucketColors = [
                             'green'    => 'bg-green-50 text-green-700 border-green-200',
@@ -124,9 +134,11 @@
             </div>
 
             {{-- Top morosos --}}
+            {{-- T-13: overflow-x-auto wrapper; min-w-full on table --}}
             <div class="border border-gray-200 rounded-lg p-3">
                 <p class="text-xs font-medium text-gray-600 mb-2">Top morosos</p>
-                <table class="w-full text-xs">
+                <div class="overflow-x-auto -mx-3 sm:mx-0">
+                <table class="min-w-full text-xs">
                     <thead>
                         <tr class="text-gray-400 border-b border-gray-100">
                             <th class="text-left py-1 px-2">Cliente</th>
@@ -163,12 +175,20 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
-        @endif
+        </div>
 
         {{-- COLOCACIÓN TAB --}}
-        @if($activeTab === 'colocacion')
+        {{-- T-09: @if guard replaced with x-show + x-transition --}}
+        <div x-show="tab === 'colocacion'"
+             x-transition:enter="transition ease-out duration-[150ms]"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-[100ms]"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-1">
         @php
             $asesorModel     = \App\Models\Asesor::where('user_id', auth()->id())->first();
             $prestamosActivos = $asesorModel
@@ -203,8 +223,8 @@
             $totalGrados = array_sum($gradoData);
         @endphp
         <div class="p-4 space-y-4">
-            {{-- 5 KPI cells --}}
-            <div class="grid grid-cols-5 gap-3">
+            {{-- T-10: 5 KPI cells — grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 --}}
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div class="bg-gray-50 rounded-lg px-3 py-2">
                     <p class="text-xs text-gray-500">Desembolsado</p>
                     <p class="text-base font-bold text-gray-900">{{ $prestamosMes }} prést.</p>
@@ -228,6 +248,7 @@
             </div>
 
             {{-- Embudo de colocación --}}
+            {{-- T-16: funnel bars use clip-path + scaleX pattern; parent has overflow-hidden --}}
             <div class="border border-gray-200 rounded-lg p-3">
                 <p class="text-xs font-medium text-gray-600 mb-3">Embudo de colocación</p>
                 @php
@@ -248,9 +269,9 @@
                     @foreach($funnelSteps as $step)
                     <div class="flex items-center gap-3">
                         <span class="text-xs text-gray-500 w-24 text-right">{{ $step['label'] }}</span>
-                        <div class="flex-1 bg-gray-100 rounded-full h-5 relative">
-                            <div class="{{ $step['color'] }} h-5 rounded-full flex items-center pl-2"
-                                 style="width: {{ max(($step['count'] / $maxCount) * 100, 5) }}%">
+                        <div class="flex-1 bg-gray-100 rounded-full h-5 relative overflow-hidden">
+                            <div class="{{ $step['color'] }} h-5 rounded-full flex items-center pl-2 transition-[clip-path] [transition-duration:var(--duration-std)] [transition-timing-function:var(--ease-std)]"
+                                 style="width: 100%; clip-path: inset(0 {{ 100 - max(($step['count'] / $maxCount) * 100, 5) }}% 0 0);">
                                 <span class="text-xs font-bold text-white">{{ $step['count'] }}</span>
                             </div>
                         </div>
@@ -263,6 +284,7 @@
             </div>
 
             {{-- Scoring card (view-only) --}}
+            {{-- T-17: scoring bar segments use scaleX; T-14: title attributes already present below --}}
             <div class="border border-gray-200 rounded-lg p-3">
                 <p class="text-xs font-medium text-gray-600 mb-2">Scoring de clientes</p>
                 @if($totalGrados === 0)
@@ -276,14 +298,15 @@
                             $cnt      = $gradoData[$grado] ?? 0;
                             $widthPct = (($cnt + 0.5) / ($totalGrados + 2.5)) * 100;
                         @endphp
-                        <div class="flex items-center justify-center text-xs font-bold text-white"
-                             style="width: {{ $widthPct }}%; background-color: {{ $gradoColors[$grado] }};"
+                        {{-- T-17: scaleX instead of width; T-14: title attribute --}}
+                        <div class="flex items-center justify-center text-xs font-bold text-white origin-left transition-transform [transition-duration:var(--duration-std)] [transition-timing-function:var(--ease-std)]"
+                             style="width: {{ $widthPct }}%; background-color: {{ $gradoColors[$grado] }}; transform: scaleX(1);"
                              title="{{ $grado }}: {{ $cnt }}">
-                            @if($cnt > 0){{ $grado }}:{{ $cnt }}@else{{ $grado }}@endif
+                            <span class="hidden sm:inline">@if($cnt > 0){{ $grado }}:{{ $cnt }}@else{{ $grado }}@endif</span>
                         </div>
                         @endforeach
                     </div>
-                    <div class="flex mt-1">
+                    <div class="hidden sm:flex mt-1">
                         @foreach(['A' => 'Excelente', 'B' => 'Bueno', 'C' => 'Regular', 'D' => 'Riesgo', 'E' => 'Crítico'] as $g => $desc)
                         <span class="flex-1 text-center text-xs"
                               style="color: {{ $gradoColors[$g] }}"
@@ -293,10 +316,17 @@
                 @endif
             </div>
         </div>
-        @endif
+        </div>
 
         {{-- CARTERA TAB --}}
-        @if($activeTab === 'cartera')
+        {{-- T-09: @if guard replaced with x-show + x-transition --}}
+        <div x-show="tab === 'cartera'"
+             x-transition:enter="transition ease-out duration-[150ms]"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-[100ms]"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-1">
         @php
             $cd          = $this->getCarteraData();
             $asesorModel2 = \App\Models\Asesor::where('user_id', auth()->id())->first();
@@ -317,7 +347,8 @@
                 : 0;
         @endphp
         <div class="p-4 space-y-4">
-            <div class="grid grid-cols-5 gap-3">
+            {{-- T-10: 5 KPI cells — grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 --}}
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 @foreach([
                     ['label' => 'Grupos',       'value' => $gruposCount],
                     ['label' => 'Clientes',      'value' => $clientesCount],
@@ -332,8 +363,10 @@
                 @endforeach
             </div>
 
+            {{-- T-13: overflow-x-auto wrapper; min-w-full on table --}}
             <div class="border border-gray-200 rounded-lg overflow-hidden">
-                <table class="w-full text-xs">
+                <div class="overflow-x-auto -mx-3 sm:mx-0">
+                <table class="min-w-full text-xs">
                     <thead>
                         <tr class="bg-gray-50 text-gray-500 border-b border-gray-200">
                             <th class="text-left py-2 px-3">Grupo</th>
@@ -384,15 +417,24 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
-        @endif
+        </div>
 
         {{-- PAGOS TAB --}}
-        @if($activeTab === 'pagos')
+        {{-- T-09: @if guard replaced with x-show + x-transition --}}
+        <div x-show="tab === 'pagos'"
+             x-transition:enter="transition ease-out duration-[150ms]"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-[100ms]"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-1">
         @php $pd = $this->getPagosData(); @endphp
         <div class="p-4 space-y-4">
-            <div class="grid grid-cols-5 gap-3">
+            {{-- T-10: 5 KPI cells — grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 --}}
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 @foreach([
                     ['label' => 'Cobrado hoy', 'value' => 'S/ ' . number_format($pd['cobrado_hoy'] ?? 0, 2), 'color' => 'text-green-600'],
                     ['label' => 'Aprobados',   'value' => $pd['aprobados']  ?? 0, 'color' => 'text-green-600'],
@@ -407,7 +449,8 @@
                 @endforeach
             </div>
 
-            <div class="grid grid-cols-3 gap-4">
+            {{-- T-12: grid-cols-1 sm:grid-cols-3 --}}
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 @foreach([
                     ['label' => 'Aprobados',  'value' => $pd['aprobados']  ?? 0, 'color' => 'bg-green-50 text-green-700 border-green-200'],
                     ['label' => 'Pendientes', 'value' => $pd['pendientes'] ?? 0, 'color' => 'bg-warning-50 text-warning-700 border-warning-200'],
@@ -420,10 +463,17 @@
                 @endforeach
             </div>
         </div>
-        @endif
+        </div>
 
         {{-- OPERACIONES TAB --}}
-        @if($activeTab === 'operaciones')
+        {{-- T-09: @if guard replaced with x-show + x-transition; inner @if($isOperacionesLocked) preserved --}}
+        <div x-show="tab === 'operaciones'"
+             x-transition:enter="transition ease-out duration-[150ms]"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-[100ms]"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-1">
         <div class="p-8 text-center">
             @if($isOperacionesLocked)
             <div class="inline-flex flex-col items-center gap-3">
@@ -442,7 +492,8 @@
             {{-- Full operational KPIs — future implementation --}}
             @endif
         </div>
-        @endif
+        </div>
 
     </div>
+</div>
 </x-filament-panels::page>

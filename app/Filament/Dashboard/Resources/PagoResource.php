@@ -597,7 +597,7 @@ class PagoResource extends Resource
                         ->disabled(true)
                         ->dehydrated(),
                 ])
-                ->columns(2), // Usar dos columnas para los campos principales
+                ->columns(['default' => 1, 'sm' => 2]), // Usar dos columnas para los campos principales
 
             Section::make('Detalle de Pago por Integrante')
                 ->description('Distribución del pago entre los integrantes del grupo')
@@ -705,7 +705,7 @@ class PagoResource extends Resource
                             [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
                             return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
                         })
-                        ->grid(4)
+                        ->grid(['default' => 1, 'sm' => 2, 'lg' => 4])
                         ->defaultItems(0)
                         ->addable(false)
                         ->deletable(false)
@@ -862,6 +862,7 @@ class PagoResource extends Resource
                 Tables\Columns\TextColumn::make('cuotaGrupal.mora.monto_mora_calculado')
                     ->label('Mora')
                     ->alignLeft()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(function ($state, $record) {
                         $mora = $record->cuotaGrupal && $record->cuotaGrupal->mora ? $record->cuotaGrupal->mora : null;
                         // Siempre mostrar el monto de mora calculado, aunque esté pagada
@@ -896,6 +897,7 @@ class PagoResource extends Resource
                 Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
                     ->label('Saldo')
                     ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(function ($state, $record) {
                         // Si el pago está rechazado, no mostrar saldo
                         if ($record->estado_pago === 'Rechazado') {

@@ -246,7 +246,7 @@ class PrestamoResource extends Resource
                 ->visible(fn(callable $get) => !empty($get('clientes_grupo')))
                 ->grid(2)
                 ->columnSpanFull()
-                ->columns(4),
+                ->columns(['default' => 1, 'sm' => 2, 'lg' => 4]),
 
             Forms\Components\Repeater::make('prestamo_individual')
                 ->label('Detalle del préstamo por integrante')
@@ -472,7 +472,7 @@ class PrestamoResource extends Resource
                 ->visible(fn(callable $get) => $get('id') !== null)
                 ->grid(2)
                 ->columnSpanFull()
-                ->columns(4),
+                ->columns(['default' => 1, 'sm' => 2, 'lg' => 4]),
 
             TextInput::make('tasa_interes')->label('Tasa interés ( % )')->default(17)->readOnly()->numeric()->disabled(fn() => !$puedeEditarCampos),
 
@@ -740,6 +740,7 @@ class PrestamoResource extends Resource
             TextColumn::make('detalle_individual')
                 ->label('Detalle Individual')
                 ->html()
+                ->toggleable(isToggledHiddenByDefault: true)
                 ->getStateUsing(function ($record) {
                     $detalles = $record->prestamoIndividual;
                     if ($detalles->isEmpty()) {
