@@ -4,10 +4,12 @@ namespace App\Domain\Grupos;
 
 use App\Contracts\SeparacionServiceInterface;
 use App\Events\SeparacionRealizada;
+use App\Models\Cliente;
 use App\Models\CuotaIndividual;
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
 use App\Models\SeparacionCliente;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -42,6 +44,33 @@ class MorosoSeparationService implements SeparacionServiceInterface
      *
      * @throws RuntimeException
      */
+    /**
+     * Alternativa con objetos como parámetros (conveniencia).
+     * Delega a separar() con los IDs correspondientes.
+     *
+     * @param Prestamo $origen         Préstamo grupal activo.
+     * @param Cliente  $cliente        Cliente a separar.
+     * @param User     $ejecutadoPor   Usuario que ejecuta (JC o JO).
+     * @param string   $motivo         Justificación.
+     * @param float    $penalizacion   Monto de penalización (0 = calculado automático desde producto).
+     *
+     * @return SeparacionCliente
+     */
+    public function separarClienteMoroso(
+        Prestamo $origen,
+        Cliente  $cliente,
+        User     $ejecutadoPor,
+        string   $motivo,
+        float    $penalizacion = 0,
+    ): SeparacionCliente {
+        return $this->separar(
+            prestamoOrigenId: $origen->id,
+            clienteId:        $cliente->id,
+            ejecutadoPorId:   $ejecutadoPor->id,
+            motivo:           $motivo,
+        );
+    }
+
     public function separar(
         int    $prestamoOrigenId,
         int    $clienteId,

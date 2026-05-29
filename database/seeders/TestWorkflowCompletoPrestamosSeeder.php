@@ -97,12 +97,12 @@ class TestWorkflowCompletoPrestamosSeeder extends Seeder
             return defined(Prestamo::class . '::ESTADO_APROBADO');
         }, 'Constantes');
 
-        $this->test('ESTADO_POR_DESEMBOLSAR está definido', function () {
-            return defined(Prestamo::class . '::ESTADO_POR_DESEMBOLSAR');
+        $this->test('ESTADO_FIRMADO está definido', function () {
+            return defined(Prestamo::class . '::ESTADO_FIRMADO');
         }, 'Constantes');
 
-        $this->test('ESTADO_DESEMBOLSADO está definido', function () {
-            return defined(Prestamo::class . '::ESTADO_DESEMBOLSADO');
+        $this->test('ESTADO_ACTIVO está definido', function () {
+            return defined(Prestamo::class . '::ESTADO_ACTIVO');
         }, 'Constantes');
 
         $this->test('ESTADO_ACTIVO está definido', function () {
@@ -156,13 +156,13 @@ class TestWorkflowCompletoPrestamosSeeder extends Seeder
             return $prestamo->puedeSerAprobado() === true;
         }, 'Flujo');
 
-        $this->test('Estado Por Desembolsar es válido para desembolsar', function () use ($prestamo) {
-            $prestamo->estado = Prestamo::ESTADO_POR_DESEMBOLSAR;
+        $this->test('Estado Firmado es válido para desembolsar', function () use ($prestamo) {
+            $prestamo->estado = Prestamo::ESTADO_FIRMADO;
             return $prestamo->puedeDesembolsar() === true;
         }, 'Flujo');
 
-        $this->test('Estado Desembolsado NO permite desembolsar de nuevo', function () use ($prestamo) {
-            $prestamo->estado = Prestamo::ESTADO_DESEMBOLSADO;
+        $this->test('Estado Activo NO permite desembolsar de nuevo', function () use ($prestamo) {
+            $prestamo->estado = Prestamo::ESTADO_ACTIVO;
             return $prestamo->puedeDesembolsar() === false;
         }, 'Flujo');
     }
@@ -178,8 +178,8 @@ class TestWorkflowCompletoPrestamosSeeder extends Seeder
             return;
         }
 
-        $this->test('Estado Por Desembolsar permite reducir monto', function () use ($prestamo) {
-            $prestamo->estado = Prestamo::ESTADO_POR_DESEMBOLSAR;
+        $this->test('Estado Aprobado permite reducir monto', function () use ($prestamo) {
+            $prestamo->estado = Prestamo::ESTADO_APROBADO;
             return $prestamo->puedeReducirMonto() === true;
         }, 'Reducción');
 
@@ -188,8 +188,8 @@ class TestWorkflowCompletoPrestamosSeeder extends Seeder
             return $prestamo->puedeReducirMonto() === false;
         }, 'Reducción');
 
-        $this->test('Estado Desembolsado NO permite reducir monto', function () use ($prestamo) {
-            $prestamo->estado = Prestamo::ESTADO_DESEMBOLSADO;
+        $this->test('Estado Activo NO permite reducir monto', function () use ($prestamo) {
+            $prestamo->estado = Prestamo::ESTADO_ACTIVO;
             return $prestamo->puedeReducirMonto() === false;
         }, 'Reducción');
 
@@ -230,10 +230,10 @@ class TestWorkflowCompletoPrestamosSeeder extends Seeder
             $prestamo->estado = Prestamo::ESTADO_PENDIENTE;
             $puedeRechazarPendiente = $prestamo->puedeSerRechazado();
 
-            $prestamo->estado = Prestamo::ESTADO_POR_DESEMBOLSAR;
-            $puedeRechazarPorDesembolsar = $prestamo->puedeSerRechazado();
+            $prestamo->estado = Prestamo::ESTADO_APROBADO;
+            $puedeRechazarAprobado = $prestamo->puedeSerRechazado();
 
-            return $puedeRechazarPendiente === true && $puedeRechazarPorDesembolsar === false;
+            return $puedeRechazarPendiente === true && $puedeRechazarAprobado === false;
         }, 'Validación');
     }
 
@@ -306,8 +306,7 @@ class TestWorkflowCompletoPrestamosSeeder extends Seeder
         $this->command->info("\n--- 6. CREACIÓN DE CUOTAS ---");
 
         // Buscar préstamo desembolsado (debería tener cuotas)
-        $prestamoDesembolsado = Prestamo::where('estado', Prestamo::ESTADO_DESEMBOLSADO)
-            ->orWhere('estado', Prestamo::ESTADO_ACTIVO)
+        $prestamoDesembolsado = Prestamo::where('estado', Prestamo::ESTADO_ACTIVO)
             ->first();
 
         if ($prestamoDesembolsado) {
@@ -320,7 +319,6 @@ class TestWorkflowCompletoPrestamosSeeder extends Seeder
 
         // Buscar préstamo pendiente o por desembolsar (NO debería tener cuotas)
         $prestamoPendiente = Prestamo::where('estado', Prestamo::ESTADO_PENDIENTE)
-            ->orWhere('estado', Prestamo::ESTADO_POR_DESEMBOLSAR)
             ->first();
 
         if ($prestamoPendiente) {

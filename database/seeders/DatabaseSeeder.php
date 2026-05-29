@@ -1,23 +1,34 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
+/**
+ * Orquestador de seeders para el entorno de desarrollo.
+ *
+ * Orden de ejecución:
+ *   1. PermissionSeeder        — roles y permisos base
+ *   2. ProductoFinancieroSeeder  — productos financieros disponibles
+ *   3. UsersSeeder              — usuarios del sistema con roles
+ *   4. ClientesGruposSeeder     — grupos y clientes de prueba
+ *   5. PrestamosDesarrolloSeeder — préstamos con cuotas individuales
+ *
+ * Para testing se usa migrate:fresh --seed con conexión de testing,
+ * que ejecuta este mismo orquestador sobre una DB limpia.
+ */
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            PermissionSeeder::class,
+            ProductoFinancieroSeeder::class,
+            UsersSeeder::class,
+            ClientesGruposSeeder::class,
+            PrestamosDesarrolloSeeder::class,
         ]);
     }
 }
