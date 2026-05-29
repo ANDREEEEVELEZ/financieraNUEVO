@@ -220,19 +220,29 @@ class PermissionSeeder extends Seeder
             'prestamos.reducir_monto',
             'prestamos.separar_cliente',   // ✅ Nuevo
             'prestamos.reagrupar',         // ✅ Nuevo
+            'view_any_prestamo',
+            'view_prestamo',
+            'create_prestamo',
+            'reorder_prestamo',
 
             // Pagos — solo registrar y ver, NO aprobar/anular/revertir
             'pagos.crear',                 // ✅ Registra solicitud de pago
             'pagos.ver_todos',             // ✅ Lectura: comportamiento de grupos
+            'view_any_pago',
+            'view_pago',
 
             // Retanqueos
             'retanqueos.ver_todos',        // ✅ Nuevo
+            'view_any_retanqueo',
+            'view_retanqueo',
 
             // Ajustes
             'ajustes.condonar_mora',
 
             // Productos
             'productos.ver',
+            'view_any_producto::financiero',
+            'view_producto::financiero',
 
             // Reportes
             'reportes.ver_financieros',
@@ -271,15 +281,28 @@ class PermissionSeeder extends Seeder
             'prestamos.reducir_monto',
             'prestamos.separar_cliente',   // ✅ Nuevo
             'prestamos.reagrupar',         // ✅ Nuevo
+            'view_any_prestamo',
+            'view_prestamo',
+            'reorder_prestamo',
 
             // Pagos — gestión completa
             'pagos.ver_todos',             // ✅ Nuevo
             'pagos.aprobar',               // ✅ Verifica transacción bancaria
             'pagos.anular',
             'pagos.revertir',              // ✅ Nuevo: revierte pago aprobado
+            'view_any_pago',
+            'view_pago',
+            'create_pago',
+            'update_pago',
+            'delete_pago',
+            'reorder_pago',
 
             // Retanqueos
             'retanqueos.ver_todos',        // ✅ Nuevo
+            'view_any_retanqueo',
+            'view_retanqueo',
+            'create_retanqueo',
+            'reorder_retanqueo',
 
             // Ajustes
             'ajustes.condonar_mora',
@@ -287,6 +310,8 @@ class PermissionSeeder extends Seeder
 
             // Productos
             'productos.ver',
+            'view_any_producto::financiero',
+            'view_producto::financiero',
 
             // Reportes
             'reportes.ver_financieros',
@@ -321,12 +346,22 @@ class PermissionSeeder extends Seeder
             'prestamos.crear',
             'prestamos.firmar',            // ✅ Nuevo: Aprobado → Firmado
             'prestamos.reformular',        // ✅ Nuevo: Rechazado → Reformulado
+            'view_any_prestamo',
+            'view_prestamo',
+            'create_prestamo',
+            'reorder_prestamo',
 
             // Pagos
             'pagos.crear',                 // Registra solicitud (estado pendiente)
+            'view_any_pago',
+            'view_pago',
+            'create_pago',
+            'reorder_pago',
 
             // Productos
             'productos.ver',
+            'view_any_producto::financiero',
+            'view_producto::financiero',
 
             // Reportes — solo exportar propia información
             'reportes.exportar_propio',    // ✅ Nuevo
