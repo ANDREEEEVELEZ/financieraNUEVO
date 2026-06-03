@@ -23,7 +23,7 @@ class Moras extends Page
         $fechaVencimientoLimite = now()->subDay(); // Un día antes de hoy para dar 1 día de gracia
 
         // Agregar logs para debugging
-        \Illuminate\Support\Facades\Log::info('Moras: Verificando cuotas vencidas', [
+        Log::info('Moras: Verificando cuotas vencidas', [
             'fecha_limite' => $fechaVencimientoLimite->toDateString(),
             'fecha_actual' => now()->toDateString()
         ]);
@@ -33,7 +33,7 @@ class Moras extends Page
             ->whereDate('fecha_vencimiento', '<=', $fechaVencimientoLimite)
             ->update(['estado_cuota_grupal' => 'mora']);
 
-        \Illuminate\Support\Facades\Log::info('Moras: Cuotas marcadas como mora', [
+        Log::info('Moras: Cuotas marcadas como mora', [
             'cantidad' => $cuotasActualizadas
         ]);
 
@@ -42,6 +42,7 @@ class Moras extends Page
             ->where('estado_cuota_grupal', 'mora')
             ->get();
 
+        /** @var CuotasGrupales $cuota */
         foreach ($cuotasEnMora as $cuota) {
             // Calcular días de atraso usando el método seguro del modelo Mora
             $diasAtraso = 0;

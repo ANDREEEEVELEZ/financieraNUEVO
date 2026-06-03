@@ -57,6 +57,69 @@ class ClientesGruposSeeder extends Seeder
             ['nombre' => 'Sofia',  'apellidos' => 'Torres',    'DNI' => '66666666', 'celular' => '966666666'],
             ['nombre' => 'Pedro',  'apellidos' => 'Diaz',      'DNI' => '77777777', 'celular' => '977777777'],
         ]);
+
+        // ─── Nuevos 40 clientes de prueba ──────────────────────────────
+        $nuevosClientes = [];
+        for ($i = 1; $i <= 40; $i++) {
+            $persona = Persona::create([
+                'nombre'    => 'TestNombre' . $i,
+                'apellidos' => 'TestApellido' . $i,
+                'DNI'       => str_pad((string)(80000000 + $i), 8, '0', STR_PAD_LEFT),
+                'celular'   => str_pad((string)(900000000 + $i), 9, '0', STR_PAD_LEFT),
+                'correo'    => "testcliente{$i}@test.com",
+            ]);
+
+            $cliente = Cliente::create([
+                'persona_id'     => $persona->id,
+                'estado_cliente' => 'activo',
+                'asesor_id'      => $asesor->id,
+            ]);
+
+            $nuevosClientes[] = $cliente;
+        }
+
+        $clienteIndex = 0;
+
+        // ─── 4 grupos de 4 personas (16 clientes) ──────────────────────
+        for ($g = 1; $g <= 4; $g++) {
+            $grupo = Grupo::create([
+                'nombre_grupo'       => "Grupo Test Cuatro $g",
+                'asesor_id'          => $asesor->id,
+                'fecha_registro'     => now()->toDateString(),
+                'numero_integrantes' => 4,
+                'calificacion_grupo' => 'A',
+                'estado_grupo'       => 'activo',
+            ]);
+
+            for ($i = 0; $i < 4; $i++) {
+                $nuevosClientes[$clienteIndex]->grupos()->attach($grupo->id, [
+                    'fecha_ingreso'    => now(),
+                    'estado_grupo_cliente' => 'activo',
+                ]);
+                $clienteIndex++;
+            }
+        }
+
+        // ─── 2 grupos de 5 personas (10 clientes) ──────────────────────
+        for ($g = 1; $g <= 2; $g++) {
+            $grupo = Grupo::create([
+                'nombre_grupo'       => "Grupo Test Cinco $g",
+                'asesor_id'          => $asesor->id,
+                'fecha_registro'     => now()->toDateString(),
+                'numero_integrantes' => 5,
+                'calificacion_grupo' => 'A',
+                'estado_grupo'       => 'activo',
+            ]);
+
+            for ($i = 0; $i < 5; $i++) {
+                $nuevosClientes[$clienteIndex]->grupos()->attach($grupo->id, [
+                    'fecha_ingreso'    => now(),
+                    'estado_grupo_cliente' => 'activo',
+                ]);
+                $clienteIndex++;
+            }
+        }
+        // Los 14 clientes restantes quedan sin grupo asignado.
     }
 
     /**

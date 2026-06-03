@@ -33,22 +33,25 @@ class CuotasResource extends Resource
         return $form->schema([]);
     }
 
-    public static function table(Table $table): Table
+    protected static function getTableQuery(): Builder
     {
         $user = Auth::user();
         $asesor = $user?->hasRole('Asesor') ? app(CacheServiceInterface::class)->getAsesorByUserId($user->id) : null;
 
+        return CuotasGrupales::query()
+            ->with(['prestamo.grupo.asesor.persona', 'mora'])
+            ->join('prestamos', 'cuotas_grupales.prestamo_id', '=', 'prestamos.id')
+            ->leftJoin('grupos', 'prestamos.grupo_id', '=', 'grupos.id')
+            ->whereIn('prestamos.estado', Prestamo::ESTADOS_ACTIVOS)
+            ->when($asesor, fn($q) => $q->where('grupos.asesor_id', $asesor->id))
+            ->select('cuotas_grupales.*')
+            ->orderBy('cuotas_grupales.fecha_vencimiento', 'asc');
+    }
+
+    public static function table(Table $table): Table
+    {
         return $table
-            ->query(
-                CuotasGrupales::query()
-                    ->with(['prestamo.grupo.asesor.persona', 'mora'])
-                    ->join('prestamos', 'cuotas_grupales.prestamo_id', '=', 'prestamos.id')
-                    ->leftJoin('grupos', 'prestamos.grupo_id', '=', 'grupos.id')
-                    ->whereIn('prestamos.estado', Prestamo::ESTADOS_ACTIVOS)
-                    ->when($asesor, fn($q) => $q->where('grupos.asesor_id', $asesor->id))
-                    ->select('cuotas_grupales.*')
-                    ->orderBy('cuotas_grupales.fecha_vencimiento', 'asc')
-            )
+            ->query(fn () => static::getTableQuery())
             ->columns([
                 Tables\Columns\TextColumn::make('prestamo.grupo.nombre_grupo')
                     ->label('Grupo')

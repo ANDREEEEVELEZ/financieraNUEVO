@@ -985,7 +985,7 @@ class PagoResource extends Resource
                                     ->danger()
                                     ->send();
                             }
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('Pago aprobado')
                                 ->success()
                                 ->send();
@@ -1024,20 +1024,20 @@ class PagoResource extends Resource
                         ->action(function ($record) {
                             try {
                                 if (app(PagoService::class)->revertirPago($record)) {
-                                    \Filament\Notifications\Notification::make()
+                                    Notification::make()
                                         ->title('Pago revertido')
                                         ->body('El pago ha sido revertido a estado Pendiente y los saldos fueron recalculados.')
                                         ->success()
                                         ->send();
                                 } else {
-                                    \Filament\Notifications\Notification::make()
+                                    Notification::make()
                                         ->title('Error al revertir')
                                         ->body('No se pudo revertir el pago. Solo se pueden revertir pagos aprobados.')
                                         ->danger()
                                         ->send();
                                 }
                             } catch (\Exception $e) {
-                                \Filament\Notifications\Notification::make()
+                                Notification::make()
                                     ->title('Error al revertir')
                                     ->body($e->getMessage())
                                     ->danger()
