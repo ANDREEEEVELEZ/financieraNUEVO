@@ -41,13 +41,24 @@ class DashboardPanelProvider extends PanelProvider
             ])
             ->darkMode(false)
             ->font('Poppins')
-            ->brandName('EMPRENDE CONMIGO SAC')
+            ->brandName('EMPRENDE CONMIGO')
+            ->sidebarCollapsibleOnDesktop()
+            ->navigationGroups([
+                \Filament\Navigation\NavigationGroup::make()
+                    ->label('Cartera'),
+                \Filament\Navigation\NavigationGroup::make()
+                    ->label('Operaciones'),
+                \Filament\Navigation\NavigationGroup::make()
+                    ->label('Movimientos financieros'),
+                \Filament\Navigation\NavigationGroup::make()
+                    ->label('Configuración'),
+            ])
             ->discoverResources(in: app_path('Filament/Dashboard/Resources'), for: 'App\\Filament\\Dashboard\\Resources')
             ->discoverPages(in: app_path('Filament/Dashboard/Pages'), for: 'App\\Filament\\Dashboard\\Pages')
             ->pages([
                 Dashboard::class,
-                // AsistenteVirtual::class,
-                // Moras::class,
+                    // AsistenteVirtual::class,
+                Moras::class,
                 \App\Filament\Dashboard\Pages\AsesorPage::class,
                 \App\Filament\Dashboard\Pages\AsesorDashboard::class,
             ])
@@ -81,7 +92,7 @@ class DashboardPanelProvider extends PanelProvider
             ->emailVerification()
             ->renderHook(
                 PanelsRenderHook::TOPBAR_END,
-                fn (): string => view('filament.hooks.notification-header-fixed')->render()
+                fn(): string => view('filament.hooks.notification-header-fixed')->render()
             );
     }
 }

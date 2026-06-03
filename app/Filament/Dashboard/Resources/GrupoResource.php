@@ -27,6 +27,7 @@ class GrupoResource extends Resource
     protected static ?string $model = Grupo::class;
 
 
+    protected static ?string $navigationGroup = 'Cartera';
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
 

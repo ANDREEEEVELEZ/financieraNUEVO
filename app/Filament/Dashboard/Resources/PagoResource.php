@@ -27,10 +27,12 @@ use Filament\Forms\Components\Repeater;
 class PagoResource extends Resource
 {
     protected static ?string $model = Pago::class;
+    protected static ?string $navigationGroup = 'Operaciones';
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
     protected static ?string $navigationLabel = 'Pagos';
     protected static ?string $modelLabel = 'Pago';
     protected static ?string $pluralModelLabel = 'Pagos';
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {

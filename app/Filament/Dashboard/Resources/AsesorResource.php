@@ -22,7 +22,8 @@ use Filament\Forms\Components\DatePicker;
 class AsesorResource extends Resource
 {
     protected static ?string $model = Asesor::class;
-  protected static ?string $navigationIcon = 'heroicon-o-user-plus';
+  protected static ?string $navigationGroup = 'Configuración';
+    protected static ?string $navigationIcon = 'heroicon-o-user-plus';
 
 
     public static function getModelLabel(): string

@@ -11,8 +11,9 @@ use App\Models\CuotasGrupales;
 class Moras extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-circle';
+    protected static ?string $navigationGroup = 'Operaciones';
     protected static string $view = 'filament.dashboard.pages.mora';
-    protected static ?string $title = 'Gestión de Moras';
+    protected static ?string $title = 'Moras';
     protected static ?int $navigationSort = 5;
 
     public function getViewData(): array
@@ -105,7 +106,7 @@ class Moras extends Page
     {
 
         if (request('grupo')) {
-            $query->whereHas('prestamo.grupo', function($q) {
+            $query->whereHas('prestamo.grupo', function ($q) {
                 $q->where('nombre_grupo', 'like', '%' . request('grupo') . '%');
             });
         }
@@ -120,7 +121,7 @@ class Moras extends Page
 
 
         if (request('monto') && is_numeric(request('monto'))) {
-            $query->whereHas('mora', function($q) {
+            $query->whereHas('mora', function ($q) {
                 $q->whereRaw('ABS(monto_mora_calculado) >= ?', [floatval(request('monto'))]);
             });
         }
@@ -135,7 +136,7 @@ class Moras extends Page
             Log::info('Filtro estado_mora aplicado', ['estado' => $estado]);
             if (in_array($estado, $estadosValidos)) {
                 // Solo mostrar cuotas que tengan una mora con el estado exacto
-                $query->whereHas('mora', function($q) use ($estado) {
+                $query->whereHas('mora', function ($q) use ($estado) {
                     $q->where('estado_mora', $estado);
                 });
             } else {
@@ -157,8 +158,10 @@ class Moras extends Page
 
         if (request('desde') || request('hasta')) {
             $fechas = [];
-            if (request('desde')) $fechas[] = 'desde ' . request('desde');
-            if (request('hasta')) $fechas[] = 'hasta ' . request('hasta');
+            if (request('desde'))
+                $fechas[] = 'desde ' . request('desde');
+            if (request('hasta'))
+                $fechas[] = 'hasta ' . request('hasta');
             $filtros[] = 'Fechas: ' . implode(' ', $fechas);
         }
 

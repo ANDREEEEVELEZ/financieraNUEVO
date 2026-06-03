@@ -21,11 +21,12 @@ class CuotasResource extends Resource
 {
     protected static ?string $model = CuotasGrupales::class;
 
+    protected static ?string $navigationGroup = 'Operaciones';
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
     protected static ?string $navigationLabel = 'Cuotas';
     protected static ?string $modelLabel = 'Cuota';
     protected static ?string $pluralModelLabel = 'Cuotas';
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
@@ -180,9 +181,10 @@ class CuotasResource extends Resource
 
                 Filter::make('vencidas')
                     ->label('Vencidas sin pagar')
-                    ->query(fn(Builder $query) => $query
-                        ->where('fecha_vencimiento', '<', now()->startOfDay())
-                        ->where('estado_pago', '!=', 'pagado')
+                    ->query(
+                        fn(Builder $query) => $query
+                            ->where('fecha_vencimiento', '<', now()->startOfDay())
+                            ->where('estado_pago', '!=', 'pagado')
                     )
                     ->toggle(),
             ])

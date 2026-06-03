@@ -32,6 +32,7 @@ class RetanqueoResource extends Resource
 {
     protected static ?string $model = Retanqueo::class;
 
+    protected static ?string $navigationGroup = 'Operaciones';
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
 
     protected static ?string $navigationLabel = 'Retanqueos';

@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\DB;
 class ClienteResource extends Resource
 {
     protected static ?string $model = Cliente::class;
+    protected static ?string $navigationGroup = 'Cartera';
     protected static ?string $navigationIcon = 'heroicon-o-user-plus';
 
 

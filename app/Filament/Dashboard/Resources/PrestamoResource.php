@@ -22,6 +22,7 @@ class PrestamoResource extends Resource
 {
     protected static ?string $model = Prestamo::class;
 
+    protected static ?string $navigationGroup = 'Operaciones';
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
     public static function form(Forms\Form $form): Forms\Form
