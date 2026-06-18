@@ -17,6 +17,9 @@ use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
+use Illuminate\Support\HtmlString;
+use Illuminate\Validation\Rule;
+use App\Models\User;
 
 
 class AsesorResource extends Resource
@@ -58,7 +61,27 @@ class AsesorResource extends Resource
                     }
                     return [new UniqueDNI()];
                 })
-                ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+                ->live(debounce: 800)
+                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                    $set('dni_error', '');
+
+                    $value = trim((string) $state);
+
+                    if (strlen($value) === 8 && ctype_digit($value)) {
+                        if (\App\Models\Persona::where('DNI', $value)->exists()) {
+                            $set('dni_error', 'Este DNI ya está registrado en el sistema.');
+                        }
+                    }
+                })
+                ->helperText(fn (callable $get) => new HtmlString(
+                    $get('dni_error')
+                        ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('dni_error')) . '</span>'
+                        : '<span class="text-gray-500 dark:text-gray-400">Ingrese 8 dígitos</span>'
+                ))
+                ->extraAttributes(fn (callable $get) => array_merge(
+                    ['inputmode' => 'numeric', 'pattern' => '[0-9]*'],
+                    $get('dni_error') ? ['style' => 'border-color: #ef4444;'] : []
+                ))
                 ->mask('99999999')
                 ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
             TextInput::make('nombre')
@@ -103,7 +126,27 @@ class AsesorResource extends Resource
                     }
                     return [new UniqueCelular()];
                 })
-                ->extraAttributes(['inputmode' => 'numeric', 'pattern' => '[0-9]*'])
+                ->live(debounce: 800)
+                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                    $set('celular_error', '');
+
+                    $value = trim((string) $state);
+
+                    if (strlen($value) === 9 && ctype_digit($value)) {
+                        if (\App\Models\Persona::where('celular', $value)->exists()) {
+                            $set('celular_error', 'Este número de celular ya está registrado en el sistema.');
+                        }
+                    }
+                })
+                ->helperText(fn (callable $get) => new HtmlString(
+                    $get('celular_error')
+                        ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('celular_error')) . '</span>'
+                        : '<span class="text-gray-500 dark:text-gray-400">Ingrese 9 dígitos</span>'
+                ))
+                ->extraAttributes(fn (callable $get) => array_merge(
+                    ['inputmode' => 'numeric', 'pattern' => '[0-9]*'],
+                    $get('celular_error') ? ['style' => 'border-color: #ef4444;'] : []
+                ))
                 ->mask('999999999'),
             TextInput::make('correo')
                 ->label('Correo Electrónico')
@@ -116,8 +159,24 @@ class AsesorResource extends Resource
                     }
                     return [new UniqueCorreo()];
                 })
-                ->dehydrateStateUsing(fn ($state) => strtoupper($state))
-                ->formatStateUsing(fn ($state) => strtoupper($state)),
+                ->live(debounce: 800)
+                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                    $set('correo_error', '');
+
+                    $value = trim(strtolower((string) $state));
+
+                    if (filter_var($value, FILTER_VALIDATE_EMAIL) && \App\Models\Persona::whereRaw('LOWER(correo) = ?', [$value])->exists()) {
+                        $set('correo_error', 'Este correo electrónico ya está registrado en el sistema.');
+                    }
+                })
+                ->helperText(fn (callable $get) => new HtmlString(
+                    $get('correo_error')
+                        ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('correo_error')) . '</span>'
+                        : '<span class="text-gray-500 dark:text-gray-400">Ejemplo: usuario@gmail.com</span>'
+                ))
+                ->extraAttributes(fn (callable $get) => $get('correo_error') ? ['style' => 'border-color: #ef4444;'] : [])
+                ->dehydrateStateUsing(fn ($state) => strtolower($state))
+                ->formatStateUsing(fn ($state) => strtolower($state)),
             TextInput::make('direccion')
                 ->label('Dirección')
                 ->required()
@@ -156,11 +215,69 @@ class AsesorResource extends Resource
                     Tabs\Tab::make('Datos de Usuario')->icon('heroicon-o-cog-6-tooth')
                         ->schema([
                             Forms\Components\Group::make([
-                                TextInput::make('name')->label('Nombre de Usuario')->required()  ->prefixIcon('heroicon-o-user')
-    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                                TextInput::make('email')->label('Correo')->email()->required() ->prefixIcon('heroicon-o-envelope'),
+                                TextInput::make('name')
+                                    ->label('Nombre de Usuario')
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-user')
+                                    ->rules([Rule::unique('users', 'name')])
+                                    ->live(debounce: 800)
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $set('name_error', '');
+
+                                        $value = trim((string) $state);
+
+                                        if ($value !== '' && User::whereRaw('LOWER(name) = ?', [strtolower($value)])->exists()) {
+                                            $set('name_error', 'Este nombre de usuario ya está registrado en el sistema.');
+                                        }
+                                    })
+                                    ->helperText(fn (callable $get) => new HtmlString(
+                                        $get('name_error')
+                                            ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('name_error')) . '</span>'
+                                            : '<span class="text-gray-500 dark:text-gray-400">Nombre visible para iniciar sesión</span>'
+                                    ))
+                                    ->extraAttributes(fn (callable $get) => $get('name_error') ? ['style' => 'border-color: #ef4444;'] : [])
+                                    ->disabled(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                                TextInput::make('email')
+                                    ->label('Correo')
+                                    ->email()
+                                    ->required()
+                                    ->prefixIcon('heroicon-o-envelope')
+                                    ->rules(function ($livewire) {
+                                        if ($livewire instanceof \Filament\Resources\Pages\EditRecord) {
+                                            return [Rule::unique('users', 'email')->ignore($livewire->record->user_id)];
+                                        }
+
+                                        return [Rule::unique('users', 'email')];
+                                    })
+                                    ->live(debounce: 800)
+                                    ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                                        $set('user_email_error', '');
+
+                                        $value = trim(strtolower((string) $state));
+
+                                        if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                                            $query = User::whereRaw('LOWER(email) = ?', [$value]);
+                                            $userId = $get('user_id');
+
+                                            if ($userId) {
+                                                $query->where('id', '!=', $userId);
+                                            }
+
+                                            if ($query->exists()) {
+                                                $set('user_email_error', 'Este correo ya está registrado en el sistema.');
+                                            }
+                                        }
+                                    })
+                                    ->helperText(fn (callable $get) => new HtmlString(
+                                        $get('user_email_error')
+                                            ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('user_email_error')) . '</span>'
+                                            : '<span class="text-gray-500 dark:text-gray-400">Correo de acceso del usuario</span>'
+                                    ))
+                                    ->extraAttributes(fn (callable $get) => $get('user_email_error') ? ['style' => 'border-color: #ef4444;'] : [])
+                                    ->dehydrateStateUsing(fn ($state) => strtolower($state))
+                                    ->formatStateUsing(fn ($state) => strtolower($state)),
                                 TextInput::make('password')
-                                ->prefixIcon('heroicon-o-lock-closed')
+                                    ->prefixIcon('heroicon-o-lock-closed')
                                     ->label('Contraseña')
                                     ->password()
                                     ->dehydrateStateUsing(fn ($state) => !empty($state) ? bcrypt($state) : null)
@@ -170,7 +287,41 @@ class AsesorResource extends Resource
                         ]),
                     Tabs\Tab::make('Datos del Asesor')->icon('heroicon-o-clipboard-document')
                         ->schema([
-                            TextInput::make('codigo_asesor')->nullable() ->prefixIcon('heroicon-o-tag'),
+                            TextInput::make('codigo_asesor')
+                                ->nullable()
+                                ->prefixIcon('heroicon-o-tag')
+                                ->rules(function ($livewire) {
+                                    if ($livewire instanceof \Filament\Resources\Pages\EditRecord) {
+                                        return [Rule::unique('asesores', 'codigo_asesor')->ignore($livewire->record->id)];
+                                    }
+
+                                    return [Rule::unique('asesores', 'codigo_asesor')];
+                                })
+                                ->live(debounce: 800)
+                                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                                    $set('codigo_asesor_error', '');
+
+                                    $value = trim((string) $state);
+
+                                    if ($value !== '') {
+                                        $query = Asesor::whereRaw('LOWER(codigo_asesor) = ?', [strtolower($value)]);
+                                        $asesorId = $get('id');
+
+                                        if ($asesorId) {
+                                            $query->where('id', '!=', $asesorId);
+                                        }
+
+                                        if ($query->exists()) {
+                                            $set('codigo_asesor_error', 'Este código de asesor ya está registrado en el sistema.');
+                                        }
+                                    }
+                                })
+                                ->helperText(fn (callable $get) => new HtmlString(
+                                    $get('codigo_asesor_error')
+                                        ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('codigo_asesor_error')) . '</span>'
+                                        : '<span class="text-gray-500 dark:text-gray-400">Código interno del asesor</span>'
+                                ))
+                                ->extraAttributes(fn (callable $get) => $get('codigo_asesor_error') ? ['style' => 'border-color: #ef4444;'] : []),
                             DatePicker::make('fecha_ingreso')
                                 ->nullable()
                                 ->prefixIcon('heroicon-o-clock')
@@ -184,9 +335,18 @@ class AsesorResource extends Resource
                                 ->default('ACTIVO')
                                 ->required()
                                 ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                            ]),
+                                ]),
 
-                    ]),
+                            ]),
+                            Forms\Components\Hidden::make('id'),
+                            Forms\Components\Hidden::make('persona_id'),
+                            Forms\Components\Hidden::make('user_id'),
+                            Forms\Components\Hidden::make('dni_error'),
+                            Forms\Components\Hidden::make('celular_error'),
+                            Forms\Components\Hidden::make('correo_error'),
+                            Forms\Components\Hidden::make('name_error'),
+                            Forms\Components\Hidden::make('user_email_error'),
+                            Forms\Components\Hidden::make('codigo_asesor_error'),
             ]);
     }
     public static function table(Table $table): Table

@@ -34,7 +34,6 @@ class UserResource extends Resource
                     ->label('Contraseña')
                     ->prefixIcon('heroicon-o-lock-closed')
                     ->password()
-                    ->dehydrateStateUsing(fn($state) => !empty($state) ? bcrypt($state) : null)
                     ->dehydrated(fn($state) => filled($state))
                     ->required(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\CreateRecord),
                 Forms\Components\Select::make('roles')

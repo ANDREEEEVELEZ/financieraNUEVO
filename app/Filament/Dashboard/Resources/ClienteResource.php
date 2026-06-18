@@ -23,6 +23,7 @@ use Filament\Forms\Components\Section;
 use App\Contracts\CacheServiceInterface;
 use App\Domain\Documentos\DeclaracionJuradaService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 
 class ClienteResource extends Resource
 {
@@ -65,7 +66,11 @@ class ClienteResource extends Resource
                                             });
                                         }
                                     })
-                                    ->helperText(fn(callable $get) => $get('dni_error') ?: 'Ingrese 8 dígitos')
+                                    ->helperText(fn(callable $get) => new HtmlString(
+                                        $get('dni_error')
+                                            ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('dni_error')) . '</span>'
+                                            : '<span class="text-gray-500 dark:text-gray-400">Ingrese 8 dígitos</span>'
+                                    ))
                                     ->extraAttributes(fn(callable $get) => $get('dni_error') ? ['style' => 'border-color: #ef4444;'] : [])
                                     ->disabled(fn($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                                 TextInput::make('persona.nombre')
@@ -121,7 +126,11 @@ class ClienteResource extends Resource
                                             });
                                         }
                                     })
-                                    ->helperText(fn(callable $get) => $get('celular_error') ?: 'Ingrese 9 dígitos')
+                                    ->helperText(fn(callable $get) => new HtmlString(
+                                        $get('celular_error')
+                                            ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('celular_error')) . '</span>'
+                                            : '<span class="text-gray-500 dark:text-gray-400">Ingrese 9 dígitos</span>'
+                                    ))
                                     ->extraAttributes(fn(callable $get) => $get('celular_error') ? ['style' => 'border-color: #ef4444;'] : []),
                                 TextInput::make('persona.correo')
                                     ->label('Correo Electrónico')
@@ -143,7 +152,11 @@ class ClienteResource extends Resource
                                             });
                                         }
                                     })
-                                    ->helperText(fn(callable $get) => $get('correo_error') ?: 'Ejemplo: usuario@gmail.com')
+                                    ->helperText(fn(callable $get) => new HtmlString(
+                                        $get('correo_error')
+                                            ? '<span class="text-danger-600 dark:text-danger-400">' . e($get('correo_error')) . '</span>'
+                                            : '<span class="text-gray-500 dark:text-gray-400">Ejemplo: usuario@gmail.com</span>'
+                                    ))
                                     ->extraAttributes(fn(callable $get) => $get('correo_error') ? ['style' => 'border-color: #ef4444;'] : []),
                                 TextInput::make('persona.direccion')
                                     ->label('Dirección')
