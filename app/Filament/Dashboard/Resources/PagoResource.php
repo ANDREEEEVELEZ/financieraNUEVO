@@ -5,6 +5,7 @@ namespace App\Filament\Dashboard\Resources;
 use App\Filament\Dashboard\Resources\PagoResource\Pages;
 use App\Models\Pago;
 use App\Models\CuotasGrupales;
+use App\Models\CuotaIndividual;
 use App\Domain\Pagos\PagoService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -360,12 +361,23 @@ class PagoResource extends Resource
                             if ($grupoEstado && str_contains($grupoEstado, '_')) {
                                 [$grupoId, $prestamoId] = explode('_', $grupoEstado, 2);
                                 $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->with('cliente.persona')->get();
-                                $set('detalles_pago', $integrantes->map(function ($pi) use ($state) {
+                                $cuotaGrupalId = $get('cuota_grupal_id');
+                                $numeroCuota = $cuotaGrupalId ? CuotasGrupales::find($cuotaGrupalId)?->numero_cuota : null;
+                                $set('detalles_pago', $integrantes->map(function ($pi) use ($state, $numeroCuota) {
                                     $nombre = 'Sin nombre';
                                     if ($pi->cliente && $pi->cliente->persona) {
                                         $nombre = trim(($pi->cliente->persona->nombre ?? '') . ' ' . ($pi->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
                                     }
+                                    $cuotaId = null;
+                                    if ($numeroCuota !== null) {
+                                        $cuotaId = \App\Models\CuotaIndividual::where('prestamo_id', $pi->prestamo_id)
+                                            ->where('cliente_id', $pi->cliente_id)
+                                            ->where('numero_cuota', $numeroCuota)
+                                            ->value('id');
+                                    }
+
                                     return [
+                                        'cuota_id' => $cuotaId,
                                         'prestamo_individual_id' => $pi->id,
                                         'nombre_integrante' => $nombre,
                                         // ✅ VERIFICAR: Este debe ser el monto individual de cada integrante
@@ -608,6 +620,28 @@ class PagoResource extends Resource
                         ->label('Detalle de pago por integrante')
                         ->relationship('detallesPago')
                         ->schema([
+                            Hidden::make('cuota_id')
+                                ->default(function (callable $get) {
+                                    $prestamoIndividualId = $get('prestamo_individual_id');
+                                    $cuotaGrupalId = $get('../../cuota_grupal_id');
+
+                                    if (! $prestamoIndividualId || ! $cuotaGrupalId) {
+                                        return null;
+                                    }
+
+                                    $cuotaGrupal = CuotasGrupales::find($cuotaGrupalId);
+                                    $prestamoIndividual = \App\Models\PrestamoIndividual::find($prestamoIndividualId);
+
+                                    if (! $cuotaGrupal || ! $prestamoIndividual) {
+                                        return null;
+                                    }
+
+                                    return CuotaIndividual::where('prestamo_id', $prestamoIndividual->prestamo_id)
+                                        ->where('cliente_id', $prestamoIndividual->cliente_id)
+                                        ->where('numero_cuota', $cuotaGrupal->numero_cuota)
+                                        ->value('id');
+                                })
+                                ->dehydrated(true),
                             Hidden::make('prestamo_individual_id'),
 
 
@@ -721,8 +755,19 @@ class PagoResource extends Resource
                                 [$grupoId, $prestamoId] = explode('_', $get('grupo_id'), 2);
                                 $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->get();
                                 $tipoPago = $get('tipo_pago');
-                                $component->state($integrantes->map(function ($pi) use ($tipoPago) {
+                                $cuotaGrupalId = $get('cuota_grupal_id');
+                                $numeroCuota = $cuotaGrupalId ? CuotasGrupales::find($cuotaGrupalId)?->numero_cuota : null;
+                                $component->state($integrantes->map(function ($pi) use ($tipoPago, $numeroCuota) {
+                                    $cuotaId = null;
+                                    if ($numeroCuota !== null) {
+                                        $cuotaId = \App\Models\CuotaIndividual::where('prestamo_id', $pi->prestamo_id)
+                                            ->where('cliente_id', $pi->cliente_id)
+                                            ->where('numero_cuota', $numeroCuota)
+                                            ->value('id');
+                                    }
+
                                     return [
+                                        'cuota_id' => $cuotaId,
                                         'prestamo_individual_id' => $pi->id,
                                         'monto_pagado' => $tipoPago === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : 0,
                                         'estado_pago_individual' => $tipoPago === 'pago_completo' ? 'Pagada' : null,
