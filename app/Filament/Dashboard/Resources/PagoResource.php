@@ -355,23 +355,28 @@ class PagoResource extends Resource
                         ->live(onBlur: true)  // Optimizado: solo actualiza al confirmar selección
                         ->dehydrated(true)
                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                            // Autollenar detalles_pago al cambiar tipo de pago
-                            $grupoEstado = $get('grupo_id');
-                            if ($grupoEstado && str_contains($grupoEstado, '_')) {
-                                [$grupoId, $prestamoId] = explode('_', $grupoEstado, 2);
-                                $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->with('cliente.persona')->get();
-                                $set('detalles_pago', $integrantes->map(function ($pi) use ($state) {
-                                    $nombre = 'Sin nombre';
-                                    if ($pi->cliente && $pi->cliente->persona) {
-                                        $nombre = trim(($pi->cliente->persona->nombre ?? '') . ' ' . ($pi->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
-                                    }
-                                    return [
-                                        'prestamo_individual_id' => $pi->id,
-                                        'nombre_integrante' => $nombre,
-                                        // ✅ VERIFICAR: Este debe ser el monto individual de cada integrante
-                                        'monto_pagado' => $state === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : 0,
-                                    ];
-                                })->toArray());
+                            // Autollenar la distribución UI (aplicaciones) al cambiar tipo de pago
+                            $cuotaGrupalIdParaDetalle = $get('cuota_grupal_id');
+                            if ($cuotaGrupalIdParaDetalle) {
+                                $cuotaGrupalParaDetalle = CuotasGrupales::find($cuotaGrupalIdParaDetalle);
+                                if ($cuotaGrupalParaDetalle) {
+                                    $cuotasIndividuales = \App\Models\CuotaIndividual::where('prestamo_id', $cuotaGrupalParaDetalle->prestamo_id)
+                                        ->where('numero_cuota', $cuotaGrupalParaDetalle->numero_cuota)
+                                        ->with('cliente.persona')
+                                        ->get();
+
+                                    $set('detalles_pago', $cuotasIndividuales->map(function ($ci) use ($state) {
+                                        $nombre = 'Sin nombre';
+                                        if ($ci->cliente && $ci->cliente->persona) {
+                                            $nombre = trim(($ci->cliente->persona->nombre ?? '') . ' ' . ($ci->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
+                                        }
+                                        return [
+                                            'cuota_id' => $ci->id,
+                                            'cliente_nombre' => $nombre,
+                                            'monto_pagado' => $state === 'pago_completo' ? ((float) $ci->saldo_capital + (float) $ci->saldo_interes) : 0,
+                                        ];
+                                    })->toArray());
+                                }
                             }
                             $cuotaId = $get('cuota_grupal_id');
                             if (!$cuotaId) {
@@ -606,21 +611,23 @@ class PagoResource extends Resource
                 ->schema([
                     Repeater::make('detalles_pago')
                         ->label('Detalle de pago por integrante')
-                        ->relationship('detallesPago')
+                        // UI-only: NOT backed by ->relationship(). Distribution rows are written
+                        // by PagoService::aprobarPago() into AplicacionPago, not by this form.
+                        ->dehydrated(false)
                         ->schema([
-                            Hidden::make('prestamo_individual_id'),
+                            Hidden::make('cuota_id'),
 
 
                             \Filament\Forms\Components\Placeholder::make('nombre_integrante')
                                 ->label('Integrante')
                                 ->content(function (callable $get) {
-                                    $prestamoIndId = $get('prestamo_individual_id');
-                                    if (!$prestamoIndId)
+                                    $cuotaIndId = $get('cuota_id');
+                                    if (!$cuotaIndId)
                                         return 'Sin nombre';
-                                    $pi = \App\Models\PrestamoIndividual::with('cliente.persona')->find($prestamoIndId);
-                                    if (!$pi || !$pi->cliente || !$pi->cliente->persona)
+                                    $ci = \App\Models\CuotaIndividual::with('cliente.persona')->find($cuotaIndId);
+                                    if (!$ci || !$ci->cliente || !$ci->cliente->persona)
                                         return 'Sin nombre';
-                                    return trim(($pi->cliente->persona->nombre ?? '') . ' ' . ($pi->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
+                                    return trim(($ci->cliente->persona->nombre ?? '') . ' ' . ($ci->cliente->persona->apellidos ?? '')) ?: 'Sin nombre';
                                 }),
 
 
@@ -643,10 +650,9 @@ class PagoResource extends Resource
                                 ->dehydrated(true)
                                 ->default(function (callable $get) {
                                     if ($get('../../tipo_pago') === 'pago_completo') {
-                                        $prestamoIndId = $get('prestamo_individual_id');
-                                        $pi = $prestamoIndId ? \App\Models\PrestamoIndividual::find($prestamoIndId) : null;
-                                        // ✅ VERIFICAR: Debe retornar el monto individual de cada integrante
-                                        return $pi ? $pi->monto_cuota_prestamo_individual : 0;
+                                        $cuotaIndId = $get('cuota_id');
+                                        $ci = $cuotaIndId ? \App\Models\CuotaIndividual::find($cuotaIndId) : null;
+                                        return $ci ? ((float) $ci->saldo_capital + (float) $ci->saldo_interes) : 0;
                                     }
                                     return 0;
                                 })
@@ -694,18 +700,26 @@ class PagoResource extends Resource
                                 }),
                         ])
                         ->minItems(function (callable $get) {
-                            $grupoPrestamo = $get('grupo_id');
-                            if (!$grupoPrestamo || !str_contains($grupoPrestamo, '_'))
+                            $cuotaGrupalId = $get('cuota_grupal_id');
+                            if (!$cuotaGrupalId)
                                 return 0;
-                            [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
-                            return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
+                            $cuotaGrupal = CuotasGrupales::find($cuotaGrupalId);
+                            if (!$cuotaGrupal)
+                                return 0;
+                            return \App\Models\CuotaIndividual::where('prestamo_id', $cuotaGrupal->prestamo_id)
+                                ->where('numero_cuota', $cuotaGrupal->numero_cuota)
+                                ->count();
                         })
                         ->maxItems(function (callable $get) {
-                            $grupoPrestamo = $get('grupo_id');
-                            if (!$grupoPrestamo || !str_contains($grupoPrestamo, '_'))
+                            $cuotaGrupalId = $get('cuota_grupal_id');
+                            if (!$cuotaGrupalId)
                                 return 0;
-                            [$grupoId, $prestamoId] = explode('_', $grupoPrestamo, 2);
-                            return \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->count();
+                            $cuotaGrupal = CuotasGrupales::find($cuotaGrupalId);
+                            if (!$cuotaGrupal)
+                                return 0;
+                            return \App\Models\CuotaIndividual::where('prestamo_id', $cuotaGrupal->prestamo_id)
+                                ->where('numero_cuota', $cuotaGrupal->numero_cuota)
+                                ->count();
                         })
                         ->grid(['default' => 1, 'sm' => 2, 'lg' => 4])
                         ->defaultItems(0)
@@ -717,17 +731,20 @@ class PagoResource extends Resource
                             return !$grupoPrestamo || !str_contains($grupoPrestamo, '_');
                         })
                         ->afterStateHydrated(function ($component, $state, $record, callable $get) {
-                            if (!$state && $get('grupo_id') && str_contains($get('grupo_id'), '_')) {
-                                [$grupoId, $prestamoId] = explode('_', $get('grupo_id'), 2);
-                                $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->get();
-                                $tipoPago = $get('tipo_pago');
-                                $component->state($integrantes->map(function ($pi) use ($tipoPago) {
-                                    return [
-                                        'prestamo_individual_id' => $pi->id,
-                                        'monto_pagado' => $tipoPago === 'pago_completo' ? $pi->monto_cuota_prestamo_individual : 0,
-                                        'estado_pago_individual' => $tipoPago === 'pago_completo' ? 'Pagada' : null,
-                                    ];
-                                })->toArray());
+                            if (!$state && $get('cuota_grupal_id')) {
+                                $cuotaGrupal = CuotasGrupales::find($get('cuota_grupal_id'));
+                                if ($cuotaGrupal) {
+                                    $cuotasIndividuales = \App\Models\CuotaIndividual::where('prestamo_id', $cuotaGrupal->prestamo_id)
+                                        ->where('numero_cuota', $cuotaGrupal->numero_cuota)
+                                        ->get();
+                                    $tipoPago = $get('tipo_pago');
+                                    $component->state($cuotasIndividuales->map(function ($ci) use ($tipoPago) {
+                                        return [
+                                            'cuota_id' => $ci->id,
+                                            'monto_pagado' => $tipoPago === 'pago_completo' ? ((float) $ci->saldo_capital + (float) $ci->saldo_interes) : 0,
+                                        ];
+                                    })->toArray());
+                                }
                             }
                         })
                         // NUEVO: Agregar validación personalizada para asegurar que la suma no exceda el saldo
@@ -782,7 +799,7 @@ class PagoResource extends Resource
                         if (strtolower($record->estado_pago) === 'pendiente') {
                             $component->state($saldo + $mora);
                         } else {
-                            $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
+                            $pagosAprobados = $cuota->pagos()->where('estado_pago', 'aprobado')->sum('monto_pagado');
                             $saldoReal = round(max(($saldo + $mora) - $pagosAprobados, 0), 2);
                             $component->state($saldoReal);
                         }
@@ -902,7 +919,7 @@ class PagoResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(function ($state, $record) {
                         // Si el pago está rechazado, no mostrar saldo
-                        if ($record->estado_pago === 'Rechazado') {
+                        if (strtolower($record->estado_pago) === 'rechazado') {
                             return 'N/A';
                         }
 
@@ -917,7 +934,7 @@ class PagoResource extends Resource
 
                         // Usar colección en memoria para evitar consultas N+1
                         $pagosAprobados = $cuota->pagos
-                            ->where('estado_pago', 'Aprobado')
+                            ->where('estado_pago', 'aprobado')
                             ->sum('monto_pagado');
 
                         $saldo = round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);
@@ -1065,10 +1082,6 @@ class PagoResource extends Resource
                 'cuotaGrupal.prestamo.grupo',
                 'cuotaGrupal.mora',
                 'cuotaGrupal.pagos',
-                'detallesPago',
-                'detallesPago.prestamoIndividual',
-                'detallesPago.prestamoIndividual.cliente',
-                'detallesPago.prestamoIndividual.cliente.persona',
             ]);
 
         if ($user->hasRole('Asesor')) {

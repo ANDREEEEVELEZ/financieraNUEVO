@@ -30,7 +30,7 @@ class PagoService implements PagoServiceInterface
             // Bloqueo pesimista
             $pago = Pago::where('id', $pago->id)->lockForUpdate()->firstOrFail();
 
-            if ($pago->estado_pago !== 'pendiente') {
+            if (strtolower((string) $pago->estado_pago) !== 'pendiente') {
                 return $pago;
             }
 

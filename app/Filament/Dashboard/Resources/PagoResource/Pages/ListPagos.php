@@ -119,7 +119,7 @@ class ListPagos extends ListRecords
                     ->tooltip('Cuotas pendientes')
                     ->getStateUsing(function ($record) {
                         return $record->cuotasGrupales->filter(function ($cuota) {
-                            return $cuota->pagos->where('estado_pago', 'Pendiente')->count() > 0;
+                            return $cuota->pagos->where('estado_pago', 'pendiente')->count() > 0;
                         })->count();
                     })
                     ->alignCenter()
@@ -131,7 +131,7 @@ class ListPagos extends ListRecords
                     ->tooltip('Cuotas rechazadas')
                     ->getStateUsing(function ($record) {
                         return $record->cuotasGrupales->filter(function ($cuota) {
-                            return $cuota->pagos->where('estado_pago', 'Rechazado')->count() > 0;
+                            return $cuota->pagos->where('estado_pago', 'rechazado')->count() > 0;
                         })->count();
                     })
                     ->alignCenter()
@@ -249,7 +249,7 @@ class ListPagos extends ListRecords
                             return $cuota->pagos->where('estado_pago', 'aprobado')->count() > 0;
                         })->count();
                         $cuotasPendientes = $record->cuotasGrupales->filter(function ($cuota) {
-                            return $cuota->pagos->where('estado_pago', 'Pendiente')->count() > 0;
+                            return $cuota->pagos->where('estado_pago', 'pendiente')->count() > 0;
                         })->count();
                         if ($totalCuotas == $cuotasAprobadas && $totalCuotas > 0) {
                             return 'Completado';
@@ -333,7 +333,7 @@ class ListPagos extends ListRecords
                                 return $cuota->pagos->where('estado_pago', 'aprobado')->count() > 0;
                             })->count();
                             $cuotasPendientes = $prestamo->cuotasGrupales->filter(function ($cuota) {
-                                return $cuota->pagos->where('estado_pago', 'Pendiente')->count() > 0;
+                                return $cuota->pagos->where('estado_pago', 'pendiente')->count() > 0;
                             })->count();
                             $estado = '';
                             if ($totalCuotas == $cuotasAprobadas && $totalCuotas > 0) {
@@ -432,9 +432,9 @@ class ListPagos extends ListRecords
                                 ->label('Estado de Pago')
                                 ->options([
                                     'Todos los estados' => '📋 Todos los estados',
-                                    'Pendiente' => '⏳ Pendiente',
-                                    'Aprobado' => '✅ Aprobado',
-                                    'Rechazado' => '❌ Rechazado',
+                                    'pendiente' => '⏳ Pendiente',
+                                    'aprobado' => '✅ Aprobado',
+                                    'rechazado' => '❌ Rechazado',
                                 ])
                                 ->default('Todos los estados')
                                 ->placeholder(null)

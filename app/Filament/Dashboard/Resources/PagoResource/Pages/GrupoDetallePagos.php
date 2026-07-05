@@ -141,7 +141,7 @@ public function table(Table $table): Table
                 ->alignRight()
                 ->weight('medium')
                 ->getStateUsing(function ($record) {
-                    if ($record->estado_pago === 'Rechazado') {
+                    if (strtolower($record->estado_pago) === 'rechazado') {
                         return 'N/A';
                     }
 
@@ -168,8 +168,8 @@ public function table(Table $table): Table
                 ->label('Estado')
                 ->options([
                     'aprobado' => 'Aprobado',
-                    'Pendiente' => 'Pendiente',
-                    'Rechazado' => 'Rechazado',
+                    'pendiente' => 'Pendiente',
+                    'rechazado' => 'Rechazado',
                 ]),
 
             Tables\Filters\SelectFilter::make('tipo_pago')
@@ -372,28 +372,28 @@ public function table(Table $table): Table
 
                                                 if ($state === 'pago_completo') {
                                                     $set('monto_pagado', $saldoPendiente);
-                                                    // Poblar detallesPago igual que en PagoResource
-                                                    if ($record->cuotaGrupal && $record->cuotaGrupal->prestamo) {
-                                                        $prestamoId = $record->cuotaGrupal->prestamo->id;
-                                                        $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->with('cliente.persona')->get();
-                                                        $detalles = $integrantes->map(function($pi) {
-                                                            $persona = optional($pi->cliente->persona);
-                                                            $nombre = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
-                                                            return [
-                                                                'prestamo_individual_id' => $pi->id,
-                                                                'nombre_integrante' => $nombre,
-                                                                'monto_pagado' => $pi->monto_cuota_prestamo_individual,
-                                                            ];
-                                                        })->toArray();
-                                                        $set('detallesPago', $detalles);
-                                                    }
+                                                    // Poblar detallesPago (array UI-only, no persistido) desde CuotaIndividual (V2)
+                                                    $cuotasIndividuales = \App\Models\CuotaIndividual::where('prestamo_id', $cuota->prestamo_id)
+                                                        ->where('numero_cuota', $cuota->numero_cuota)
+                                                        ->with('cliente.persona')
+                                                        ->get();
+                                                    $detalles = $cuotasIndividuales->map(function ($ci) {
+                                                        $persona = optional($ci->cliente?->persona);
+                                                        $nombre = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
+                                                        return [
+                                                            'cuota_individual_id' => $ci->id,
+                                                            'nombre_integrante' => $nombre,
+                                                            'monto_pagado' => (float) $ci->saldo_capital + (float) $ci->saldo_interes,
+                                                        ];
+                                                    })->toArray();
+                                                    $set('detallesPago', $detalles);
                                                 } elseif ($state === 'pago_parcial') {
                                                     $set('monto_pagado', null);
                                                     // Limpiar los montos de los integrantes
                                                     $detalles = $get('detallesPago') ?? [];
                                                     $detallesLimpios = collect($detalles)->map(function($detalle) {
                                                         return [
-                                                            'prestamo_individual_id' => $detalle['prestamo_individual_id'] ?? null,
+                                                            'cuota_individual_id' => $detalle['cuota_individual_id'] ?? null,
                                                             'nombre_integrante' => $detalle['nombre_integrante'] ?? 'Sin nombre',
                                                             'monto_pagado' => null,
                                                         ];
@@ -561,6 +561,9 @@ public function table(Table $table): Table
                             ->schema([
                                \Filament\Forms\Components\Repeater::make('detallesPago')
                                 ->label('Integrantes')
+                                // UI-only: never persisted as a relation. AplicacionPago rows are
+                                // written exclusively by PagoService::aprobarPago().
+                                ->dehydrated(false)
                                 ->schema([
                                     \Filament\Forms\Components\Placeholder::make('nombre_integrante')
                                         ->label('Integrante')
@@ -742,7 +745,7 @@ public function table(Table $table): Table
                                     if (is_array($detalles) && count($detalles) > 0) {
                                         return true;
                                     }
-                                    return $record && $record->detallesPago && $record->detallesPago->count() > 0;
+                                    return $record && $record->aplicacionesPago && $record->aplicacionesPago->count() > 0;
                                 }),
                             ])
                             ->collapsible()
@@ -751,7 +754,7 @@ public function table(Table $table): Table
                 ->mutateRecordDataUsing(function (array $data, $record): array {
                     // Cargar todas las relaciones necesarias
                     $record->load([
-                        'detallesPago.prestamoIndividual.cliente.persona',
+                        'aplicacionesPago.cuota.cliente.persona',
                         'cuotaGrupal.prestamo.grupo',
                         'cuotaGrupal.mora'
                     ]);
@@ -801,28 +804,10 @@ public function table(Table $table): Table
                                 ),
                             ];
                         })->toArray();
-                    } else {
-                        // Pago pendiente: mostrar integrantes del préstamo con monto 0
-                        if ($record->cuotaGrupal && $record->cuotaGrupal->prestamo) {
-                            $prestamoId = $record->cuotaGrupal->prestamo->id;
-                            $pis = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)
-                                ->with('cliente.persona')
-                                ->get();
-
-                            $data['detallesPago'] = $pis->map(function ($pi) {
-                                $persona = optional($pi->cliente->persona);
-                                $nombre  = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: 'Sin nombre';
-                                return [
-                                    'cuota_individual_id' => null,
-                                    'nombre_integrante'   => $nombre,
-                                    'monto_capital'       => round($pi->monto_prestado_individual / ($pi->prestamo->cantidad_cuotas ?? 4), 2),
-                                    'monto_interes'       => round($pi->interes / ($pi->prestamo->cantidad_cuotas ?? 4), 2),
-                                    'monto_mora'          => 0,
-                                    'monto_pagado'        => (float) $pi->monto_cuota_prestamo_individual,
-                                ];
-                            })->toArray();
-                        }
                     }
+                    // Pago pendiente (sin AplicacionPago aún): $data['detallesPago'] permanece []
+                    // per default above. La distribución real la crea PagoService al aprobar;
+                    // el usuario puede repoblar la vista previa cambiando tipo_pago (ver afterStateUpdated).
 
                     return $data;
                 })

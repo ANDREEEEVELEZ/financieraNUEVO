@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\AplicacionPago;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -42,6 +43,19 @@ class Pago extends Model
     {
         $this->attributes['observaciones'] = strtoupper($value);
     }
+
+    /**
+     * Canonicalize estado_pago on write to lowercase.
+     * Handles legacy code paths that still pass 'Pendiente' | 'Aprobado' | 'Rechazado'.
+     * Read-side comparisons remain lowercase-safe because writes are normalized here.
+     */
+    protected function estadoPago(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => $value === null ? null : strtolower($value),
+        );
+    }
+
     protected $attributes = [
     'estado_pago' => 'pendiente',
     ];

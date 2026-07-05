@@ -24,7 +24,7 @@ class PagoExportNuevoController extends Controller
             'grupo'       => ['nullable', 'integer', 'min:1'],
             'from'        => ['nullable', 'date'],
             'until'       => ['nullable', 'date', 'after_or_equal:from'],
-            'estado_pago' => ['nullable', 'string', 'in:Aprobado,Pendiente,Rechazado,parcial'],
+            'estado_pago' => ['nullable', 'string', 'in:Todos los estados,aprobado,pendiente,rechazado,parcial'],
         ]);
 
         $formato = $request->get('formato', 'pdf');

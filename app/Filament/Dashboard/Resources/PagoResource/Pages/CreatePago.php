@@ -12,10 +12,9 @@ class CreatePago extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        if (empty($data['estado_pago'])) {
-            $data['estado_pago'] = 'Pendiente';
-        }
-
+        // detalles_pago is a UI-only repeater used to compute totals in the form;
+        // PagoService::aprobarPago() is the sole writer of AplicacionPago rows.
+        unset($data['detalles_pago']);
 
         if (empty($data['fecha_pago'])) {
             $data['fecha_pago'] = now();
@@ -39,7 +38,7 @@ class CreatePago extends CreateRecord
             $cuota = \App\Models\CuotasGrupales::with('mora', 'prestamo.grupo')->find($cuotaGrupalId);
             if ($cuota) {
                 // Calcular el saldo pendiente actual
-                $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
+                $pagosAprobados = $cuota->pagos()->where('estado_pago', 'aprobado')->sum('monto_pagado');
                 $montoCuota = floatval($cuota->monto_cuota_grupal);
                 $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
                 $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
@@ -51,14 +50,12 @@ class CreatePago extends CreateRecord
                     'monto_cuota' => $cuota->monto_cuota_grupal,
                     'monto_mora_pagada' => $montoMora,
                     'saldo_pendiente_actual' => $saldoPendiente,
-                    'estado_pago' => 'Pendiente',
                     'fecha_pago' => now(),
                 ]);
             }
         } else {
 
             $this->form->fill([
-                'estado_pago' => 'Pendiente',
                 'fecha_pago' => now(),
             ]);
         }
