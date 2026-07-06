@@ -269,4 +269,79 @@ describe('Funcionalidad de rechazo de pagos', function ()
 
 });
 
+describe('Regresión: casing de estado_pago', function ()
+{
+    beforeEach(fn () => Auth::login(User::factory()->create()));
+
+    it('normaliza estado_pago a minúsculas sin importar el casing de entrada', function ()
+    {
+        $pago = Pago::factory()->create([
+            'cuota_grupal_id' => null,
+            'estado_pago' => 'PENDIENTE',
+        ]);
+
+        expect($pago->estado_pago)->toBe('pendiente');
+
+        $pago->estado_pago = 'APROBADO';
+        $pago->save();
+
+        expect($pago->fresh()->estado_pago)->toBe('aprobado');
+    });
+
+    it('aprobarPago no ignora silenciosamente un pago creado con estado_pago en mayúsculas', function ()
+    {
+        $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);
+        $cuota = CuotasGrupales::factory()->create([
+            'prestamo_id' => $prestamo->id,
+            'monto_cuota_grupal' => 150,
+            'saldo_pendiente' => 150,
+            'estado_pago' => 'pendiente',
+            'estado_cuota_grupal' => 'vigente',
+        ]);
+        $pago = Pago::factory()->create([
+            'cuota_grupal_id' => $cuota->id,
+            'monto_pagado' => 150,
+            'tipo_pago' => 'pago_completo',
+            'estado_pago' => 'Pendiente',
+        ]);
+
+        $pago->aprobar();
+
+        expect($pago->fresh()->estado_pago)->toBe('aprobado');
+        expect($cuota->fresh()->saldo_pendiente)->toEqual(0.00);
+    });
+
+    it('la migración de normalización permite que los filtros en memoria detecten filas legacy con casing capitalizado', function ()
+    {
+        // Filament (ListPagos, GrupoDetallePagos) filtra la relación `pagos` ya cargada en memoria
+        // con Collection::where(), que hace comparación estricta de PHP y no se beneficia del
+        // collation case-insensitive de MySQL como sí lo hacen las consultas SQL.
+        $prestamo = Prestamo::factory()->create(['estado' => Prestamo::ESTADO_ACTIVO]);
+        $cuota = CuotasGrupales::factory()->create([
+            'prestamo_id' => $prestamo->id,
+            'monto_cuota_grupal' => 200,
+            'saldo_pendiente' => 200,
+        ]);
+
+        // Simula una fila legacy insertada antes del fix, con estado_pago capitalizado (sin pasar por el mutator).
+        DB::table('pagos')->insert([
+            'cuota_grupal_id' => $cuota->id,
+            'tipo_pago' => 'pago_completo',
+            'monto_pagado' => 200,
+            'estado_pago' => 'Aprobado',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        expect($cuota->fresh()->pagos->where('estado_pago', 'aprobado')->count())->toBe(0);
+
+        // Backfill: misma lógica que la migración 2026_07_06_053703_normalize_pagos_estado_pago_casing.
+        DB::table('pagos')
+            ->whereRaw('BINARY estado_pago != LOWER(estado_pago)')
+            ->update(['estado_pago' => DB::raw('LOWER(estado_pago)')]);
+
+        expect($cuota->fresh()->pagos->where('estado_pago', 'aprobado')->count())->toBe(1);
+    });
+});
+
 

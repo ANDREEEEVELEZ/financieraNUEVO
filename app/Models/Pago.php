@@ -42,6 +42,12 @@ class Pago extends Model
     {
         $this->attributes['observaciones'] = strtoupper($value);
     }
+
+    // estado_pago siempre se persiste en minúsculas (evita que comparaciones exactas fallen silenciosamente)
+    public function setEstadoPagoAttribute($value)
+    {
+        $this->attributes['estado_pago'] = strtolower($value);
+    }
     protected $attributes = [
     'estado_pago' => 'pendiente',
     ];

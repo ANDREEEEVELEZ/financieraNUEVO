@@ -141,7 +141,7 @@ public function table(Table $table): Table
                 ->alignRight()
                 ->weight('medium')
                 ->getStateUsing(function ($record) {
-                    if ($record->estado_pago === 'Rechazado') {
+                    if (strtolower($record->estado_pago) === 'rechazado') {
                         return 'N/A';
                     }
 
@@ -168,8 +168,8 @@ public function table(Table $table): Table
                 ->label('Estado')
                 ->options([
                     'aprobado' => 'Aprobado',
-                    'Pendiente' => 'Pendiente',
-                    'Rechazado' => 'Rechazado',
+                    'pendiente' => 'Pendiente',
+                    'rechazado' => 'Rechazado',
                 ]),
 
             Tables\Filters\SelectFilter::make('tipo_pago')
