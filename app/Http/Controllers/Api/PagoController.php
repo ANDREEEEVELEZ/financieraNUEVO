@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Pago\StorePagoRequest;
 use App\Http\Resources\Api\PagoResource;
 use App\Http\Responses\ApiResponse;
+use App\Models\CuotasGrupales;
 use App\Models\Pago;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -63,7 +64,21 @@ final class PagoController extends Controller
     public function store(StorePagoRequest $request): JsonResponse
     {
         try {
+            $this->authorize('create', Pago::class);
+
             $validated = $request->validated();
+            $user      = $request->user();
+
+            if ($user->hasRole('Asesor')) {
+                $owned = CuotasGrupales::query()
+                    ->where('id', $validated['cuota_grupal_id'])
+                    ->whereHas('prestamo.grupo', fn ($g) => $g->where('asesor_id', $user->asesor?->id))
+                    ->exists();
+
+                if (! $owned) {
+                    throw new AuthorizationException('Cuota grupal fuera del alcance del asesor.');
+                }
+            }
 
             $pago = Pago::create([
                 'cuota_grupal_id'  => $validated['cuota_grupal_id'],
@@ -75,6 +90,8 @@ final class PagoController extends Controller
             ]);
 
             return ApiResponse::success(new PagoResource($pago), null, 201);
+        } catch (AuthorizationException $e) {
+            return ApiResponse::error('No autorizado.', 403);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
