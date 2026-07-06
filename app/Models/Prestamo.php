@@ -786,29 +786,37 @@ class Prestamo extends Model
 
         DB::beginTransaction();
         try {
-            $factor = $nuevoMontoTotal / (float) $this->monto_prestado_total;
+            $montoAnterior = (float) $this->monto_prestado_total;
+            $factor = $nuevoMontoTotal / $montoAnterior;
 
             // Actualizar cada préstamo individual proporcionalmente
+            $nuevoMontoDevolverTotal = 0;
             foreach ($this->prestamoIndividual as $pi) {
                 $nuevoMonto = round((float) $pi->monto_prestado_individual * $factor, 2);
                 $nuevoInteres = round((float) $pi->interes * $factor, 2);
                 $nuevoSeguro = round((float) $pi->seguro * $factor, 2);
+                $nuevoDevolverIndividual = $nuevoMonto + $nuevoInteres + $nuevoSeguro;
 
                 $pi->update([
                     'monto_prestado_individual' => $nuevoMonto,
                     'interes' => $nuevoInteres,
                     'seguro' => $nuevoSeguro,
-                    'monto_devolver_individual' => $nuevoMonto + $nuevoInteres + $nuevoSeguro,
+                    'monto_devolver_individual' => $nuevoDevolverIndividual,
                 ]);
+
+                $nuevoMontoDevolverTotal += $nuevoDevolverIndividual;
             }
 
-            // Actualizar el total del grupo directamente
-            $this->updateQuietly(['monto_prestado_total' => $nuevoMontoTotal]);
+            // Actualizar los totales del grupo directamente (capital y monto a devolver)
+            $this->updateQuietly([
+                'monto_prestado_total' => $nuevoMontoTotal,
+                'monto_devolver' => round($nuevoMontoDevolverTotal, 2),
+            ]);
 
             // Registrar en log
             Log::info('Monto de préstamo reducido', [
                 'prestamo_id' => $this->id,
-                'monto_anterior' => $this->getOriginal('monto_prestado_total'),
+                'monto_anterior' => $montoAnterior,
                 'monto_nuevo' => $nuevoMontoTotal,
                 'factor' => $factor,
                 'justificacion' => $justificacion,
@@ -821,6 +829,92 @@ class Prestamo extends Model
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error al reducir monto', [
+                'prestamo_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Reduce el monto de uno o más integrantes de forma independiente, a diferencia
+     * de reducirMonto() que aplica el mismo factor proporcional a todos los clientes.
+     *
+     * @param array<int,float> $montosPorCliente [prestamo_individual_id => nuevo_monto_prestado]
+     */
+    public function reducirMontoPorCliente(array $montosPorCliente, string $justificacion): bool
+    {
+        // Solo permitido en estados Aprobado o Firmado
+        if (!in_array($this->estado, [self::ESTADO_APROBADO, self::ESTADO_FIRMADO])) {
+            return false;
+        }
+
+        if (empty($montosPorCliente)) {
+            return false;
+        }
+
+        DB::beginTransaction();
+        try {
+            $montoAnterior = (float) $this->monto_prestado_total;
+            $montoDevolverAnterior = (float) $this->monto_devolver;
+
+            foreach ($this->prestamoIndividual as $pi) {
+                if (!array_key_exists($pi->id, $montosPorCliente)) {
+                    continue;
+                }
+
+                $montoActual = (float) $pi->monto_prestado_individual;
+                $nuevoMonto = (float) $montosPorCliente[$pi->id];
+
+                if ($nuevoMonto < 0 || $nuevoMonto > $montoActual) {
+                    throw new \Exception(
+                        "El nuevo monto del cliente #{$pi->cliente_id} debe estar entre 0 y {$montoActual} (monto actual)."
+                    );
+                }
+
+                if ($montoActual <= 0) {
+                    continue;
+                }
+
+                $factor = $nuevoMonto / $montoActual;
+                $nuevoInteres = round((float) $pi->interes * $factor, 2);
+                $nuevoSeguro = round((float) $pi->seguro * $factor, 2);
+                $nuevoMonto = round($nuevoMonto, 2);
+
+                $pi->update([
+                    'monto_prestado_individual' => $nuevoMonto,
+                    'interes' => $nuevoInteres,
+                    'seguro' => $nuevoSeguro,
+                    'monto_devolver_individual' => $nuevoMonto + $nuevoInteres + $nuevoSeguro,
+                ]);
+            }
+
+            // Recalcular los totales del grupo a partir de la suma real de los individuales
+            $nuevoMontoTotal = round((float) $this->prestamoIndividual()->sum('monto_prestado_individual'), 2);
+            $nuevoMontoDevolverTotal = round((float) $this->prestamoIndividual()->sum('monto_devolver_individual'), 2);
+
+            $this->updateQuietly([
+                'monto_prestado_total' => $nuevoMontoTotal,
+                'monto_devolver' => $nuevoMontoDevolverTotal,
+            ]);
+
+            Log::info('Monto de préstamo reducido por cliente', [
+                'prestamo_id' => $this->id,
+                'monto_anterior' => $montoAnterior,
+                'monto_nuevo' => $nuevoMontoTotal,
+                'monto_devolver_anterior' => $montoDevolverAnterior,
+                'monto_devolver_nuevo' => $nuevoMontoDevolverTotal,
+                'montos_por_cliente' => $montosPorCliente,
+                'justificacion' => $justificacion,
+                'usuario_id' => auth()->id(),
+            ]);
+
+            DB::commit();
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al reducir monto por cliente', [
                 'prestamo_id' => $this->id,
                 'error' => $e->getMessage(),
             ]);

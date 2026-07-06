@@ -929,16 +929,73 @@ class PrestamoResource extends Resource
                         ->rows(3),
                 ])
                 ->action(function ($record, array $data) {
+                    $montoAnterior = $record->monto_prestado_total;
                     if ($record->reducirMonto($data['nuevo_monto'], $data['justificacion'])) {
                         Notification::make()
                             ->title('Monto reducido exitosamente')
-                            ->body("Monto anterior: S/ {$record->getOriginal('monto_prestado_total')} → Nuevo: S/ {$data['nuevo_monto']}")
+                            ->body("Monto anterior: S/ {$montoAnterior} → Nuevo: S/ {$data['nuevo_monto']}")
                             ->success()
                             ->send();
                     } else {
                         Notification::make()
                             ->title('Error al reducir monto')
                             ->body('No se pudo reducir el monto. Verifique el estado del préstamo.')
+                            ->danger()
+                            ->send();
+                    }
+                })
+                ->visible(
+                    fn($record) =>
+                    !$record->es_retanqueo &&
+                    $record->puedeReducirMonto() &&
+                    auth()->user()?->can('reducirMonto', $record)
+                ),
+
+            // ACCIÓN: Reducir Monto por Cliente (ajuste individual, no proporcional)
+            Tables\Actions\Action::make('reducir_monto_por_cliente')
+                ->label('Reducir Monto por Cliente')
+                ->icon('heroicon-o-user-minus')
+                ->color('warning')
+                ->form(function ($record) {
+                    $fields = [];
+
+                    foreach ($record->prestamoIndividual as $pi) {
+                        $persona = $pi->cliente->persona ?? null;
+                        $nombre = trim(($persona->nombre ?? '') . ' ' . ($persona->apellidos ?? '')) ?: "Cliente #{$pi->cliente_id}";
+                        $montoActual = (float) $pi->monto_prestado_individual;
+
+                        $fields[] = Forms\Components\TextInput::make("montos.{$pi->id}")
+                            ->label("{$nombre} (actual: S/ " . number_format($montoActual, 2) . ')')
+                            ->prefix('S/')
+                            ->numeric()
+                            ->required()
+                            ->default($montoActual)
+                            ->rule("lte:{$montoActual}")
+                            ->minValue(0);
+                    }
+
+                    $fields[] = Forms\Components\Textarea::make('justificacion')
+                        ->label('Justificación')
+                        ->required()
+                        ->placeholder('Explique el motivo de la reducción del monto')
+                        ->rows(3);
+
+                    return $fields;
+                })
+                ->action(function ($record, array $data) {
+                    $montoAnterior = $record->monto_prestado_total;
+                    $montosPorCliente = $data['montos'] ?? [];
+
+                    if ($record->reducirMontoPorCliente($montosPorCliente, $data['justificacion'])) {
+                        Notification::make()
+                            ->title('Monto reducido exitosamente')
+                            ->body("Monto anterior: S/ {$montoAnterior} → Nuevo: S/ {$record->fresh()->monto_prestado_total}")
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Error al reducir monto')
+                            ->body('No se pudo reducir el monto. Verifique los valores ingresados y el estado del préstamo.')
                             ->danger()
                             ->send();
                     }
