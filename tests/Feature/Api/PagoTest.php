@@ -7,6 +7,7 @@ use App\Models\Pago;
 use App\Models\Prestamo;
 use App\Models\User;
 use App\Domain\Pagos\PagoService;
+use Spatie\Permission\Models\Permission;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -16,6 +17,7 @@ function pagoTestMakeAsesor(): array
 {
     $user   = User::factory()->create(['active' => true]);
     $user->assignRole('Asesor');
+    $user->givePermissionTo(Permission::firstOrCreate(['name' => 'create_pago', 'guard_name' => 'web']));
     $asesor = Asesor::factory()->create(['user_id' => $user->id]);
     $token  = $user->createToken('test')->plainTextToken;
 
