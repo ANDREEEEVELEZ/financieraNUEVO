@@ -81,6 +81,25 @@ it('ReagrupacionParcialService dispatches ReagrupacionEjecutada event after succ
     });
 });
 
+it('ReagrupacionParcialService populates reagrupacion_cliente pivot table with trasladado and retenido types', function () {
+    [$prestamo, $grupoOrigen, $cliente1, $cliente2] = reagrupacionMakeSetup();
+
+    $service = new ReagrupacionParcialService();
+    $reagrupacion = $service->reagrupar(
+        $prestamo,
+        [$cliente1->id],
+        'retanqueo',
+        'Test obs'
+    );
+
+    $trasladados = $reagrupacion->clientesTrasladados()->get();
+    expect($trasladados)->toHaveCount(1);
+    expect($trasladados->first()->id)->toBe($cliente1->id);
+
+    $retenidos = $reagrupacion->clientesRetenidos()->get();
+    expect($retenidos)->toHaveCount(4);
+});
+
 it('ReagrupacionParcialService creates an audit_log row with reagrupacion.ejecutada', function () {
     $user   = User::factory()->create(['active' => true]);
     Auth::login($user);

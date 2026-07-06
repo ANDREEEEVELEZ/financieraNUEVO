@@ -99,6 +99,16 @@ class ReagrupacionParcialService
                 'observaciones' => $observaciones,
             ]);
 
+            // Pivot: attach con tipo via array de pares
+            $pivotData = [];
+            foreach ($clientesTrasladados as $cId) {
+                $pivotData[$cId] = ['tipo' => 'trasladado'];
+            }
+            foreach ($clientesRetenidos as $cId) {
+                $pivotData[$cId] = ['tipo' => 'retenido'];
+            }
+            $reagrupacion->clientes()->attach($pivotData);
+
             Log::info('Reagrupación parcial ejecutada', [
                 'grupo_origen' => $grupoOrigen->id,
                 'grupo_nuevo' => $grupoNuevo->id,

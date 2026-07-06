@@ -147,9 +147,9 @@ test('separarClienteMoroso registra deuda correcta en separaciones_clientes', fu
         motivo:       'Morosidad',
     );
 
-    expect($resultado->deuda_capital)->toBe(125.00)
-        ->and($resultado->deuda_interes)->toBe(15.00)
-        ->and($resultado->penalizacion_grupo)->toBeGreaterThan(0);
+    expect((float) $resultado->deuda_capital)->toBe(125.00)
+        ->and((float) $resultado->deuda_interes)->toBe(15.00)
+        ->and((float) $resultado->penalizacion_grupo)->toBeGreaterThan(0);
 });
 
 test('separarClienteMoroso lanza RuntimeException si no hay cuotas pendientes', function (): void {
@@ -180,7 +180,7 @@ test('separarClienteMoroso lanza RuntimeException si el cliente ya fue separado'
         ejecutadoPor: $this->ejecutor,
         motivo:       'Segunda separación',
     );
-})->throws(RuntimeException::class, '/ya fue separado/');
+})->throws(RuntimeException::class, 'ya fue separado');
 
 test('separarClienteMoroso desvincula al cliente del grupo', function (): void {
     $this->service->separarClienteMoroso(
@@ -190,7 +190,7 @@ test('separarClienteMoroso desvincula al cliente del grupo', function (): void {
         motivo:       'Separación',
     );
 
-    $pivot = $this->grupo->clientes()
+    $pivot = $this->grupo->todosLosIntegrantes()
         ->where('clientes.id', $this->clientes[0]->id)
         ->first();
 
@@ -208,7 +208,7 @@ test('separarClienteMoroso decrementa numero_integrantes del grupo', function ()
     );
 
     $this->grupo->refresh();
-    expect($this->grupo->numero_integrantes)->toBe(2);
+    expect((int) $this->grupo->numero_integrantes)->toBe(2);
 });
 
 test('separarClienteMoroso lanza RuntimeException si motivo está vacío', function (): void {
