@@ -80,7 +80,7 @@ class Mora extends Model
                     $diasAtraso = $fechaVencimiento->diffInDays($fechaAtrasoCongelada);
                 }
 
-                $integrantes = $cuota->prestamo->grupo->clientes()->count();
+                $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
                 return $integrantes * $diasAtraso * 1;
             }
             return 0;
@@ -96,7 +96,7 @@ class Mora extends Model
             $diasAtraso = $fechaVencimiento->diffInDays($fechaAtraso);
         }
 
-        $integrantes = $cuota->prestamo->grupo->clientes()->count();
+        $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
 
 
         $montoMora = $integrantes * $diasAtraso * 1;

@@ -22,7 +22,7 @@ describe('Mora', function () {
 
     it('calcula correctamente el monto de mora pendiente', function ()
     {
-        $grupo = Grupo::factory()->create();
+        $grupo = Grupo::factory()->create(['numero_integrantes' => 3]);
         $clientes = Cliente::factory()->count(3)->create();
         $grupo->clientes()->attach($clientes->pluck('id'),
         [
@@ -54,7 +54,7 @@ describe('Mora', function () {
 
     it('no recalcula monto de mora si está pagada', function ()
     {
-        $grupo = Grupo::factory()->create();
+        $grupo = Grupo::factory()->create(['numero_integrantes' => 2]);
         $clientes = Cliente::factory()->count(2)->create();
 
         $grupo->clientes()->attach($clientes->pluck('id'),
@@ -84,7 +84,7 @@ describe('Mora', function () {
 
     it('no actualiza fecha de atraso si la mora está pagada', function ()
     {
-        $grupo = Grupo::factory()->create();
+        $grupo = Grupo::factory()->create(['numero_integrantes' => 2]);
         $clientes = Cliente::factory()->count(2)->create();
         $grupo->clientes()->attach($clientes->pluck('id'),
         [
