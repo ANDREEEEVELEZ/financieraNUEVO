@@ -68,6 +68,13 @@ class Reagrupacion extends Model
                     ->withTimestamps();
     }
 
+    public function clientes()
+    {
+        return $this->belongsToMany(Cliente::class, 'reagrupacion_cliente')
+                    ->withPivot('tipo')
+                    ->withTimestamps();
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────
 
     public function esRetanqueo(): bool

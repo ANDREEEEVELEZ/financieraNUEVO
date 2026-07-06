@@ -93,17 +93,6 @@ class MorosoSeparationService implements SeparacionServiceInterface
 
             $grupo = $prestamoOrigen->grupo;
 
-            // ── Validación 4: cliente pertenece al grupo ──
-            $clienteEnGrupo = $grupo->clientes()
-                ->where('clientes.id', $clienteId)
-                ->exists();
-
-            if (!$clienteEnGrupo) {
-                throw new RuntimeException(
-                    "El cliente #{$clienteId} no pertenece al grupo #{$grupo->id}."
-                );
-            }
-
             // ── Validación 5: idempotencia ──
             $yaFueSeparado = SeparacionCliente::where('cliente_id', $clienteId)
                 ->where('prestamo_origen_id', $prestamoOrigenId)
@@ -113,6 +102,17 @@ class MorosoSeparationService implements SeparacionServiceInterface
             if ($yaFueSeparado) {
                 throw new RuntimeException(
                     "El cliente #{$clienteId} ya fue separado del préstamo #{$prestamoOrigenId}."
+                );
+            }
+
+            // ── Validación 4: cliente pertenece al grupo ──
+            $clienteEnGrupo = $grupo->clientes()
+                ->where('clientes.id', $clienteId)
+                ->exists();
+
+            if (!$clienteEnGrupo) {
+                throw new RuntimeException(
+                    "El cliente #{$clienteId} no pertenece al grupo #{$grupo->id}."
                 );
             }
 
@@ -256,7 +256,7 @@ class MorosoSeparationService implements SeparacionServiceInterface
     /**
      * Crea el préstamo individual de tipo 'Separado' para el moroso.
      */
-    private function crearPrestamoSeparado(
+    protected function crearPrestamoSeparado(
         Prestamo $origen,
         int      $clienteId,
         string   $deudaCapital,
