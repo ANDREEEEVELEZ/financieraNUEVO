@@ -827,7 +827,7 @@ class PagoResource extends Resource
                         if (strtolower($record->estado_pago) === 'pendiente') {
                             $component->state($saldo + $mora);
                         } else {
-                            $pagosAprobados = $cuota->pagos()->where('estado_pago', 'Aprobado')->sum('monto_pagado');
+                            $pagosAprobados = $cuota->pagos()->where('estado_pago', 'aprobado')->sum('monto_pagado');
                             $saldoReal = round(max(($saldo + $mora) - $pagosAprobados, 0), 2);
                             $component->state($saldoReal);
                         }
@@ -947,7 +947,7 @@ class PagoResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(function ($state, $record) {
                         // Si el pago está rechazado, no mostrar saldo
-                        if ($record->estado_pago === 'Rechazado') {
+                        if (strtolower($record->estado_pago) === 'rechazado') {
                             return 'N/A';
                         }
 
@@ -962,7 +962,7 @@ class PagoResource extends Resource
 
                         // Usar colección en memoria para evitar consultas N+1
                         $pagosAprobados = $cuota->pagos
-                            ->where('estado_pago', 'Aprobado')
+                            ->where('estado_pago', 'aprobado')
                             ->sum('monto_pagado');
 
                         $saldo = round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);

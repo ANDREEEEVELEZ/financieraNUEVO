@@ -20,7 +20,7 @@
                     <div class="flex flex-col items-center justify-center p-3 bg-yellow-50 rounded-lg border border-yellow-100 min-h-[80px]">
                         <div class="text-lg font-bold text-yellow-700 flex items-center gap-1 mb-1">
                             <x-heroicon-o-clock class="w-5 h-5" />
-                            {{ $prestamo->cuotasGrupales->sum(fn($c) => $c->pagos->where('estado_pago', 'Pendiente')->count()) }}
+                            {{ $prestamo->cuotasGrupales->sum(fn($c) => $c->pagos->where('estado_pago', 'pendiente')->count()) }}
                         </div>
                         <span class="text-xs text-yellow-900 font-medium text-center">Pendientes</span>
                     </div>

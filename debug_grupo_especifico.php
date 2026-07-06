@@ -49,7 +49,7 @@ foreach ($prestamos as $prestamo) {
             echo "     - Tiene mora: " . ($cuota->mora ? 'Sí (S/ ' . abs($cuota->mora->monto_mora_calculado) . ')' : 'No') . "\n";
             
             // Verificar pagos de esta cuota
-            $pagos = $cuota->pagos()->where('estado_pago', 'Aprobado')->get();
+            $pagos = $cuota->pagos()->where('estado_pago', 'aprobado')->get();
             if ($pagos->count() > 0) {
                 echo "     - Pagos aprobados: {$pagos->count()}\n";
                 foreach ($pagos as $pago) {
