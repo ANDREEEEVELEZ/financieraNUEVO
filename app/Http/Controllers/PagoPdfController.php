@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Concerns\AsesorScopeGuard;
+use App\Http\Responses\ApiResponse;
 use App\Models\Pago;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\Request;
 
 class PagoPdfController extends Controller
 {
+    use AsesorScopeGuard;
+
     public function exportar(Request $request)
     {
         $request->validate([
-            'grupo'       => ['nullable', 'integer', 'min:1'],
-            'from'        => ['nullable', 'date'],
-            'until'       => ['nullable', 'date', 'after_or_equal:from'],
+            'grupo' => ['nullable', 'integer', 'min:1'],
+            'from' => ['nullable', 'date'],
+            'until' => ['nullable', 'date', 'after_or_equal:from'],
             'estado_pago' => ['nullable', 'string', 'in:aprobado,pendiente,rechazado,parcial'],
         ]);
 
@@ -22,16 +27,19 @@ class PagoPdfController extends Controller
 
         // Si es un asesor, solo mostrar los pagos de sus grupos
         if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-            if ($asesor) {
-                $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($asesor) {
-                    $q->where('asesor_id', $asesor->id);
-                });
+            try {
+                $asesor = $this->resolveAsesorOrAbort($user);
+            } catch (AuthorizationException $e) {
+                return ApiResponse::error($e->getMessage(), 403);
             }
+
+            $query->whereHas('cuotaGrupal.prestamo.grupo', function ($q) use ($asesor) {
+                $q->where('asesor_id', $asesor->id);
+            });
         }
         // Si es Jefe de Créditos o Jefe de Operaciones, puede ver todos los pagos
-        elseif (!$user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-            return response()->json(['error' => 'No autorizado'], 403);
+        elseif (! $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
+            return ApiResponse::error('No autorizado.', 403);
         }
 
         // Aplicar filtros adicionales
