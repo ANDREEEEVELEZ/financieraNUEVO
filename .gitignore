@@ -33,3 +33,12 @@ skills-lock.json
 # openspec/
 # Local Pi runtime state
 .atl/
+
+# Ad-hoc root-level debug/diagnostic scripts — use tests or artisan commands instead.
+/debug_*.php
+/diagnostico.php
+/verify_status.php
+/simular_*.php
+/table_preview.php
+/find_*.php
+/check_*.php
