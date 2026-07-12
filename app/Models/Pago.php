@@ -17,6 +17,7 @@ class Pago extends Model
 
     protected $fillable = [
         'cuota_grupal_id',
+        'origen_pago',
         'tipo_pago',
         'codigo_operacion',
         'monto_pagado',
@@ -49,6 +50,7 @@ class Pago extends Model
     }
     protected $attributes = [
     'estado_pago' => 'pendiente',
+    'origen_pago' => 'cobranza',
     ];
 
 
@@ -107,6 +109,26 @@ class Pago extends Model
     public function scopeAprobados(Builder $query): Builder
     {
         return $query->where('estado_pago', 'aprobado');
+    }
+
+    // ── Scopes de discriminador de origen (SDD core-contable-seguridad, D1) ──
+
+    /**
+     * Pagos de cobranza real (dinero efectivamente cobrado). Único punto de
+     * filtrado para toda métrica de "cuánto se cobró" — retanqueo NO es
+     * cobranza, es una cobertura de deuda entre préstamos.
+     */
+    public function scopeCobranza(Builder $query): Builder
+    {
+        return $query->where('origen_pago', 'cobranza');
+    }
+
+    /**
+     * Pagos originados por cobertura de retanqueo (ledger de deuda, no cobranza).
+     */
+    public function scopeDeRetanqueo(Builder $query): Builder
+    {
+        return $query->where('origen_pago', 'retanqueo');
     }
 
 

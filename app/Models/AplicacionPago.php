@@ -14,10 +14,15 @@ class AplicacionPago extends Model
     protected $fillable = [
         'pago_id',
         'cuota_id',
+        'tipo_aplicacion',
         'monto_aplicado_capital',
         'monto_aplicado_interes',
         'monto_aplicado_mora',
         'fecha_aplicacion',
+    ];
+
+    protected $attributes = [
+        'tipo_aplicacion' => 'cobranza',
     ];
 
     protected $casts = [
