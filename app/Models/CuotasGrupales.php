@@ -45,7 +45,20 @@ class CuotasGrupales extends Model
     }
 
     /**
-     * @deprecated Delegado a SaldoCuotaService::saldoTotal (Req 3 — single saldo service).
+     * Monto total a pagar de la cuota (capital + mora), delegado a
+     * SaldoCuotaService::saldoTotal (Req 3 — single saldo service).
+     *
+     * Cambio semántico INTENCIONAL (SDD core-contable-seguridad): ahora devuelve
+     * el total derivado del ledger (capital ledger-derived + mora del snapshot
+     * monto_mora_calculado). YA NO lee la columna legacy `saldo_pendiente` ni
+     * recalcula la mora en vivo con Mora::calcularMontoMora() gateado por
+     * estado_mora, como hacía la fórmula anterior. La recomputación de mora en
+     * vivo se difiere al futuro SDD de wiring de estrategia de mora
+     * (mora-strategy-wiring); aquí la mora proviene del snapshot persistido.
+     *
+     * @deprecated Delegado a SaldoCuotaService::saldoTotal.
+     *
+     * @return string bcmath (escala 2), no float.
      */
     public function getMontoTotalAPagarAttribute()
     {
@@ -54,6 +67,8 @@ class CuotasGrupales extends Model
 
     /**
      * @deprecated Delegado a SaldoCuotaService::saldoTotal (Req 3 — single saldo service).
+     *
+     * @return string bcmath (escala 2), no float.
      */
     public function getSaldoTotalPendienteAttribute()
     {
@@ -62,6 +77,8 @@ class CuotasGrupales extends Model
 
     /**
      * @deprecated Delegado a SaldoCuotaService::saldoTotal (Req 3 — single saldo service).
+     *
+     * @return string bcmath (escala 2), no float.
      */
     public function saldoPendiente()
     {
@@ -70,6 +87,8 @@ class CuotasGrupales extends Model
 
     /**
      * @deprecated Delegado a SaldoCuotaService::saldoMora (Req 3 — single saldo service).
+     *
+     * @return string bcmath (escala 2), no float.
      */
     public function getSaldoMoraPendiente()
     {
@@ -78,6 +97,8 @@ class CuotasGrupales extends Model
 
     /**
      * @deprecated Delegado a SaldoCuotaService::saldoCuota (Req 3 — single saldo service).
+     *
+     * @return string bcmath (escala 2), no float.
      */
     public function getSaldoCuotaPendiente()
     {
@@ -86,6 +107,8 @@ class CuotasGrupales extends Model
 
     /**
      * @deprecated Delegado a SaldoCuotaService::moraPagada (Req 3 — single saldo service).
+     *
+     * @return string bcmath (escala 2), no float.
      */
     public function getMoraPagada()
     {

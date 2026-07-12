@@ -45,11 +45,37 @@ class SaldoCuotaService implements SaldoCuotaServiceInterface
         return bccomp($saldo, '0.00', 2) < 0 ? '0.00' : $saldo;
     }
 
+    /**
+     * Saldo total pendiente = saldoCuota + saldoMora.
+     *
+     * Comportamiento INTENCIONAL (decisión de arquitectura del SDD
+     * core-contable-seguridad): capital y mora son dos buckets independientes
+     * que hacen floor en 0.00 por separado; NO se subsidian entre sí. Un exceso
+     * de pago de capital NO absorbe deuda de mora (ni viceversa). Esto difiere
+     * de la fórmula legacy pooled-remainder de CuotasGrupales::saldoPendiente(),
+     * que agrupaba todo el pago en un único bucket y podía cancelar
+     * silenciosamente una deuda de un bucket distinto. Una "fuente única de
+     * verdad" no debe hacer esa magia implícita cross-bucket.
+     *
+     * Devuelve string bcmath (escala 2), no float.
+     */
     public function saldoTotal(CuotasGrupales $cuota): string
     {
         return bcadd($this->saldoCuota($cuota), $this->saldoMora($cuota), 2);
     }
 
+    /**
+     * Mora ya pagada (histórico) = Σ monto_mora_pagada de los pagos aprobados.
+     *
+     * Comportamiento INTENCIONAL (decisión de arquitectura del SDD
+     * core-contable-seguridad): devuelve la suma real del ledger SIN el guard
+     * legacy que retornaba 0 cuando no existía fila Mora. El monto_mora_pagada
+     * de cada Pago aprobado es la fuente de verdad de lo efectivamente cobrado
+     * en mora; ocultarlo porque la fila Mora fue borrada/reseteada después
+     * falsearía el histórico cobrado.
+     *
+     * Devuelve string bcmath (escala 2), no float.
+     */
     public function moraPagada(CuotasGrupales $cuota): string
     {
         [, $moraPagada] = $this->totalesPagosAprobados($cuota);
