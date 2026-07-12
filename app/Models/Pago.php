@@ -29,7 +29,6 @@ class Pago extends Model
 
     protected $casts = [
         'fecha_pago' => 'datetime',
-        'saldo_pendiente' => 'decimal:2',
     ];
 
     // Mutator solo para código de operación (mantener mayúsculas para códigos)

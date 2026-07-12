@@ -2,6 +2,7 @@
 
 namespace App\Filament\Dashboard\Resources;
 
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Filament\Dashboard\Resources\PagoResource\Pages;
 use App\Models\Pago;
 use App\Models\CuotasGrupales;
@@ -821,16 +822,7 @@ class PagoResource extends Resource
                 ->afterStateHydrated(function ($component, $state, $record) {
                     if ($record && $record->cuotaGrupal) {
                         $cuota = $record->cuotaGrupal->fresh();
-                        $saldo = floatval($cuota->saldo_pendiente);
-                        $mora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                        if (strtolower($record->estado_pago) === 'pendiente') {
-                            $component->state($saldo + $mora);
-                        } else {
-                            $pagosAprobados = $cuota->pagos()->where('estado_pago', 'aprobado')->sum('monto_pagado');
-                            $saldoReal = round(max(($saldo + $mora) - $pagosAprobados, 0), 2);
-                            $component->state($saldoReal);
-                        }
+                        $component->state(static::saldoPendienteCuota($cuota));
                     } else {
                         $component->state(null);
                     }
@@ -957,17 +949,9 @@ class PagoResource extends Resource
                             return '-';
                         }
 
-                        $montoCuota = floatval($cuota->monto_cuota_grupal);
-                        $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                        // Usar colección en memoria para evitar consultas N+1
-                        $pagosAprobados = $cuota->pagos
-                            ->where('estado_pago', 'aprobado')
-                            ->sum('monto_pagado');
-
-                        $saldo = round(max(($montoCuota + $montoMora) - $pagosAprobados, 0), 2);
-
-                        return 'S/. ' . number_format($saldo, 2);
+                        // Sin query extra: getEloquentQuery() precarga cuotaGrupal con
+                        // withSum, así que saldoPendienteCuota() no dispara N+1 aquí.
+                        return 'S/. ' . number_format(static::saldoPendienteCuota($cuota), 2);
                     })
                     ->width('70px'),
 
@@ -1098,18 +1082,39 @@ class PagoResource extends Resource
         return [];
     }
 
+    /**
+     * Saldo total pendiente (capital + mora) de la cuota, vía SaldoCuotaService —
+     * única fuente autoritativa (Req 3 — single saldo service). Reemplaza las
+     * recomputaciones inline ($montoCuota + $montoMora) - $pagosAprobados y la
+     * lectura directa de la columna legacy cuotas_grupales.saldo_pendiente
+     * (Scenario 3.2).
+     */
+    protected static function saldoPendienteCuota(CuotasGrupales $cuota): float
+    {
+        return (float) app(SaldoCuotaServiceInterface::class)->saldoTotal($cuota);
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $user = request()->user();
 
-        // Eager loading de relaciones para evitar N+1 queries
+        // Eager loading de relaciones para evitar N+1 queries.
+        // cuotaGrupal se precarga con withSum (monto_pagado_aprobado_sum /
+        // monto_mora_pagada_aprobado_sum) para que SaldoCuotaService no dispare
+        // una query adicional por fila al calcular el saldo (D8, no N+1).
         $query = parent::getEloquentQuery()
             ->with([
-                'cuotaGrupal',
+                'cuotaGrupal' => function ($query) {
+                    $query->withSum(['pagos as monto_pagado_aprobado_sum' => function ($q) {
+                        $q->where('estado_pago', 'aprobado');
+                    }], 'monto_pagado')
+                        ->withSum(['pagos as monto_mora_pagada_aprobado_sum' => function ($q) {
+                            $q->where('estado_pago', 'aprobado');
+                        }], 'monto_mora_pagada');
+                },
                 'cuotaGrupal.prestamo',
                 'cuotaGrupal.prestamo.grupo',
                 'cuotaGrupal.mora',
-                'cuotaGrupal.pagos',
                 'detallesPago',
                 'detallesPago.prestamoIndividual',
                 'detallesPago.prestamoIndividual.cliente',
