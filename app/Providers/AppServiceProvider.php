@@ -2,27 +2,8 @@
 
 namespace App\Providers;
 
-use App\Contracts\AuditServiceInterface;
-use App\Contracts\CacheServiceInterface;
-use App\Contracts\CronogramaServiceInterface;
-use App\Contracts\NotificationServiceInterface;
-use App\Contracts\PagoServiceInterface;
-use App\Contracts\RetanqueoEjecucionInterface;
-use App\Contracts\RetanqueoQueryInterface;
-use App\Contracts\RetanqueoWorkflowInterface;
-use App\Contracts\SaldoCuotaServiceInterface;
-use App\Contracts\SeparacionServiceInterface;
-use App\Domain\Grupos\MorosoSeparationService;
-use App\Domain\Pagos\PagoService;
-use App\Domain\Pagos\SaldoCuotaService;
-use App\Domain\Prestamos\CronogramaService;
-use App\Domain\Prestamos\RetanqueoEjecucionService;
-use App\Domain\Prestamos\RetanqueoQueryService;
-use App\Domain\Prestamos\RetanqueoWorkflowService;
-use App\Domain\Prestamos\Strategies\ElegibilidadRetanqueoIndividual;
-use App\Infrastructure\Audit\AuditService;
-use App\Infrastructure\Cache\CacheService;
-use App\Infrastructure\Notifications\NotificationService;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 use App\Models\Asesor;
 use App\Models\Cliente;
 use App\Models\CuotasGrupales;
@@ -45,18 +26,37 @@ use App\Observers\PrestamoIndividualObserver;
 use App\Observers\PrestamoObserver;
 use App\Observers\RetanqueoObserver;
 use App\Observers\SeparacionClienteObserver;
+use App\Contracts\AuditServiceInterface;
+use App\Contracts\CacheServiceInterface;
+use App\Contracts\NotificationServiceInterface;
+use App\Infrastructure\Cache\CacheService;
+use App\Contracts\CronogramaServiceInterface;
+use App\Contracts\PagoServiceInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
+use App\Contracts\RetanqueoEjecucionInterface;
+use App\Contracts\RetanqueoQueryInterface;
+use App\Contracts\RetanqueoWorkflowInterface;
+use App\Contracts\SeparacionServiceInterface;
+use App\Domain\Pagos\PagoService;
+use App\Domain\Pagos\SaldoCuotaService;
+use App\Domain\Prestamos\CronogramaService;
+use App\Domain\Prestamos\RetanqueoEjecucionService;
+use App\Domain\Prestamos\RetanqueoQueryService;
+use App\Domain\Prestamos\RetanqueoWorkflowService;
+use App\Domain\Prestamos\Strategies\ElegibilidadRetanqueoIndividual;
+use App\Domain\Grupos\MorosoSeparationService;
+use App\Infrastructure\Notifications\NotificationService;
+use App\Infrastructure\Audit\AuditService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\URL;
-use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->app->singleton(NotificationServiceInterface::class, function ($app) {
-            return new NotificationService;
+            return new NotificationService();
         });
 
         $this->app->bind(CacheServiceInterface::class, CacheService::class);
@@ -68,7 +68,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Retanqueo service decomposition — SR-4
         $this->app->bind(RetanqueoQueryInterface::class, function ($app) {
-            return new RetanqueoQueryService(new ElegibilidadRetanqueoIndividual);
+            return new RetanqueoQueryService(new ElegibilidadRetanqueoIndividual());
         });
         $this->app->bind(RetanqueoWorkflowInterface::class, RetanqueoWorkflowService::class);
         $this->app->bind(RetanqueoEjecucionInterface::class, RetanqueoEjecucionService::class);
@@ -77,7 +77,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Force HTTPS on every non-local environment (covers staging and production)
-        if (! $this->app->environment('local', 'testing')) {
+        if (!$this->app->environment('local', 'testing')) {
             URL::forceScheme('https');
         }
 
@@ -90,8 +90,7 @@ class AppServiceProvider extends ServiceProvider
             if ($request->user()) {
                 return Limit::none();
             }
-
-            return Limit::perMinute(5)->by(($request->input('email') ?? '').'|'.$request->ip());
+            return Limit::perMinute(5)->by(($request->input('email') ?? '') . '|' . $request->ip());
         });
 
         RateLimiter::for('api-auth', function (Request $request) {
