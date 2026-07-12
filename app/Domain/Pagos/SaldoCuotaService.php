@@ -89,7 +89,14 @@ class SaldoCuotaService implements SaldoCuotaServiceInterface
      */
     private function totalesPagosAprobados(CuotasGrupales $cuota): array
     {
-        if (isset($cuota->monto_pagado_aprobado_sum) || isset($cuota->monto_mora_pagada_aprobado_sum)) {
+        // withSum expone el atributo agregado aunque su valor sea NULL (cuota sin
+        // pagos aprobados: SUM(...) devuelve NULL). isset() lo trataría como "no
+        // eager-loaded" y caería al fallback N+1 en el caso más común (cuota
+        // impaga), anulando la optimización batch. array_key_exists distingue
+        // "presente-pero-null" (=> 0) de "no cargado".
+        $atributos = $cuota->getAttributes();
+        if (array_key_exists('monto_pagado_aprobado_sum', $atributos)
+            || array_key_exists('monto_mora_pagada_aprobado_sum', $atributos)) {
             return [
                 number_format((float) $cuota->monto_pagado_aprobado_sum, 2, '.', ''),
                 number_format((float) $cuota->monto_mora_pagada_aprobado_sum, 2, '.', ''),
