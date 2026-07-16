@@ -62,12 +62,11 @@ function setupEscenarioBase(): array
         'tipo'         => 'grupal',
     ]);
 
-    // Cuota grupal: 200 capital + 20 interés = 220 saldo_pendiente
+    // Cuota grupal: 200 capital + 20 interés = 220 (monto_cuota_grupal, ledger-derived)
     $cuotaGrupal = CuotasGrupales::factory()->create([
         'prestamo_id'       => $prestamoGrupal->id,
         'numero_cuota'      => 1,
         'monto_cuota_grupal'=> 220.00,
-        'saldo_pendiente'   => 220.00,
         'estado_pago'       => 'pendiente',
         'fecha_vencimiento' => now()->subDays(10),
     ]);

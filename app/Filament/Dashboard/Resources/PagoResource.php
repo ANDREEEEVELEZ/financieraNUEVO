@@ -935,7 +935,11 @@ class PagoResource extends Resource
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
                     ->label('Saldo')
-                    ->sortable()
+                    // .sortable() removido: el saldo es ledger-derived (formatStateUsing
+                    // ignora $state y recalcula via saldoPendienteCuota()) y la columna DB
+                    // se elimina (SDD core-contable-seguridad Req 4.1) — mismo motivo que
+                    // CuotasResource/CuotasVigentesWidget (R-c2/R-b2-2), descubierto aqui
+                    // durante el barrido completo previo al drop (tarea 4.5).
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(function ($state, $record) {
                         // Si el pago está rechazado, no mostrar saldo

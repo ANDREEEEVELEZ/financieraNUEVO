@@ -30,7 +30,6 @@ it('dispatches PagoAprobado event when aprobarPago succeeds', function () {
         'prestamo_id'         => $prestamo->id,
         'numero_cuota'        => 1,
         'monto_cuota_grupal'  => 100.00,
-        'saldo_pendiente'     => 100.00,
         'fecha_vencimiento'   => now()->addDays(7)->toDateString(),
         'estado_cuota_grupal' => 'vigente',
         'estado_pago'         => 'pendiente',

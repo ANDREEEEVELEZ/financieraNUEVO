@@ -32,7 +32,6 @@ it('dispatches PagoRevertido event when revertirPago succeeds', function () {
         'prestamo_id'         => $prestamo->id,
         'numero_cuota'        => 1,
         'monto_cuota_grupal'  => 100.00,
-        'saldo_pendiente'     => 0.00,
         'fecha_vencimiento'   => now()->addDays(7)->toDateString(),
         'estado_cuota_grupal' => 'cancelada',
         'estado_pago'         => 'pagado',

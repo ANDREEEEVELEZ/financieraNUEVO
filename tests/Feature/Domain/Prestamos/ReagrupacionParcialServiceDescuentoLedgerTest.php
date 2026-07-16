@@ -17,12 +17,11 @@ uses(RefreshDatabase::class);
  * SDD core-contable-seguridad, Slice D, Requisito 4.1.
  *
  * Caracterización: ReagrupacionParcialService::calcularDescuentoRetanqueo()
- * migró de leer la columna legacy `saldo_pendiente` a derivar el saldo del
- * ledger (SaldoCuotaService::saldoTotal()). Este test siembra una columna
- * legacy MENTIROSA (divergente del ledger real) para probar que el
- * descuento calculado sigue la verdad del ledger, no el valor legacy.
+ * migró de leer la columna legacy `saldo_pendiente` (ya eliminada) a derivar
+ * el saldo del ledger (SaldoCuotaService::saldoTotal()). Este test prueba que
+ * el descuento calculado se deriva correctamente del ledger.
  */
-it('calcula el descuento de retanqueo desde el ledger, no desde la columna legacy divergente', function () {
+it('calcula el descuento de retanqueo desde el ledger (monto_cuota_grupal, sin pagos aprobados)', function () {
     $user = User::factory()->create(['active' => true]);
     $asesor = Asesor::factory()->create(['user_id' => $user->id]);
     Auth::login($user);
@@ -39,13 +38,12 @@ it('calcula el descuento de retanqueo desde el ledger, no desde la columna legac
         'estado' => Prestamo::ESTADO_FINALIZADO,
     ]);
 
-    // Última cuota pendiente: columna legacy MIENTE (999999.99), pero el
-    // ledger real dice 100.00 (monto_cuota_grupal, sin pagos aprobados).
+    // Última cuota pendiente: ledger dice 100.00 (monto_cuota_grupal, sin
+    // pagos aprobados).
     CuotasGrupales::factory()->create([
         'prestamo_id' => $prestamo->id,
         'numero_cuota' => 1,
         'monto_cuota_grupal' => 100,
-        'saldo_pendiente' => 999999.99,
         'estado_pago' => 'pendiente',
     ]);
 
@@ -75,7 +73,6 @@ it('calcula el descuento de retanqueo desde el ledger, no desde la columna legac
     // calcularDescuentoRetanqueo cuenta los integrantes del grupo DESPUÉS del
     // traslado (paso 2 de reagrupar() ocurre antes del cálculo de descuento):
     // quedan 4 de 5 en el grupo origen -> proporcion = 1/4 = 0.25;
-    // ledger saldoTotal = 100.00 -> descuento = 25.00 (si leyera la columna
-    // legacy, el descuento sería ~249999.9975, un valor absurdo).
+    // ledger saldoTotal = 100.00 -> descuento = 25.00.
     expect((float) $reagrupacion->monto_descuento)->toBe(25.00);
 });

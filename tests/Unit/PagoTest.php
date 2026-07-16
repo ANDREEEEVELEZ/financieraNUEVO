@@ -50,7 +50,6 @@ describe('Relaciones y lógica de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 150,
-            'saldo_pendiente' => 150,
         ]);
 
         $pago = Pago::factory()->create
@@ -76,7 +75,6 @@ describe('Relaciones y lógica de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 200,
-            'saldo_pendiente' => 200,
         ]);
 
         $pago = Pago::factory()->create
@@ -152,7 +150,6 @@ describe('Funcionalidad de aprobación de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 150,
-            'saldo_pendiente' => 150,
             'estado_pago' => 'pendiente',
             'estado_cuota_grupal' => 'vigente',
         ]);
@@ -178,7 +175,6 @@ describe('Funcionalidad de aprobación de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 200,
-            'saldo_pendiente' => 200,
             'estado_pago' => 'pendiente',
             'estado_cuota_grupal' => 'vigente',
         ]);
@@ -206,7 +202,6 @@ describe('Funcionalidad de aprobación de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 150,
-            'saldo_pendiente' => 150,
             'estado_cuota_grupal' => 'mora',
         ]);
         $mora = Mora::factory()->create
@@ -246,7 +241,6 @@ describe('Funcionalidad de rechazo de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 200,
-            'saldo_pendiente' => 100,
             'estado_pago' => 'parcial',
         ]);
         $pagoAprobado = Pago::factory()->create
@@ -301,7 +295,6 @@ describe('Regresión: casing de estado_pago', function ()
         $cuota = CuotasGrupales::factory()->create([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 150,
-            'saldo_pendiente' => 150,
             'estado_pago' => 'pendiente',
             'estado_cuota_grupal' => 'vigente',
         ]);
@@ -327,7 +320,6 @@ describe('Regresión: casing de estado_pago', function ()
         $cuota = CuotasGrupales::factory()->create([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 200,
-            'saldo_pendiente' => 200,
         ]);
 
         // Simula una fila legacy insertada antes del fix, con estado_pago capitalizado (sin pasar por el mutator).

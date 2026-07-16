@@ -41,9 +41,6 @@ function makeCuotaConPagoParcial(): CuotasGrupales
     $cuota = CuotasGrupales::factory()->create([
         'prestamo_id' => $prestamo->id,
         'monto_cuota_grupal' => 100,
-        // Valor legacy deliberadamente erroneo: la migracion NUNCA debe leer
-        // esta columna (Scenario 3.2 — unica fuente es SaldoCuotaService).
-        'saldo_pendiente' => 999999.99,
         'estado_cuota_grupal' => 'vigente',
         'estado_pago' => 'parcial',
     ]);

@@ -15,7 +15,8 @@ uses(Tests\TestCase::class);
 /**
  * Task 1.1 — RED: SaldoCuotaService unit tests.
  * Req 3 (single saldo service), Req 3 Scenario 3.1/3.3, Req 7.4 (bcmath precision).
- * Ledger-derived: no reads of the (still-alive) saldo_pendiente column.
+ * Ledger-derived: the legacy cuotas_grupales.saldo_pendiente column was dropped
+ * in Slice D (Req 4.1) — the service never read it even while it was alive.
  */
 function makeCuotaConPagos(array $cuotaAttrs = [], array $pagos = []): CuotasGrupales
 {
@@ -24,9 +25,6 @@ function makeCuotaConPagos(array $cuotaAttrs = [], array $pagos = []): CuotasGru
     $cuota = CuotasGrupales::factory()->create(array_merge([
         'prestamo_id' => $prestamo->id,
         'monto_cuota_grupal' => 200,
-        // saldo_pendiente is intentionally set to a WRONG/stale value to prove
-        // the service never reads it (ledger-derived only).
-        'saldo_pendiente' => 999999.99,
         'estado_pago' => 'pendiente',
         'estado_cuota_grupal' => 'vigente',
     ], $cuotaAttrs));
@@ -58,7 +56,6 @@ function makeCuotaConMoraControlada(int $integrantes, float $montoCuota, array $
     $cuota = CuotasGrupales::factory()->create([
         'prestamo_id' => $prestamo->id,
         'monto_cuota_grupal' => $montoCuota,
-        'saldo_pendiente' => 999999.99,
         'estado_cuota_grupal' => 'mora',
         'fecha_vencimiento' => '2025-01-01',
     ]);
@@ -245,13 +242,11 @@ it('saldoTotalGrupo sums saldoTotal across active cuotas of a prestamo', functio
     $cuota1 = CuotasGrupales::factory()->create([
         'prestamo_id' => $prestamo->id,
         'monto_cuota_grupal' => 100,
-        'saldo_pendiente' => 0,
         'estado_cuota_grupal' => 'vigente',
     ]);
     $cuota2 = CuotasGrupales::factory()->create([
         'prestamo_id' => $prestamo->id,
         'monto_cuota_grupal' => 150,
-        'saldo_pendiente' => 0,
         'estado_cuota_grupal' => 'mora',
     ]);
     // Cancelada cuotas are fully paid — must not distort the aggregate (saldo would be 0 anyway,
@@ -259,7 +254,6 @@ it('saldoTotalGrupo sums saldoTotal across active cuotas of a prestamo', functio
     $cuotaCancelada = CuotasGrupales::factory()->create([
         'prestamo_id' => $prestamo->id,
         'monto_cuota_grupal' => 80,
-        'saldo_pendiente' => 0,
         'estado_cuota_grupal' => 'cancelada',
     ]);
     Pago::factory()->create([
@@ -293,7 +287,6 @@ it('saldoTotalGrupo does not N+1 across cuotas (withSum eager aggregate)', funct
                 'prestamo_id' => $prestamo->id,
                 'numero_cuota' => $n,
                 'monto_cuota_grupal' => 100,
-                'saldo_pendiente' => 0,
                 'estado_cuota_grupal' => 'vigente',
             ]);
             // Only the FIRST cuota has an approved pago; the rest have ZERO approved

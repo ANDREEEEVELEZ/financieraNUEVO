@@ -34,7 +34,6 @@ function makeCuotaForAsesor(Asesor $asesor): CuotasGrupales
     return CuotasGrupales::factory()->create([
         'prestamo_id'        => $prestamo->id,
         'monto_cuota_grupal' => 150,
-        'saldo_pendiente'    => 150,
     ]);
 }
 
