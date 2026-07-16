@@ -185,9 +185,12 @@ describe('MorosoSeparationService', function () {
 
         expect($cuotasNuevas)->toHaveCount(1);
 
-        // 5. Verificar que la cuota grupal se redujo (220 - 110 = 110)
+        // 5. Verificar que la cuota grupal se redujo (220 - 110 = 110).
+        // Ledger-derived (SDD core-contable-seguridad, Slice D): la columna
+        // legacy saldo_pendiente fue eliminada; el mismo efecto contable ahora
+        // se refleja en monto_cuota_grupal, el campo que SaldoCuotaService lee.
         $cuotaGrupalRenovada = CuotasGrupales::find($this->cuotaGrupal1->id);
-        expect((float) $cuotaGrupalRenovada->saldo_pendiente)->toBe(110.00);
+        expect((float) $cuotaGrupalRenovada->monto_cuota_grupal)->toBe(110.00);
     });
 
     // ── 4.2 GREEN — BCMath ─────────────────────────────────────────────────
@@ -295,9 +298,13 @@ describe('MorosoSeparationService', function () {
     // ── 4.8 NEW — invariante contable BCMath ──────────────────────────────
 
     it('invariante contable: saldo_grupal_pre == saldo_grupal_post + porcion_moroso', function () {
+        // Ledger-derived (SDD core-contable-seguridad, Slice D): la columna
+        // legacy saldo_pendiente fue eliminada; el invariante ahora se
+        // verifica sobre monto_cuota_grupal, el campo que efectivamente se
+        // reduce y que SaldoCuotaService lee.
         $saldoPre = CuotasGrupales::where('prestamo_id', $this->prestamoGrupal->id)
             ->get()
-            ->reduce(fn ($carry, $cg) => bcadd($carry, (string) $cg->saldo_pendiente, 2), '0.00');
+            ->reduce(fn ($carry, $cg) => bcadd($carry, (string) $cg->monto_cuota_grupal, 2), '0.00');
 
         $service = new MorosoSeparationService();
         $service->separar(
@@ -309,7 +316,7 @@ describe('MorosoSeparationService', function () {
 
         $saldoPost = CuotasGrupales::where('prestamo_id', $this->prestamoGrupal->id)
             ->get()
-            ->reduce(fn ($carry, $cg) => bcadd($carry, (string) $cg->saldo_pendiente, 2), '0.00');
+            ->reduce(fn ($carry, $cg) => bcadd($carry, (string) $cg->monto_cuota_grupal, 2), '0.00');
 
         $porcionMoroso = CuotaIndividual::where('cliente_id', $this->clienteMoroso->id)
             ->get()

@@ -3,11 +3,14 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Models\Prestamo;
 use App\Models\Retanqueo;
 
 class ActualizarEstadosRetanqueo extends Command
 {
+    use FiltraCuotasPendientesConSaldo;
+
     /**
      * The name and signature of the console command.
      *
@@ -57,11 +60,8 @@ class ActualizarEstadosRetanqueo extends Command
 
             $this->line("🔍 Analizando préstamo ID: {$prestamoAntiguo->id}");
 
-            // Verificar cuotas pendientes
-            $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()
-                ->where('estado_pago', '!=', 'pagado')
-                ->where('saldo_pendiente', '>', 0)
-                ->count();
+            // Verificar cuotas pendientes (solo informativo/log — no afecta la decisión abajo)
+            $cuotasPendientes = self::cuotasPendientesConSaldo($prestamoAntiguo)->count();
 
             // Verificar si todos los integrantes retanquearon
             $totalIntegrantes = $prestamoAntiguo->grupo->clientes()->count();

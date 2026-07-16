@@ -2,6 +2,7 @@
 
 namespace App\Domain\Prestamos;
 
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Events\Domain\ReagrupacionEjecutada;
 use App\Models\Grupo;
 use App\Models\Prestamo;
@@ -149,6 +150,8 @@ class ReagrupacionParcialService
         }
 
         $proporcion = $integrantesQueRetanquean / $totalIntegrantes;
-        return round((float) $ultimaCuotaPendiente->saldo_pendiente * $proporcion, 2);
+        $saldoLedger = (float) app(SaldoCuotaServiceInterface::class)->saldoTotal($ultimaCuotaPendiente);
+
+        return round($saldoLedger * $proporcion, 2);
     }
 }

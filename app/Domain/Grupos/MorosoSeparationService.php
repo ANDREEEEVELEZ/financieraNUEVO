@@ -2,6 +2,7 @@
 
 namespace App\Domain\Grupos;
 
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Contracts\SeparacionServiceInterface;
 use App\Events\SeparacionRealizada;
 use App\Models\Cliente;
@@ -282,15 +283,27 @@ class MorosoSeparationService implements SeparacionServiceInterface
     }
 
     /**
-     * Reduce el saldo de cada CuotaGrupal del préstamo origen en la porción
-     * que correspondía al moroso (capital + interés), usando BCMath.
+     * Reduce la obligación de cada CuotaGrupal del préstamo origen en la
+     * porción que correspondía al moroso (capital + interés), usando BCMath.
      *
-     * Invariante: saldo_pendiente resultante >= 0. Si es negativo, lanza excepción.
+     * Invariante: saldo resultante >= 0. Si es negativo, lanza excepción.
+     *
+     * NOTA (SDD core-contable-seguridad, Slice D): este método antes escribía
+     * `cuotas_grupales.saldo_pendiente -= porcionMoroso`. Esa columna legacy
+     * se elimina (Req 4.1); el efecto contable equivalente — el grupo deja de
+     * deber la porción del cliente separado — se logra ahora reduciendo
+     * `monto_cuota_grupal` (el campo que SaldoCuotaService sí lee vía
+     * `saldoCuota() = monto_cuota_grupal - pagosAprobados`), en vez de la
+     * columna write-only. Esto preserva el mismo resultado ledger-derived que
+     * el test de invariante contable de este servicio verifica
+     * (saldo_pre == saldo_post + porcion_moroso).
      *
      * @param iterable<CuotaIndividual> $cuotasDelMoroso
      */
     private function reducirCuotasGrupales(int $prestamoId, iterable $cuotasDelMoroso): void
     {
+        $saldoServicio = app(SaldoCuotaServiceInterface::class);
+
         foreach ($cuotasDelMoroso as $cuotaInd) {
             $porcionMoroso = bcadd(
                 (string) $cuotaInd->saldo_capital,
@@ -307,16 +320,17 @@ class MorosoSeparationService implements SeparacionServiceInterface
                 continue;
             }
 
-            $nuevoSaldo = bcsub((string) $cuotaGrupal->saldo_pendiente, $porcionMoroso, 2);
+            $saldoActual = $saldoServicio->saldoTotal($cuotaGrupal);
 
-            if (bccomp($nuevoSaldo, '0', 2) < 0) {
+            if (bccomp($saldoActual, $porcionMoroso, 2) < 0) {
                 throw new RuntimeException(
                     "Saldo grupal negativo en cuota {$cuotaInd->numero_cuota}: " .
-                    "{$cuotaGrupal->saldo_pendiente} - {$porcionMoroso}"
+                    "{$saldoActual} - {$porcionMoroso}"
                 );
             }
 
-            $cuotaGrupal->update(['saldo_pendiente' => $nuevoSaldo]);
+            $nuevoMontoCuota = bcsub((string) $cuotaGrupal->monto_cuota_grupal, $porcionMoroso, 2);
+            $cuotaGrupal->update(['monto_cuota_grupal' => $nuevoMontoCuota]);
         }
     }
 }
