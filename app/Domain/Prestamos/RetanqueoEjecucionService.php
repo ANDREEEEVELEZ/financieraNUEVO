@@ -2,12 +2,15 @@
 
 namespace App\Domain\Prestamos;
 
+use App\Actions\Retanqueo\RegistrarCoberturaRetanqueoAction;
 use App\Contracts\RetanqueoEjecucionInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Models\Retanqueo;
 use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
 use App\Models\CuotasGrupales;
 use App\Models\Cliente;
+use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -229,7 +232,14 @@ class RetanqueoEjecucionService implements RetanqueoEjecucionInterface
         };
     }
 
-    private function actualizarPrestamoAntiguo($retanqueo): void
+    /**
+     * Cubre las cuotas pendientes del préstamo antiguo con la cobertura de
+     * retanqueo — vía ledger (RegistrarCoberturaRetanqueoAction), NUNCA
+     * mutando `saldo_pendiente` directamente (SDD core-contable-seguridad,
+     * Slice C, Req 1 Scenario 1.1/1.3). Decompuesto en métodos ≤50 líneas
+     * (decision D8/D6).
+     */
+    private function actualizarPrestamoAntiguo(Retanqueo $retanqueo): void
     {
         $prestamoAntiguo     = $retanqueo->prestamoAntiguo;
         $montoUsadoCobertura = $retanqueo->monto_usado_para_cubrir_antiguo;
@@ -238,88 +248,134 @@ class RetanqueoEjecucionService implements RetanqueoEjecucionInterface
             return;
         }
 
-        $totalIntegrantes     = $prestamoAntiguo->grupo->clientes()->count();
         $clientesQueRetanquean = $retanqueo->retanqueosIndividuales()
             ->whereIn('participacion_tipo', ['retanquea', 'nueva'])
             ->with('cliente')
             ->get();
 
+        $totalIntegrantes = $prestamoAntiguo->grupo->clientes()->count();
+
         if ($clientesQueRetanquean->count() <= 0 || $totalIntegrantes <= 0) {
             return;
         }
 
+        $this->cubrirCuotasPendientesConRetanqueo($retanqueo, $prestamoAntiguo, $clientesQueRetanquean);
+        $this->actualizarEstadoPrestamoAntiguo($retanqueo, $prestamoAntiguo);
+        $this->recalcularSaldoRestantePrestamoAntiguo($retanqueo, $prestamoAntiguo);
+    }
+
+    /**
+     * Recorre las cuotas grupales pendientes (ledger-derived, no columna) y
+     * aplica cobertura de retanqueo a cada una que aún tenga saldo.
+     */
+    private function cubrirCuotasPendientesConRetanqueo(
+        Retanqueo $retanqueo,
+        Prestamo $prestamoAntiguo,
+        Collection $clientesQueRetanquean
+    ): void {
+        $saldoServicio = app(SaldoCuotaServiceInterface::class);
+
         $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()
             ->where('estado_pago', '!=', 'pagado')
-            ->where('saldo_pendiente', '>', 0)
             ->orderBy('numero_cuota')
+            ->lockForUpdate()
             ->get();
 
         foreach ($cuotasPendientes as $cuota) {
-            $saldoActualCuota  = $cuota->saldo_pendiente;
-            $montoTotalACubrir = 0;
-
-            foreach ($clientesQueRetanquean as $retanqueoIndividual) {
-                $prestamoIndividual = $prestamoAntiguo->prestamoIndividual()
-                    ->where('cliente_id', $retanqueoIndividual->cliente_id)
-                    ->first();
-
-                if ($prestamoIndividual) {
-                    $montoTotalACubrir += $prestamoIndividual->monto_cuota_prestamo_individual;
-                }
+            if (bccomp($saldoServicio->saldoTotal($cuota), '0.00', 2) <= 0) {
+                continue;
             }
 
-            $nuevoSaldoPendiente = round($saldoActualCuota - $montoTotalACubrir, 2);
+            $this->cubrirCuotaIndividualmente($retanqueo, $cuota, $clientesQueRetanquean, $prestamoAntiguo, $saldoServicio);
+        }
+    }
 
-            $cuota->update(['saldo_pendiente' => max(0, $nuevoSaldoPendiente)]);
+    /**
+     * Aplica la cobertura de retanqueo a UNA cuota grupal, capada al saldo
+     * real (nunca sobrepaga el ledger). Delega la creación de Pago +
+     * AplicacionPago + transición de estado a RegistrarCoberturaRetanqueoAction.
+     */
+    private function cubrirCuotaIndividualmente(
+        Retanqueo $retanqueo,
+        CuotasGrupales $cuota,
+        Collection $clientesQueRetanquean,
+        Prestamo $prestamoAntiguo,
+        SaldoCuotaServiceInterface $saldoServicio
+    ): void {
+        $saldoActualCuota  = $saldoServicio->saldoTotal($cuota);
+        $montoTotalACubrir = $this->calcularMontoACubrir($clientesQueRetanquean, $prestamoAntiguo);
 
-            $hayIntegrantesQueNoRetanquearon = $clientesQueRetanquean->count() < $totalIntegrantes;
-
-            if ($nuevoSaldoPendiente <= 0 && !$hayIntegrantesQueNoRetanquearon) {
-                $cuota->update([
-                    'estado_pago'         => 'pagado',
-                    'estado_cuota_grupal' => 'cancelada',
-                ]);
-                Log::info('RetanqueoEjecucionService: Cuota marcada como pagada - todos retanquearon', [
-                    'cuota_id'     => $cuota->id,
-                    'numero_cuota' => $cuota->numero_cuota,
-                ]);
-            } else {
-                Log::info('RetanqueoEjecucionService: Cuota parcialmente cubierta - pendiente para quien no retanqueó', [
-                    'cuota_id'                     => $cuota->id,
-                    'numero_cuota'                 => $cuota->numero_cuota,
-                    'saldo_restante'               => $nuevoSaldoPendiente,
-                    'integrantes_no_retanquean'    => $totalIntegrantes - $clientesQueRetanquean->count(),
-                    'razon'                        => 'Algunos integrantes no retanquearon y deben pagar su cuota individual',
-                ]);
-            }
-
-            Log::info('RetanqueoEjecucionService: Cobertura individual aplicada correctamente', [
-                'cuota_id'             => $cuota->id,
-                'numero_cuota'         => $cuota->numero_cuota,
-                'saldo_original'       => $saldoActualCuota,
-                'monto_cubierto'       => $montoTotalACubrir,
-                'nuevo_saldo_pendiente' => $nuevoSaldoPendiente,
-                'clientes_que_retanquean' => $clientesQueRetanquean->count(),
-                'total_integrantes'    => $totalIntegrantes,
-                'hay_pendientes'       => $hayIntegrantesQueNoRetanquearon,
-            ]);
+        if (bccomp($montoTotalACubrir, '0.00', 2) <= 0) {
+            return;
         }
 
+        // Cap: la cobertura nunca puede exceder lo realmente adeudado.
+        $montoCobertura = bccomp($montoTotalACubrir, $saldoActualCuota, 2) > 0
+            ? $saldoActualCuota
+            : $montoTotalACubrir;
+
+        if (bccomp($montoCobertura, '0.00', 2) <= 0) {
+            return;
+        }
+
+        app(RegistrarCoberturaRetanqueoAction::class)($cuota, $montoCobertura, $retanqueo);
+
+        Log::info('RetanqueoEjecucionService: Cobertura individual aplicada correctamente', [
+            'cuota_id'       => $cuota->id,
+            'numero_cuota'   => $cuota->numero_cuota,
+            'saldo_original' => $saldoActualCuota,
+            'monto_cubierto' => $montoCobertura,
+        ]);
+    }
+
+    /**
+     * Suma la cuota individual (monto_cuota_prestamo_individual) de cada
+     * cliente que retanquea — su contribución fija a la cobertura del
+     * préstamo antiguo, independiente del saldo real de la cuota grupal.
+     */
+    private function calcularMontoACubrir(Collection $clientesQueRetanquean, Prestamo $prestamoAntiguo): string
+    {
+        $montoTotalACubrir = '0.00';
+
+        foreach ($clientesQueRetanquean as $retanqueoIndividual) {
+            $prestamoIndividual = $prestamoAntiguo->prestamoIndividual()
+                ->where('cliente_id', $retanqueoIndividual->cliente_id)
+                ->first();
+
+            if ($prestamoIndividual) {
+                $montoTotalACubrir = bcadd(
+                    $montoTotalACubrir,
+                    (string) $prestamoIndividual->monto_cuota_prestamo_individual,
+                    2
+                );
+            }
+        }
+
+        return $montoTotalACubrir;
+    }
+
+    /**
+     * Transiciona el préstamo antiguo a Activo (parcialmente retanqueado, si
+     * quedan integrantes que no retanquearon) o Finalizado (todos retanquearon).
+     * No depende de saldo_pendiente — solo cuenta participación.
+     */
+    private function actualizarEstadoPrestamoAntiguo(Retanqueo $retanqueo, Prestamo $prestamoAntiguo): void
+    {
         $integrantesNoRetanqueados = $retanqueo->retanqueosIndividuales()
             ->where('participacion_tipo', 'no_retanquea')
             ->count();
 
         if ($integrantesNoRetanqueados > 0) {
             $prestamoAntiguo->update([
-                'estado'                       => Prestamo::ESTADO_ACTIVO,
-                'es_parcialmente_retanqueado'  => true,
+                'estado'                      => Prestamo::ESTADO_ACTIVO,
+                'es_parcialmente_retanqueado' => true,
             ]);
             $retanqueo->update(['prestamo_antiguo_estado' => 0]);
 
             Log::info('RetanqueoEjecucionService: Préstamo marcado como Activo (parcialmente retanqueado)', [
-                'prestamo_id'                  => $prestamoAntiguo->id,
-                'integrantes_no_retanqueados'  => $integrantesNoRetanqueados,
-                'razon'                        => 'Hay integrantes que no retanquearon y deben seguir pagando',
+                'prestamo_id'                 => $prestamoAntiguo->id,
+                'integrantes_no_retanqueados' => $integrantesNoRetanqueados,
+                'razon'                       => 'Hay integrantes que no retanquearon y deben seguir pagando',
             ]);
         } else {
             $prestamoAntiguo->update(['estado' => 'Finalizado']);
@@ -330,10 +386,17 @@ class RetanqueoEjecucionService implements RetanqueoEjecucionInterface
                 'razon'       => 'Todos los integrantes retanquearon',
             ]);
         }
+    }
 
-        $saldoRestanteTotal = $prestamoAntiguo->cuotasGrupales()
-            ->where('estado_pago', '!=', 'pagado')
-            ->sum('saldo_pendiente');
+    /**
+     * Recalcula el saldo restante del préstamo antiguo desde el ledger
+     * (SaldoCuotaService::saldoTotalGrupo) en vez de sumar la columna
+     * cuotas_grupales.saldo_pendiente, que este método ya no escribe y
+     * quedaría desactualizada para las cuotas recién cubiertas.
+     */
+    private function recalcularSaldoRestantePrestamoAntiguo(Retanqueo $retanqueo, Prestamo $prestamoAntiguo): void
+    {
+        $saldoRestanteTotal = app(SaldoCuotaServiceInterface::class)->saldoTotalGrupo($prestamoAntiguo);
 
         $retanqueo->update(['saldo_restante_prestamo_antiguo' => $saldoRestanteTotal]);
     }

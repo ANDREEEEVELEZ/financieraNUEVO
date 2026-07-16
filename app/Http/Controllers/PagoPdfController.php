@@ -23,7 +23,9 @@ class PagoPdfController extends Controller
         ]);
 
         $user = $request->user();
-        $query = Pago::query();
+        // Req 2 item 7: reporte de "pagos registrados" es cobranza-facing —
+        // excluye pagos de origen retanqueo (cobertura de deuda, no cobranza).
+        $query = Pago::query()->cobranza();
 
         // Si es un asesor, solo mostrar los pagos de sus grupos
         if ($user->hasRole('Asesor')) {

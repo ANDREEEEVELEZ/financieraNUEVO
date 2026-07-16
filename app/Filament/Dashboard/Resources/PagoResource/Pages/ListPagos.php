@@ -2,6 +2,7 @@
 
 namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
 
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Filament\Dashboard\Resources\PagoResource;
 use App\Filament\Dashboard\Resources\PagoResource\Widgets\PagosStatsWidget;
 use Filament\Actions;
@@ -9,10 +10,8 @@ use Filament\Forms;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
-use App\Models\Grupo;
-use App\Models\Pago;
+use Illuminate\Support\Facades\Auth;
 
 class ListPagos extends ListRecords
 {
@@ -25,9 +24,30 @@ class ListPagos extends ListRecords
         // Ahora la tabla será por préstamo, no por grupo
         $query = \App\Models\Prestamo::query()
             ->whereHas('cuotasGrupales.pagos')
-            ->with(['grupo', 'cuotasGrupales.pagos' => function($q) {
-                $q->orderBy('created_at', 'desc');
-            }])
+            ->with([
+                'grupo',
+                'cuotasGrupales.pagos' => function ($q) {
+                    $q->orderBy('created_at', 'desc');
+                },
+                // withSum aggregates — mismos nombres que SaldoCuotaService::totalesPagosAprobados()
+                // detecta (Slice B2 convention), para que saldo_pendiente_real delegue sin N+1, y
+                // sumas separadas cobranza-only para las columnas que deben excluir retanqueo (Req 2).
+                'cuotasGrupales' => function ($q) {
+                    $q->with('mora')
+                        ->withSum(['pagos as monto_pagado_aprobado_sum' => function ($sub) {
+                            $sub->where('estado_pago', 'aprobado');
+                        }], 'monto_pagado')
+                        ->withSum(['pagos as monto_mora_pagada_aprobado_sum' => function ($sub) {
+                            $sub->where('estado_pago', 'aprobado');
+                        }], 'monto_mora_pagada')
+                        ->withSum(['pagos as monto_pagado_cobranza_sum' => function ($sub) {
+                            $sub->where('estado_pago', 'aprobado')->cobranza();
+                        }], 'monto_pagado')
+                        ->withSum(['pagos as monto_mora_pagada_cobranza_sum' => function ($sub) {
+                            $sub->where('estado_pago', 'aprobado')->cobranza();
+                        }], 'monto_mora_pagada');
+                },
+            ])
             ->addSelect(['ultimo_pago_reciente' => function($sub) {
                 $sub->selectRaw('MAX(pagos.created_at)')
                     ->from('cuotas_grupales')
@@ -157,12 +177,13 @@ class ListPagos extends ListRecords
 
                 Tables\Columns\TextColumn::make('total_pagado_aprobado')
                     ->label('Total Pagado')
-                    ->tooltip('Total pagado (incluye mora)')
+                    ->tooltip('Total pagado (incluye mora) — cobranza real, excluye cobertura de retanqueo')
                     ->size('sm')
                     ->getStateUsing(function ($record) {
+                        // Req 2 item 2: excluye pagos de origen retanqueo (no es cobranza).
                         $total = 0;
                         foreach ($record->cuotasGrupales as $cuota) {
-                            $total += $cuota->pagos->where('estado_pago', 'aprobado')->sum('monto_pagado');
+                            $total += (float) ($cuota->monto_pagado_cobranza_sum ?? 0);
                         }
                         return 'S/. ' . number_format($total, 2);
                     })
@@ -175,12 +196,14 @@ class ListPagos extends ListRecords
                     ->tooltip('Monto de mora pendiente')
                     ->size('sm')
                     ->getStateUsing(function ($record) {
+                        // Req 2 item 2: excluye mora pagada por retanqueo (siempre 0.00 por diseño —
+                        // el retanqueo cubre principal, no penalidades — pero se filtra por consistencia).
                         $moraPendiente = 0;
                         foreach ($record->cuotasGrupales as $cuota) {
                             $estado = strtolower($cuota->estado_cuota_grupal ?? '');
                             if ($estado !== 'cancelada' && $estado !== 'anulada' && $cuota->mora) {
                                 $montoMora = abs($cuota->mora->monto_mora_calculado);
-                                $moraPagada = $cuota->pagos->where('estado_pago', 'aprobado')->sum('monto_mora_pagada');
+                                $moraPagada = (float) ($cuota->monto_mora_pagada_cobranza_sum ?? 0);
                                 $pendiente = $montoMora - $moraPagada;
                                 if ($pendiente > 0) {
                                     $moraPendiente += $pendiente;
@@ -198,20 +221,21 @@ class ListPagos extends ListRecords
                     ->tooltip('Saldo pendiente real (incluye mora)')
                     ->size('sm')
                     ->getStateUsing(function ($record) {
-                        $montoDevolver = 0;
-                        $moraAcumulada = 0;
-                        $montoPagado = 0;
+                        // Delegado a SaldoCuotaService (Req 3 — fuente unica), sumando por cuota
+                        // (floor-then-sum, no net-then-clamp — corrige la divergencia R-b2-1 con
+                        // saldoTotalGrupo()). Incluye AMBOS origenes: la cobertura de retanqueo
+                        // reduce legitimamente lo adeudado (decision D1 — "saldo incluye retanqueo,
+                        // metricas de cobranza lo excluyen"). Usa los atributos withSum ya cargados
+                        // en getTableQuery() para no introducir N+1.
+                        $saldoCuotaService = app(SaldoCuotaServiceInterface::class);
+                        $saldo = '0.00';
                         foreach ($record->cuotasGrupales as $cuota) {
-                            if (strtolower($cuota->estado_cuota_grupal ?? '') !== 'anulada') {
-                                $montoDevolver += floatval($cuota->monto_cuota_grupal);
+                            if (strtolower($cuota->estado_cuota_grupal ?? '') === 'anulada') {
+                                continue;
                             }
-                            if ($cuota->mora && strtolower($cuota->estado_cuota_grupal ?? '') !== 'cancelada') {
-                                $moraAcumulada += abs($cuota->mora->monto_mora_calculado);
-                            }
-                            $montoPagado += $cuota->pagos->where('estado_pago', 'aprobado')->sum('monto_pagado');
+                            $saldo = bcadd($saldo, $saldoCuotaService->saldoTotal($cuota), 2);
                         }
-                        $saldo = ($montoDevolver + $moraAcumulada) - $montoPagado;
-                        return 'S/. ' . number_format(max($saldo, 0), 2);
+                        return 'S/. ' . number_format((float) $saldo, 2);
                     })
                     ->alignCenter()
                     ->badge()

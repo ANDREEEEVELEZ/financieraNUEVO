@@ -70,3 +70,27 @@ it('existing top-level fields are present regardless of relation load state', fu
     expect($data)->toHaveKey('tipo_pago');
     expect($data)->toHaveKey('cuota_grupal_id');
 });
+
+/**
+ * Task 3.15 — expose origen_pago so the mobile client can distinguish
+ * retanqueo-tipo records (Req 2 item 9). No server-side aggregate exists on
+ * this resource/controller today, so this is exposure-only.
+ */
+it('exposes origen_pago so the client can distinguish retanqueo-tipo records', function () {
+    $pago = pagoResourceMakePago();
+    $pago->forceFill(['origen_pago' => 'retanqueo'])->save();
+
+    $request = Request::create('/');
+    $data    = (new PagoResource($pago->fresh()))->response($request)->getData(true)['data'];
+
+    expect($data)->toHaveKey('origen_pago');
+    expect($data['origen_pago'])->toBe('retanqueo');
+});
+
+it('defaults origen_pago to cobranza for cash payments', function () {
+    $pago    = pagoResourceMakePago();
+    $request = Request::create('/');
+    $data    = (new PagoResource($pago))->response($request)->getData(true)['data'];
+
+    expect($data['origen_pago'])->toBe('cobranza');
+});

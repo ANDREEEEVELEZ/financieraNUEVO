@@ -15,6 +15,7 @@ final class PagoResource extends JsonResource
         return [
             'id'               => $this->id,
             'cuota_grupal_id'  => $this->cuota_grupal_id,
+            'origen_pago'      => $this->origen_pago,
             'tipo_pago'        => $this->tipo_pago,
             'codigo_operacion' => $this->codigo_operacion,
             'monto_pagado'     => $this->monto_pagado,

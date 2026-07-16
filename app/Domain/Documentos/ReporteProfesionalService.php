@@ -10,8 +10,12 @@ class ReporteProfesionalService
     public function generarReportePagos($pagos, $filtros = [])
     {
         $totalRegistros = $pagos->count();
-        $totalMonto = $pagos->sum('monto_pagado');
-        $totalMora = $pagos->sum('monto_mora_pagada');
+        // Req 2 item 5: los totales de cobranza excluyen pagos de origen retanqueo
+        // (cobertura de deuda, no dinero cobrado); el listado de filas se mantiene
+        // completo para visibilidad de auditoria/ledger.
+        $pagosCobranza = $pagos->where('origen_pago', 'cobranza');
+        $totalMonto = $pagosCobranza->sum('monto_pagado');
+        $totalMora = $pagosCobranza->sum('monto_mora_pagada');
         $fechaGeneracion = now()->format('d/m/Y H:i:s');
 
 
