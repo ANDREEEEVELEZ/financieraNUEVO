@@ -8,9 +8,11 @@ use App\Models\Prestamo;
 /**
  * Single authoritative source for CuotasGrupales saldo/mora figures.
  *
- * All values are ledger-derived (approved Pago rows), never read from the
- * (legacy, write-only) cuotas_grupales.saldo_pendiente column. Returned as
- * bcmath-precision strings (scale 2) — callers cast to float only at the UI edge.
+ * All values are ledger-derived (approved Pago rows). The legacy,
+ * write-only cuotas_grupales.saldo_pendiente column was dropped in
+ * SDD core-contable-seguridad Slice D (Req 4.1) — it was never read here.
+ * Returned as bcmath-precision strings (scale 2) — callers cast to float
+ * only at the UI edge.
  */
 interface SaldoCuotaServiceInterface
 {

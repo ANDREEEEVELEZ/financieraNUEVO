@@ -17,7 +17,6 @@ class CuotasGrupalesFactory extends Factory
             'numero_cuota' => $this->faker->numberBetween(1, 12),
             'monto_cuota_grupal' => $this->faker->randomFloat(2, 100, 500),
             'fecha_vencimiento' => now()->toDateString(),
-            'saldo_pendiente' => $this->faker->randomFloat(2, 50, 500),
             'estado_cuota_grupal' => $this->faker->randomElement(['vigente', 'mora', 'cancelada']),
             'estado_pago' => $this->faker->randomElement(['pendiente', 'pagado', 'parcial']),
         ];

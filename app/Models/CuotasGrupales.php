@@ -17,7 +17,6 @@ class CuotasGrupales extends Model
         'numero_cuota',
         'monto_cuota_grupal',
         'fecha_vencimiento',
-        'saldo_pendiente',
         'estado_cuota_grupal',
         'estado_pago',
     ];
@@ -25,7 +24,6 @@ class CuotasGrupales extends Model
     protected $casts = [
         'fecha_vencimiento' => 'date',
         'monto_cuota_grupal' => 'decimal:2',
-        'saldo_pendiente' => 'decimal:2',
     ];
 
     public function prestamo()

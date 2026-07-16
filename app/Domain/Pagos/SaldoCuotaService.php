@@ -10,8 +10,8 @@ use App\Models\Prestamo;
  * Única fuente autoritativa de saldo/mora para CuotasGrupales.
  *
  * Ledger-derived: toda cifra se deriva de Pago rows con estado_pago='aprobado'
- * (nunca de cuotas_grupales.saldo_pendiente, que se mantiene vivo como columna
- * legacy hasta que el Slice D la elimine). bcmath, escala 2, sin caching.
+ * (la columna legacy cuotas_grupales.saldo_pendiente fue eliminada en Slice D
+ * — nunca fue leída por este servicio). bcmath, escala 2, sin caching.
  */
 class SaldoCuotaService implements SaldoCuotaServiceInterface
 {

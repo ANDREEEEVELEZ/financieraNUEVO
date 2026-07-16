@@ -5,12 +5,15 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Contracts\RetanqueoQueryInterface;
 use App\Contracts\RetanqueoWorkflowInterface;
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Models\Grupo;
 use App\Models\Prestamo;
 use App\Models\Cliente;
 
 class RetanqueoTestSeeder extends Seeder
 {
+    use FiltraCuotasPendientesConSaldo;
+
     /**
      * Run the database seeder.
      */
@@ -38,11 +41,8 @@ class RetanqueoTestSeeder extends Seeder
                 if ($grupoCandidate->clientes()->count() >= 2) {
                     $prestamoCandidate = $grupoCandidate->prestamos()
                         ->where('estado', 'Aprobado')
-                        ->whereHas('cuotasGrupales', function ($q) {
-                            $q->where('estado_pago', '!=', 'pagado')
-                              ->where('saldo_pendiente', '>', 0);
-                        })
-                        ->first();
+                        ->get()
+                        ->first(fn ($prestamo) => self::cuotasPendientesConSaldo($prestamo)->isNotEmpty());
                     
                     if ($prestamoCandidate) {
                         $grupo = $grupoCandidate;
