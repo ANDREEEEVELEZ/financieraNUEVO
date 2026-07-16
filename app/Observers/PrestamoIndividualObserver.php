@@ -90,7 +90,6 @@ class PrestamoIndividualObserver
             if (abs((float) $cuota->monto_cuota_grupal - $montoPorCuota) > 0.01) {
                 $cuota->updateQuietly([
                     'monto_cuota_grupal' => round($montoPorCuota, 2),
-                    'saldo_pendiente'    => round($montoPorCuota, 2),
                 ]);
             }
         }

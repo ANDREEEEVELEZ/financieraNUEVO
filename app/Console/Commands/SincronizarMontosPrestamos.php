@@ -53,7 +53,6 @@ class SincronizarMontosPrestamos extends Command
                             if (abs((float)$cuota->monto_cuota_grupal - $montoCorrecto) > 0.01) {
                                 $cuota->update([
                                     'monto_cuota_grupal' => round($montoCorrecto, 2),
-                                    'saldo_pendiente' => round($montoCorrecto, 2)
                                 ]);
                                 $cuotasActualizadas++;
                                 $this->line("  ✓ Cuota {$cuota->numero_cuota} actualizada");

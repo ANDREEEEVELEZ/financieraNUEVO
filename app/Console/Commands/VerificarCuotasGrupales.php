@@ -51,7 +51,6 @@ class VerificarCuotasGrupales extends Command
                     if ($this->option('fix')) {
                         $cuota->update([
                             'monto_cuota_grupal' => round($montoCorrecto, 2),
-                            'saldo_pendiente' => round($montoCorrecto, 2)
                         ]);
                         $cuotasCorregidas++;
                         $this->info("  ✅ Cuota {$cuota->numero_cuota} corregida");
