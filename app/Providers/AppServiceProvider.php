@@ -32,10 +32,10 @@ use App\Contracts\NotificationServiceInterface;
 use App\Infrastructure\Cache\CacheService;
 use App\Contracts\CronogramaServiceInterface;
 use App\Contracts\PagoServiceInterface;
-use App\Contracts\SaldoCuotaServiceInterface;
 use App\Contracts\RetanqueoEjecucionInterface;
 use App\Contracts\RetanqueoQueryInterface;
 use App\Contracts\RetanqueoWorkflowInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Contracts\SeparacionServiceInterface;
 use App\Domain\Pagos\PagoService;
 use App\Domain\Pagos\SaldoCuotaService;
@@ -61,10 +61,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(CacheServiceInterface::class, CacheService::class);
         $this->app->bind(PagoServiceInterface::class, PagoService::class);
-        $this->app->bind(SaldoCuotaServiceInterface::class, SaldoCuotaService::class);
         $this->app->bind(CronogramaServiceInterface::class, CronogramaService::class);
         $this->app->bind(AuditServiceInterface::class, AuditService::class);
         $this->app->bind(SeparacionServiceInterface::class, MorosoSeparationService::class);
+        $this->app->bind(SaldoCuotaServiceInterface::class, SaldoCuotaService::class);
 
         // Retanqueo service decomposition — SR-4
         $this->app->bind(RetanqueoQueryInterface::class, function ($app) {
