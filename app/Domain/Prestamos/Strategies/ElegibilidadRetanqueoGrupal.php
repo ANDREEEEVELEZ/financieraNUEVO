@@ -2,6 +2,7 @@
 
 namespace App\Domain\Prestamos\Strategies;
 
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Models\Prestamo;
 
 /**
@@ -21,18 +22,15 @@ use App\Models\Prestamo;
  */
 final class ElegibilidadRetanqueoGrupal implements ElegibilidadRetanqueoStrategy
 {
+    use FiltraCuotasPendientesConSaldo;
+
     public function esElegible(Prestamo $prestamo): bool
     {
         $grupo = $prestamo->grupo;
 
         if (!$grupo || !$grupo->productoFinanciero) {
             // Fall back to individual rule when no product config available
-            $cuotasPendientes = $prestamo->cuotasGrupales()
-                ->where('estado_pago', '!=', 'pagado')
-                ->where('saldo_pendiente', '>', 0)
-                ->count();
-
-            return $cuotasPendientes === 1;
+            return self::cuotasPendientesConSaldo($prestamo)->count() === 1;
         }
 
         $porcentajeMinimo = (float) ($grupo->productoFinanciero->porcentaje_minimo_retanqueo ?? 0.51);

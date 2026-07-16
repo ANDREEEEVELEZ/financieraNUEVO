@@ -3,6 +3,8 @@
 namespace App\Domain\Prestamos;
 
 use App\Contracts\RetanqueoQueryInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Domain\Prestamos\Strategies\ElegibilidadRetanqueoStrategy;
 use App\Models\Grupo;
 use App\Models\Prestamo;
@@ -10,6 +12,8 @@ use Illuminate\Support\Collection;
 
 class RetanqueoQueryService implements RetanqueoQueryInterface
 {
+    use FiltraCuotasPendientesConSaldo;
+
     public function __construct(
         private readonly ElegibilidadRetanqueoStrategy $elegibilidadStrategy
     ) {}
@@ -28,13 +32,12 @@ class RetanqueoQueryService implements RetanqueoQueryInterface
         }
 
         return $query->get()->filter(function ($grupo) {
-            $prestamoActivo = $grupo->prestamos()
+            // Ya viene eager-loaded via prestamos.cuotasGrupales — se filtra en
+            // memoria en vez de una subquery adicional (mejora sobre el filtro
+            // legacy, que sí disparaba una query extra por grupo).
+            $prestamoActivo = $grupo->prestamos
                 ->where('estado', 'Aprobado')
-                ->whereHas('cuotasGrupales', function ($q) {
-                    $q->where('estado_pago', '!=', 'pagado')
-                      ->where('saldo_pendiente', '>', 0);
-                })
-                ->first();
+                ->first(fn ($prestamo) => self::cuotasPendientesConSaldo($prestamo)->isNotEmpty());
 
             if (!$prestamoActivo) {
                 return false;
@@ -64,9 +67,10 @@ class RetanqueoQueryService implements RetanqueoQueryInterface
             throw new \Exception("Error: Este préstamo no es elegible para retanqueo. Tiene {$cuotasPendientes} cuotas pendientes, pero solo se permiten retanqueos cuando queda EXACTAMENTE 1 cuota por pagar.");
         }
 
-        $saldoPendienteTotal = $prestamo->cuotasGrupales
-            ->where('estado_pago', '!=', 'pagado')
-            ->sum('saldo_pendiente');
+        // Ledger-derived (Req 3/4): las cuotas pagadas ya aportan 0.00 al
+        // agregado, así que sumar sobre todas las cuotas del préstamo equivale
+        // a sumar solo las pendientes, sin necesitar el filtro estado_pago.
+        $saldoPendienteTotal = (float) app(SaldoCuotaServiceInterface::class)->saldoTotalGrupo($prestamo);
 
         $montoPagado = $prestamo->monto_devolver - $saldoPendienteTotal;
 

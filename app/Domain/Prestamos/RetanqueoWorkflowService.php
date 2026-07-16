@@ -3,6 +3,8 @@
 namespace App\Domain\Prestamos;
 
 use App\Contracts\RetanqueoWorkflowInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Models\Retanqueo;
 use App\Models\RetanqueoIndividual;
 use App\Models\Prestamo;
@@ -13,6 +15,8 @@ use Illuminate\Support\Facades\Log;
 
 class RetanqueoWorkflowService implements RetanqueoWorkflowInterface
 {
+    use FiltraCuotasPendientesConSaldo;
+
     /**
      * Crea una nueva solicitud de retanqueo.
      */
@@ -139,10 +143,7 @@ class RetanqueoWorkflowService implements RetanqueoWorkflowInterface
             }
 
             $prestamoAntiguo  = $retanqueo->prestamoAntiguo;
-            $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()
-                ->where('estado_pago', '!=', 'pagado')
-                ->where('saldo_pendiente', '>', 0)
-                ->count();
+            $cuotasPendientes = self::cuotasPendientesConSaldo($prestamoAntiguo)->count();
 
             if ($cuotasPendientes !== 1) {
                 throw new \Exception("APROBACIÓN BLOQUEADA: El préstamo {$prestamoAntiguo->id} tiene {$cuotasPendientes} cuotas pendientes. Solo se pueden aprobar retanqueos cuando queda EXACTAMENTE 1 cuota por pagar. Operación cancelada por seguridad financiera.");
@@ -247,9 +248,9 @@ class RetanqueoWorkflowService implements RetanqueoWorkflowInterface
 
     private function calcularSaldoRestante($prestamo, float $totalCobertura): float
     {
-        $saldoPendienteTotal = $prestamo->cuotasGrupales()
-            ->where('estado_pago', '!=', 'pagado')
-            ->sum('saldo_pendiente');
+        // Ledger-derived (Req 3/4): saldoTotalGrupo ya suma 0.00 para cuotas
+        // pagadas, equivalente a filtrar por estado_pago != 'pagado'.
+        $saldoPendienteTotal = (float) app(SaldoCuotaServiceInterface::class)->saldoTotalGrupo($prestamo);
 
         return max(0, $saldoPendienteTotal - $totalCobertura);
     }
