@@ -2,8 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Models\AplicacionPago;
+use App\Models\Asesor;
+use App\Models\CuotaIndividual;
+use App\Models\CuotasGrupales;
+use App\Models\Grupo;
 use App\Models\MetaMensual;
 use App\Models\MetricaDiariaAsesor;
+use App\Models\Pago;
+use App\Models\Prestamo;
 use App\Models\User;
 use App\Domain\Cartera\MetaCobranzaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -84,6 +91,63 @@ it('computes pct correctly when meta and cobrado are known', function () {
     $result = app(MetaCobranzaService::class)->calcular($user, Carbon::now());
 
     expect($result['pct'])->toBe(50.0);
+});
+
+/**
+ * SDD core-contable-seguridad Req 2 — this service's live-JOIN fallback path
+ * (used when no MetricaDiariaAsesor snapshot exists yet for the month) is a
+ * SEPARATE reader from ActualizarMetricasDiariasJob and was found unfiltered
+ * during Slice C's apply-time grep sweep. Must exclude tipo_aplicacion
+ * retanqueo rows from the recomputed "cobrado" total.
+ */
+it('fallback JOIN path excludes retanqueo-tipo aplicaciones from cobrado', function () {
+    $user = User::factory()->create();
+    $asesor = Asesor::factory()->create(['user_id' => $user->id]);
+    $grupo = Grupo::factory()->create(['asesor_id' => $asesor->id]);
+    $prestamo = Prestamo::factory()->create([
+        'grupo_id' => $grupo->id,
+        'estado' => Prestamo::ESTADO_ACTIVO,
+    ]);
+    $cuotaGrupal = CuotasGrupales::factory()->create(['prestamo_id' => $prestamo->id]);
+    $cuotaIndividual = CuotaIndividual::factory()->create(['prestamo_id' => $prestamo->id]);
+
+    $pagoCobranza = Pago::factory()->create([
+        'cuota_grupal_id' => $cuotaGrupal->id,
+        'origen_pago' => 'cobranza',
+        'estado_pago' => 'aprobado',
+        'fecha_pago' => now(),
+    ]);
+    AplicacionPago::create([
+        'pago_id' => $pagoCobranza->id,
+        'cuota_id' => $cuotaIndividual->id,
+        'tipo_aplicacion' => 'cobranza',
+        'monto_aplicado_capital' => 60.00,
+        'monto_aplicado_interes' => 20.00,
+        'monto_aplicado_mora' => 0.00,
+        'fecha_aplicacion' => now(),
+    ]);
+
+    $pagoRetanqueo = Pago::factory()->create([
+        'cuota_grupal_id' => $cuotaGrupal->id,
+        'origen_pago' => 'retanqueo',
+        'estado_pago' => 'aprobado',
+        'fecha_pago' => now(),
+    ]);
+    AplicacionPago::create([
+        'pago_id' => $pagoRetanqueo->id,
+        'cuota_id' => $cuotaIndividual->id,
+        'tipo_aplicacion' => 'retanqueo',
+        'monto_aplicado_capital' => 40.00,
+        'monto_aplicado_interes' => 0.00,
+        'monto_aplicado_mora' => 0.00,
+        'fecha_aplicacion' => now(),
+    ]);
+
+    // No MetricaDiariaAsesor snapshot rows exist for this month, so calcular()
+    // falls through to the live-JOIN recompute path.
+    $result = app(MetaCobranzaService::class)->calcular($user, Carbon::now());
+
+    expect($result['cobrado'])->toBe(80.0);
 });
 
 it('caches result so second call skips database queries', function () {

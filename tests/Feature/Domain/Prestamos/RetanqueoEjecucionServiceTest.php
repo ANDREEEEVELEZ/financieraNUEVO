@@ -13,7 +13,7 @@ use App\Models\Retanqueo;
 use App\Models\RetanqueoIndividual;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(Tests\TestCase::class, RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 /**
  * Task 3.7 — RetanqueoEjecucionService::actualizarPrestamoAntiguo() rewritten
@@ -28,6 +28,12 @@ function makeRetanqueoAprobadoConCuotaPendiente(): array
     $prestamoAntiguo = Prestamo::factory()->create([
         'grupo_id' => $grupo->id,
         'estado' => Prestamo::ESTADO_ACTIVO,
+        // Pinned (not random faker defaults): PrestamoIndividualObserver::created()
+        // unconditionally recomputes monto_cuota_prestamo_individual from
+        // monto_prestado_individual/tasa_interes/cantidad_cuotas below, so both
+        // must be deterministic for the fixture's coverage math to hold.
+        'tasa_interes' => 0,
+        'cantidad_cuotas' => 1,
     ]);
 
     $cliente = Cliente::factory()->create();
@@ -36,10 +42,18 @@ function makeRetanqueoAprobadoConCuotaPendiente(): array
         'estado_grupo_cliente' => 'activo',
     ]);
 
+    // PrestamoIndividualObserver::created() ALWAYS overwrites
+    // monto_cuota_prestamo_individual on creation — it ignores any value passed
+    // here directly, recomputing it as
+    // (monto_prestado_individual + interes + seguro) / cantidad_cuotas. With
+    // tasa_interes=0 and cantidad_cuotas=1 above and monto_prestado_individual=53
+    // (falls into the observer's "default" seguro=7 bracket), this deterministically
+    // recomputes to exactly 60.00 (53 + 0 interes + 7 seguro) / 1 cuota — matching
+    // this fixture's documented "S/60 covered" scenario.
     PrestamoIndividual::factory()->create([
         'prestamo_id' => $prestamoAntiguo->id,
         'cliente_id' => $cliente->id,
-        'monto_cuota_prestamo_individual' => 60,
+        'monto_prestado_individual' => 53,
         'estado' => 'Aprobado',
     ]);
 

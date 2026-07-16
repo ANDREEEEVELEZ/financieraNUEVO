@@ -31,12 +31,18 @@ final class MetaCobranzaService
                 $asesorId = Asesor::where('user_id', $user->id)->value('id');
 
                 if ($asesorId !== null) {
+                    // SDD core-contable-seguridad Req 2 (found during Slice C apply-time
+                    // grep sweep — same class of bug as the confirmed 11th reader in
+                    // ActualizarMetricasDiariasJob, but this is a SEPARATE live-JOIN
+                    // fallback path, not fed by the job): excluye aplicaciones de origen
+                    // retanqueo — la cobertura de deuda no es cobranza cobrada.
                     $cobrado = (float) DB::table('aplicacion_pago')
                         ->join('pagos', 'pagos.id', '=', 'aplicacion_pago.pago_id')
                         ->join('cuotas_grupales', 'cuotas_grupales.id', '=', 'pagos.cuota_grupal_id')
                         ->join('prestamos', 'prestamos.id', '=', 'cuotas_grupales.prestamo_id')
                         ->join('grupos', 'grupos.id', '=', 'prestamos.grupo_id')
                         ->where('grupos.asesor_id', $asesorId)
+                        ->where('aplicacion_pago.tipo_aplicacion', 'cobranza')
                         ->whereYear('pagos.fecha_pago', $mes->year)
                         ->whereMonth('pagos.fecha_pago', $mes->month)
                         ->selectRaw('SUM(aplicacion_pago.monto_aplicado_capital + aplicacion_pago.monto_aplicado_interes + aplicacion_pago.monto_aplicado_mora) as total')

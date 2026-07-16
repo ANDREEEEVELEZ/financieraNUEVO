@@ -13,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\View;
 use Spatie\Permission\Models\Role;
 
-uses(Tests\TestCase::class, RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 /**
  * Task 3.11/3.12 — retanqueo-tipo Pago excluded from cobranza-metrics readers
@@ -111,6 +111,14 @@ it('ReporteProfesionalService totals exclude retanqueo-tipo pagos from the rende
     $pagos = $cuota->pagos()->with('cuotaGrupal.prestamo.grupo')->get();
 
     $capturedHtml = null;
+    // The real Barryvdh\DomPDF\PDF::loadHTML() return type is enforced (PHP 8+
+    // strict return types apply even to faked facade calls), so the mock chain
+    // must itself be an instance of that class — a plain array-based Mockery
+    // mock does not satisfy `instanceof PDF` and throws a TypeError.
+    $pdfMock = \Mockery::mock(\Barryvdh\DomPDF\PDF::class);
+    $pdfMock->shouldReceive('setOptions')->andReturnSelf();
+    $pdfMock->shouldReceive('setPaper')->andReturnSelf();
+
     Pdf::shouldReceive('loadHTML')
         ->once()
         ->with(\Mockery::on(function ($html) use (&$capturedHtml) {
@@ -118,7 +126,7 @@ it('ReporteProfesionalService totals exclude retanqueo-tipo pagos from the rende
 
             return true;
         }))
-        ->andReturn(\Mockery::mock(['setOptions' => \Mockery::self(), 'setPaper' => \Mockery::self()]));
+        ->andReturn($pdfMock);
 
     (new ReporteProfesionalService)->generarReportePagos($pagos);
 
@@ -132,7 +140,10 @@ it('PagoExportNuevoController Excel export totals exclude retanqueo-tipo pagos',
     $admin = pagosStatsActingAsSuperAdmin();
     pagosStatsMakeCuotaConPagosMixtos();
 
-    $response = test()->actingAs($admin)->get('/pagos/exportar/excel');
+    // The route name is "excel" but PagoExportNuevoController::export() actually
+    // branches on the `formato` query param (default 'pdf') — without it, this
+    // hits exportPDFProfesional() instead of exportExcel().
+    $response = test()->actingAs($admin)->get('/pagos/exportar/excel?formato=excel');
 
     $response->assertOk();
     $html = $response->getContent();

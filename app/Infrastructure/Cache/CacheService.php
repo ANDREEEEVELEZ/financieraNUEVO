@@ -329,12 +329,16 @@ class CacheService implements CacheServiceInterface
                     ->where('cuotas_grupales.estado_pago', '!=', 'pagado')
                     ->count();
 
+                // SDD core-contable-seguridad Req 2 (12th reader, found during Slice C
+                // apply-time grep sweep — not in the original enumeration): excluye pagos
+                // de origen retanqueo del KPI "cobrado" (cobertura de deuda, no cobranza).
                 $montoCobradoMes = \App\Models\Pago::join('cuotas_grupales', 'pagos.cuota_grupal_id', '=', 'cuotas_grupales.id')
                     ->join('prestamos', 'cuotas_grupales.prestamo_id', '=', 'prestamos.id')
                     ->join('grupos', 'prestamos.grupo_id', '=', 'grupos.id')
                     ->where('grupos.asesor_id', $asesorId)
                     ->whereBetween('pagos.fecha_pago', [\Illuminate\Support\Carbon::now()->startOfMonth(), \Illuminate\Support\Carbon::now()->endOfMonth()])
                     ->where('pagos.estado_pago', 'aprobado')
+                    ->cobranza()
                     ->sum('pagos.monto_pagado');
 
                 // Contamos grupos directamente: más semántico y evita DISTINCT sobre prestamos
@@ -365,8 +369,12 @@ class CacheService implements CacheServiceInterface
             function () {
                 $pagosPendientes = \App\Models\Pago::where('estado_pago', 'pendiente')->count();
 
+                // SDD core-contable-seguridad Req 2 (12th reader, found during Slice C
+                // apply-time grep sweep — not in the original enumeration): excluye pagos
+                // de origen retanqueo del KPI "cobrado" (cobertura de deuda, no cobranza).
                 $montoCobradoMes = \App\Models\Pago::whereBetween('fecha_pago', [\Illuminate\Support\Carbon::now()->startOfMonth(), \Illuminate\Support\Carbon::now()->endOfMonth()])
                     ->where('estado_pago', 'aprobado')
+                    ->cobranza()
                     ->sum('monto_pagado');
 
                 $montoDesembolsadoMes = \App\Models\Egreso::where('tipo_egreso', 'desembolso')
