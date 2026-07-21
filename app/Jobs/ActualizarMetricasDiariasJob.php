@@ -31,12 +31,15 @@ final class ActualizarMetricasDiariasJob implements ShouldQueue
                     continue;
                 }
 
+                // Req 2 item 10 (11th reader, confirmed): excluye aplicaciones de
+                // origen retanqueo — la cobertura de deuda no es cobranza cobrada.
                 $cobrado = (float) DB::table('aplicacion_pago')
                     ->join('pagos', 'pagos.id', '=', 'aplicacion_pago.pago_id')
                     ->join('cuotas_grupales', 'cuotas_grupales.id', '=', 'pagos.cuota_grupal_id')
                     ->join('prestamos', 'prestamos.id', '=', 'cuotas_grupales.prestamo_id')
                     ->join('grupos', 'grupos.id', '=', 'prestamos.grupo_id')
                     ->where('grupos.asesor_id', $asesorId)
+                    ->where('aplicacion_pago.tipo_aplicacion', 'cobranza')
                     ->whereDate('pagos.fecha_pago', $fecha)
                     ->selectRaw('SUM(aplicacion_pago.monto_aplicado_capital + aplicacion_pago.monto_aplicado_interes + aplicacion_pago.monto_aplicado_mora) as total')
                     ->value('total') ?? 0.0;

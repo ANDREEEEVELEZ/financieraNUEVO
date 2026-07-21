@@ -56,9 +56,12 @@ class PagoExportNuevoController extends Controller
         $pagos = $data['pagos'];
 
         // Calcular totales para el resumen ejecutivo
+        // Req 2 item 6: excluye pagos de origen retanqueo de los totales (no es
+        // cobranza); las filas individuales se mantienen completas.
         $totalRegistros = $pagos->count();
-        $totalMonto = $pagos->sum('monto_pagado');
-        $totalMora = $pagos->sum('monto_mora_pagada');
+        $pagosCobranza = $pagos->where('origen_pago', 'cobranza');
+        $totalMonto = $pagosCobranza->sum('monto_pagado');
+        $totalMora = $pagosCobranza->sum('monto_mora_pagada');
         $totalGeneral = $totalMonto + $totalMora;
 
         // Generar HTML profesional para Excel (igual que moras pero con colores azules)

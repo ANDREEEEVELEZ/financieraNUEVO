@@ -30,18 +30,18 @@ class PagosStatsWidget extends BaseWidget
                 ->description('Número total de pagos')
                 ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color('success'),
-            Stat::make('Monto Total Registrado', 'S/' . number_format($this->getFilteredQuery()->where('estado_pago', 'aprobado')->sum('monto_pagado'), 2))
+            Stat::make('Monto Total Registrado', 'S/' . number_format($this->getFilteredQuery()->cobranza()->where('estado_pago', 'aprobado')->sum('monto_pagado'), 2))
                 ->description('Monto total de pagos aprobados')
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('warning'),
-            
+
             Stat::make('Pagos del Mes Registrados', $this->getCurrentMonthQuery()->count())
                 ->description('Pagos realizados este mes')
                 ->descriptionIcon('heroicon-m-calendar')
                 ->color('info'),
-            
 
-            Stat::make('Monto del Mes Registrado', 'S/' . number_format($this->getCurrentMonthQuery()->where('estado_pago', 'aprobado')->sum('monto_pagado'), 2))
+
+            Stat::make('Monto del Mes Registrado', 'S/' . number_format($this->getCurrentMonthQuery()->cobranza()->where('estado_pago', 'aprobado')->sum('monto_pagado'), 2))
                 ->description('Monto aprobado del mes actual')
                 ->descriptionIcon('heroicon-m-credit-card')
                 ->color('primary'),
