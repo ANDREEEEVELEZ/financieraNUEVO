@@ -61,10 +61,6 @@ function makeRetanqueoAprobadoConCuotaPendiente(): array
         'prestamo_id' => $prestamoAntiguo->id,
         'numero_cuota' => 1,
         'monto_cuota_grupal' => 100,
-        // Valor legacy deliberadamente erroneo: actualizarPrestamoAntiguo() ya
-        // NO debe escribir esta columna (Req 1 Scenario 1.1/1.3) — si sigue en
-        // este valor tras ejecutar, la mutacion directa quedo eliminada.
-        'saldo_pendiente' => 999999.99,
         'estado_pago' => 'pendiente',
         'estado_cuota_grupal' => 'vigente',
     ]);
@@ -118,9 +114,11 @@ it('creates a retanqueo Pago ledger row for the covered cuota instead of mutatin
     expect($pago->estado_pago)->toBe('aprobado');
     expect((float) $pago->monto_pagado)->toEqual(60.0);
 
-    // Requirement 1 Scenario 1.1/1.3: zero direct saldo_pendiente mutation —
-    // the legacy sentinel value seeded above must remain untouched.
-    expect((float) $cuotaGrupal->fresh()->saldo_pendiente)->toEqual(999999.99);
+    // Requirement 1 Scenario 1.1/1.3: zero direct saldo_pendiente mutation.
+    // The legacy sentinel assertion (column must remain untouched) was removed
+    // when Slice D dropped cuotas_grupales.saldo_pendiente entirely — the
+    // Pago-ledger assertions above already prove coverage is recorded as a
+    // real ledger event, not a column mutation.
 });
 
 it('SaldoCuotaService reflects the retanqueo coverage automatically (S/100 cuota, S/60 covered -> saldo S/40)', function () {

@@ -619,7 +619,7 @@ class PagoResource extends Resource
                 ->schema([
                     Repeater::make('detalles_pago')
                         ->label('Detalle de pago por integrante')
-                        ->relationship('detallesPago')
+                        ->relationship('aplicacionesPago')
                         ->schema([
                             Hidden::make('cuota_id')
                                 ->default(function (callable $get) {
@@ -694,11 +694,11 @@ class PagoResource extends Resource
                                     }
 
                                     // Obtener todos los detalles de pago
-                                    $detallesPago = $get('../../detalles_pago') ?? [];
+                                    $filasDetallePago = $get('../../detalles_pago') ?? [];
                                     $sumaTotal = 0;
 
                                     // Sumar todos los montos individuales
-                                    foreach ($detallesPago as $detalle) {
+                                    foreach ($filasDetallePago as $detalle) {
                                         if (isset($detalle['monto_pagado']) && is_numeric($detalle['monto_pagado'])) {
                                             $sumaTotal += floatval($detalle['monto_pagado']);
                                         }
@@ -935,7 +935,11 @@ class PagoResource extends Resource
 
                 Tables\Columns\TextColumn::make('cuotaGrupal.saldo_pendiente')
                     ->label('Saldo')
-                    ->sortable()
+                    // .sortable() removido: el saldo es ledger-derived (formatStateUsing
+                    // ignora $state y recalcula via saldoPendienteCuota()) y la columna DB
+                    // se elimina (SDD core-contable-seguridad Req 4.1) — mismo motivo que
+                    // CuotasResource/CuotasVigentesWidget (R-c2/R-b2-2), descubierto aqui
+                    // durante el barrido completo previo al drop (tarea 4.5).
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(function ($state, $record) {
                         // Si el pago está rechazado, no mostrar saldo
@@ -1115,10 +1119,10 @@ class PagoResource extends Resource
                 'cuotaGrupal.prestamo',
                 'cuotaGrupal.prestamo.grupo',
                 'cuotaGrupal.mora',
-                'detallesPago',
-                'detallesPago.prestamoIndividual',
-                'detallesPago.prestamoIndividual.cliente',
-                'detallesPago.prestamoIndividual.cliente.persona',
+                'aplicacionesPago',
+                'aplicacionesPago.prestamoIndividual',
+                'aplicacionesPago.prestamoIndividual.cliente',
+                'aplicacionesPago.prestamoIndividual.cliente.persona',
             ]);
 
         if ($user->hasRole('Asesor')) {

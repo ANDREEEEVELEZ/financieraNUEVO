@@ -4,12 +4,15 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Contracts\RetanqueoQueryInterface;
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Models\Retanqueo;
 use App\Models\Grupo;
 use App\Models\Prestamo;
 
 class RetanqueoStatus extends Command
 {
+    use FiltraCuotasPendientesConSaldo;
+
     /**
      * The name and signature of the console command.
      *
@@ -83,11 +86,8 @@ class RetanqueoStatus extends Command
         foreach ($gruposElegibles as $grupo) {
             $prestamoActivo = $grupo->prestamos()
                 ->where('estado', 'Aprobado')
-                ->whereHas('cuotasGrupales', function ($q) {
-                    $q->where('estado_pago', '!=', 'pagado')
-                      ->where('saldo_pendiente', '>', 0);
-                })
-                ->first();
+                ->get()
+                ->first(fn ($prestamo) => self::cuotasPendientesConSaldo($prestamo)->isNotEmpty());
 
             if ($prestamoActivo) {
                 $estadoPrestamo = $queryService->calcularEstadoPrestamo($prestamoActivo->id);

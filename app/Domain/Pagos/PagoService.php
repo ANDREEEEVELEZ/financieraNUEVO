@@ -115,9 +115,9 @@ class PagoService implements PagoServiceInterface
                 $cuota->mora->save();
             }
 
-            // Actualizar cuota grupal
-            $cuota->saldo_pendiente   = $saldoTotalPendiente;
-            $cuota->estado_pago       = bccomp($saldoTotalPendiente, '0.00', 2) === 0 ? 'pagado' : 'parcial';
+            // Actualizar cuota grupal (saldo_pendiente eliminada — SDD
+            // core-contable-seguridad Req 4.1, saldo ahora ledger-derived)
+            $cuota->estado_pago = bccomp($saldoTotalPendiente, '0.00', 2) === 0 ? 'pagado' : 'parcial';
             $cuota->estado_cuota_grupal = bccomp($saldoTotalPendiente, '0.00', 2) === 0
                 ? 'cancelada'
                 : (bccomp($saldoMoraPendiente, '0.00', 2) > 0 ? 'mora' : 'vigente');
@@ -191,14 +191,12 @@ class PagoService implements PagoServiceInterface
 
             if (bccomp($totalPagado, '0.00', 2) === 0) {
                 $cuota->estado_pago        = 'pendiente';
-                $cuota->saldo_pendiente    = $totalAPagar;
                 $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
                 if ($cuota->mora) {
                     $cuota->mora->estado_mora = 'pendiente';
                     $cuota->mora->save();
                 }
             } elseif (bccomp($totalPagado, $deudaTotal, 2) >= 0) {
-                $cuota->saldo_pendiente    = '0.00';
                 $cuota->estado_pago        = 'pagado';
                 $cuota->estado_cuota_grupal = 'cancelada';
                 if ($cuota->mora) {
@@ -206,7 +204,6 @@ class PagoService implements PagoServiceInterface
                     $cuota->mora->save();
                 }
             } else {
-                $cuota->saldo_pendiente    = bcsub($deudaTotal, $totalPagado, 2);
                 $cuota->estado_pago        = 'parcial';
                 $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
                 if ($cuota->mora) {
@@ -272,12 +269,6 @@ class PagoService implements PagoServiceInterface
                 2, '.', ''
             );
 
-            $saldoPendiente = bcsub($deudaTotal, $totalPagado, 2);
-            if (bccomp($saldoPendiente, '0.00', 2) < 0) {
-                $saldoPendiente = '0.00';
-            }
-
-            $cuota->saldo_pendiente    = $saldoPendiente;
             $cuota->estado_pago        = bccomp($totalPagado, '0.00', 2) <= 0 ? 'pendiente' : 'parcial';
             $cuota->estado_cuota_grupal = $cuota->mora ? 'mora' : 'vigente';
             $cuota->save();

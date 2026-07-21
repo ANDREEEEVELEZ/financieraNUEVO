@@ -103,7 +103,10 @@ class CuotasResource extends Resource
                 Tables\Columns\TextColumn::make('saldo_pendiente')
                     ->label('Saldo')
                     ->money('PEN')
-                    ->sortable()
+                    // .sortable() removido: el saldo es ledger-derived (getStateUsing,
+                    // ver SDD core-contable-seguridad Req 3) y ya no existe una columna
+                    // DB para ordenar — ordenar por un valor computado requeriría un
+                    // subquery agregado que no se justifica aquí (R-c2/R-b2-2).
                     ->alignRight()
                     ->getStateUsing(fn ($record) => app(SaldoCuotaServiceInterface::class)->saldoTotal($record))
                     ->color(fn($state) => $state > 0 ? 'danger' : 'success'),

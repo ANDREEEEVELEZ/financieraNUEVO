@@ -216,7 +216,6 @@ class RetanqueoEjecucionService implements RetanqueoEjecucionInterface
                 'numero_cuota'        => $i,
                 'monto_cuota_grupal'  => round($cuotaGrupal, 2),
                 'fecha_vencimiento'   => $fechaVencimiento,
-                'saldo_pendiente'     => round($cuotaGrupal, 2),
                 'estado_cuota_grupal' => 'vigente',
                 'estado_pago'         => 'pendiente',
             ]);

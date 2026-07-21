@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Events\Domain\PrestamoDesembolsado;
 use App\Events\Domain\PrestamoFirmado;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 class Prestamo extends Model
 {
     use HasFactory;
+    use FiltraCuotasPendientesConSaldo;
 
     protected $table = 'prestamos';
 
@@ -531,10 +533,7 @@ class Prestamo extends Model
         // También verificar si hay cuotas grupales con saldo pendiente que correspondan
         // a la parte no cubierta por quienes no retanquearon
         if ($this->es_parcialmente_retanqueado) {
-            $cuotasConSaldoPendiente = $this->cuotasGrupales()
-                ->where('estado_pago', '!=', 'pagado')
-                ->where('saldo_pendiente', '>', 0)
-                ->count();
+            $cuotasConSaldoPendiente = self::cuotasPendientesConSaldo($this)->count();
 
             Log::info('Verificación adicional de cuotas grupales pendientes', [
                 'prestamo_id' => $this->id,

@@ -9,6 +9,7 @@ use App\Models\Prestamo;
 use App\Contracts\RetanqueoQueryInterface;
 use App\Contracts\RetanqueoWorkflowInterface;
 use App\Contracts\RetanqueoEjecucionInterface;
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -30,6 +31,8 @@ use Illuminate\Support\HtmlString;
 
 class RetanqueoResource extends Resource
 {
+    use FiltraCuotasPendientesConSaldo;
+
     protected static ?string $model = Retanqueo::class;
 
     protected static ?string $navigationGroup = 'Operaciones';
@@ -95,11 +98,8 @@ class RetanqueoResource extends Resource
                                         foreach ($grupos as $grupo) {
                                             $prestamoActivo = $grupo->prestamos()
                                                 ->where('estado', 'Aprobado')
-                                                ->whereHas('cuotasGrupales', function ($q) {
-                                                    $q->where('estado_pago', '!=', 'pagado')
-                                                        ->where('saldo_pendiente', '>', 0);
-                                                })
-                                                ->first();
+                                                ->get()
+                                                ->first(fn ($prestamo) => self::cuotasPendientesConSaldo($prestamo)->isNotEmpty());
 
                                             if ($prestamoActivo) {
                                                 // Solo mostrar el nombre del grupo, la información detallada se ve más abajo
@@ -424,7 +424,7 @@ class RetanqueoResource extends Resource
                                     // Usar prestamo_id del formulario directamente 
                                     $prestamoAntiguo = \App\Models\Prestamo::find($prestamoId);
                                     if ($prestamoAntiguo) {
-                                        $cuotasPendientes = $prestamoAntiguo->cuotasGrupales()->where('saldo_pendiente', '>', 0)->count();
+                                        $cuotasPendientes = self::cuotasPendientesConSaldo($prestamoAntiguo)->count();
                                         $totalCobertura = 0;
 
                                         foreach ($participantes as $participante) {

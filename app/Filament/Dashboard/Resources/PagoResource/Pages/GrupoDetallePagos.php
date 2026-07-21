@@ -384,7 +384,7 @@ class GrupoDetallePagos extends Page implements HasTable
 
                                                     if ($state === 'pago_completo') {
                                                         $set('monto_pagado', $saldoPendiente);
-                                                        // Poblar detallesPago igual que en PagoResource
+                                                        // Poblar aplicacionesPago igual que en PagoResource
                                                         if ($record->cuotaGrupal && $record->cuotaGrupal->prestamo) {
                                                             $prestamoId = $record->cuotaGrupal->prestamo->id;
                                                             $integrantes = \App\Models\PrestamoIndividual::where('prestamo_id', $prestamoId)->with('cliente.persona')->get();
@@ -398,12 +398,12 @@ class GrupoDetallePagos extends Page implements HasTable
                                                                     'monto_pagado' => $pi->monto_cuota_prestamo_individual,
                                                                 ];
                                                             })->toArray();
-                                                            $set('detallesPago', $detalles);
+                                                            $set('aplicacionesPago', $detalles);
                                                         }
                                                     } elseif ($state === 'pago_parcial') {
                                                         $set('monto_pagado', null);
                                                         // Limpiar los montos de los integrantes
-                                                        $detalles = $get('detallesPago') ?? [];
+                                                        $detalles = $get('aplicacionesPago') ?? [];
                                                         $detallesLimpios = collect($detalles)->map(function ($detalle) {
                                                             return [
                                                                 'prestamo_individual_id' => $detalle['prestamo_individual_id'] ?? null,
@@ -411,7 +411,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                                                 'monto_pagado' => null,
                                                             ];
                                                         })->toArray();
-                                                        $set('detallesPago', $detallesLimpios);
+                                                        $set('aplicacionesPago', $detallesLimpios);
                                                     }
                                                 }),
 
@@ -558,7 +558,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                 ->description('Detalle de pago por cada integrante registrado en este pago')
                                 ->icon('heroicon-o-users')
                                 ->schema([
-                                \Filament\Forms\Components\Repeater::make('detallesPago')
+                                \Filament\Forms\Components\Repeater::make('aplicacionesPago')
                                         ->label('Integrantes')
                                         ->schema([
                                             \Filament\Forms\Components\Placeholder::make('nombre_integrante')
@@ -643,16 +643,16 @@ class GrupoDetallePagos extends Page implements HasTable
 
                                                     // Obtener todos los detalles de pago
                                                     try {
-                                                        $detallesPago = $get('../../detallesPago') ?? [];
+                                                        $aplicacionesPago = $get('../../aplicacionesPago') ?? [];
                                                     } catch (Exception $e) {
-                                                        $detallesPago = $get('../../../detallesPago') ?? [];
+                                                        $aplicacionesPago = $get('../../../aplicacionesPago') ?? [];
                                                     }
 
                                                     $sumaTotal = 0;
 
                                                     // Sumar todos los montos individuales
-                                                    if (is_array($detallesPago)) {
-                                                        foreach ($detallesPago as $detalle) {
+                                                    if (is_array($aplicacionesPago)) {
+                                                        foreach ($aplicacionesPago as $detalle) {
                                                             if (isset($detalle['monto_pagado']) && is_numeric($detalle['monto_pagado'])) {
                                                                 $sumaTotal += floatval($detalle['monto_pagado']);
                                                             }
@@ -744,12 +744,12 @@ class GrupoDetallePagos extends Page implements HasTable
                                         ->reorderable(false)
                                         ->visible(function ($record, callable $get) {
                                             // Mostrar si hay detalles en la relación o en el array seteado manualmente
-                                            $detalles = $get('detallesPago');
+                                            $detalles = $get('aplicacionesPago');
                                             if (is_array($detalles) && count($detalles) > 0) {
                                                 return true;
                                             }
 
-                                            return $record && $record->detallesPago && $record->detallesPago->count() > 0;
+                                            return $record && $record->aplicacionesPago && $record->aplicacionesPago->count() > 0;
                                         }),
                             ])
                                 ->collapsible()
@@ -758,7 +758,7 @@ class GrupoDetallePagos extends Page implements HasTable
                         ->mutateRecordDataUsing(function (array $data, $record): array {
                             // Cargar todas las relaciones necesarias
                             $record->load([
-                                'detallesPago.prestamoIndividual.cliente.persona',
+                                'aplicacionesPago.prestamoIndividual.cliente.persona',
                                 'cuotaGrupal.prestamo.grupo',
                                 'cuotaGrupal.mora',
                             ]);
@@ -776,11 +776,11 @@ class GrupoDetallePagos extends Page implements HasTable
 
                             // Mapear integrantes desde AplicacionPago (V2) → CuotaIndividual → Cliente
                             $aplicaciones = $record->aplicacionesPago;
-                            $data['detallesPago'] = [];
+                            $data['aplicacionesPago'] = [];
 
                             if ($aplicaciones->isNotEmpty()) {
                                 // Hay aplicaciones: mostrar lo que ya se distribuyó
-                                $data['detallesPago'] = $aplicaciones->map(function ($ap) {
+                                $data['aplicacionesPago'] = $aplicaciones->map(function ($ap) {
                                     $persona = optional($ap->cuota?->cliente?->persona);
                                     $nombre = trim(($persona->nombre ?? '').' '.($persona->apellidos ?? '')) ?: 'Sin nombre';
 
@@ -806,7 +806,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                         ->with('cliente.persona')
                                         ->get();
 
-                                    $data['detallesPago'] = $pis->map(function ($pi) {
+                                    $data['aplicacionesPago'] = $pis->map(function ($pi) {
                                         $persona = optional($pi->cliente->persona);
                                         $nombre = trim(($persona->nombre ?? '').' '.($persona->apellidos ?? '')) ?: 'Sin nombre';
 
@@ -853,8 +853,8 @@ class GrupoDetallePagos extends Page implements HasTable
                                 // Pago pendiente — el asesor edita los datos base del pago.
                                 // La distribución en AplicacionPago la hace el PagoService al aprobar.
                                 $nuevoMontoPagado = 0;
-                                if (isset($data['detallesPago']) && is_array($data['detallesPago'])) {
-                                    foreach ($data['detallesPago'] as $detalle) {
+                                if (isset($data['aplicacionesPago']) && is_array($data['aplicacionesPago'])) {
+                                    foreach ($data['aplicacionesPago'] as $detalle) {
                                         $nuevoMontoPagado += floatval($detalle['monto_pagado'] ?? 0);
                                     }
                                 }

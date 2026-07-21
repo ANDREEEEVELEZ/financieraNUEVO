@@ -2,6 +2,7 @@
 
 namespace App\Domain\Prestamos\Strategies;
 
+use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Models\Prestamo;
 
 /**
@@ -18,13 +19,10 @@ use App\Models\Prestamo;
  */
 final class ElegibilidadRetanqueoIndividual implements ElegibilidadRetanqueoStrategy
 {
+    use FiltraCuotasPendientesConSaldo;
+
     public function esElegible(Prestamo $prestamo): bool
     {
-        $cuotasPendientes = $prestamo->cuotasGrupales()
-            ->where('estado_pago', '!=', 'pagado')
-            ->where('saldo_pendiente', '>', 0)
-            ->count();
-
-        return $cuotasPendientes === 1;
+        return self::cuotasPendientesConSaldo($prestamo)->count() === 1;
     }
 }

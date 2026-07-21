@@ -52,7 +52,6 @@ it('aprobarPago produces exactly N aplicacion_pago records — one per cuota ind
         'prestamo_id'         => $prestamo->id,
         'numero_cuota'        => 1,
         'monto_cuota_grupal'  => $montoPago,
-        'saldo_pendiente'     => $montoPago,
         'fecha_vencimiento'   => now()->addDays(7)->toDateString(),
         'estado_cuota_grupal' => 'vigente',
         'estado_pago'         => 'pendiente',

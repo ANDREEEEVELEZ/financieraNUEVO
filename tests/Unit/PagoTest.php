@@ -1,6 +1,7 @@
 <?php
 
 use Tests\TestCase;
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Models\Pago;
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
@@ -49,7 +50,6 @@ describe('Relaciones y lógica de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 150,
-            'saldo_pendiente' => 150,
         ]);
 
         $pago = Pago::factory()->create
@@ -75,7 +75,6 @@ describe('Relaciones y lógica de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 200,
-            'saldo_pendiente' => 200,
         ]);
 
         $pago = Pago::factory()->create
@@ -151,7 +150,6 @@ describe('Funcionalidad de aprobación de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 150,
-            'saldo_pendiente' => 150,
             'estado_pago' => 'pendiente',
             'estado_cuota_grupal' => 'vigente',
         ]);
@@ -164,7 +162,7 @@ describe('Funcionalidad de aprobación de pagos', function ()
         ]);
         $pago->aprobar();
         expect($pago->fresh()->estado_pago)->toBe('aprobado');
-        expect($cuota->fresh()->saldo_pendiente)->toEqual(0.00);
+        expect(app(SaldoCuotaServiceInterface::class)->saldoTotal($cuota->fresh()))->toBe('0.00');
         expect($cuota->fresh()->estado_pago)->toBe('pagado');
         expect($cuota->fresh()->estado_cuota_grupal)->toBe('cancelada');
     });
@@ -177,7 +175,6 @@ describe('Funcionalidad de aprobación de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 200,
-            'saldo_pendiente' => 200,
             'estado_pago' => 'pendiente',
             'estado_cuota_grupal' => 'vigente',
         ]);
@@ -192,7 +189,7 @@ describe('Funcionalidad de aprobación de pagos', function ()
 
         $pago->aprobar();
         expect($pago->fresh()->estado_pago)->toBe('aprobado');
-        expect($cuota->fresh()->saldo_pendiente)->toEqual(100.00);
+        expect(app(SaldoCuotaServiceInterface::class)->saldoTotal($cuota->fresh()))->toBe('100.00');
         expect($cuota->fresh()->estado_pago)->toBe('parcial');
         expect($cuota->fresh()->estado_cuota_grupal)->toBe('vigente');
     });
@@ -205,7 +202,6 @@ describe('Funcionalidad de aprobación de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 150,
-            'saldo_pendiente' => 150,
             'estado_cuota_grupal' => 'mora',
         ]);
         $mora = Mora::factory()->create
@@ -227,7 +223,7 @@ describe('Funcionalidad de aprobación de pagos', function ()
         ]);
         $pago->aprobar();
         expect($pago->fresh()->estado_pago)->toBe('aprobado');
-        expect($cuota->fresh()->saldo_pendiente)->toEqual(0.00);
+        expect(app(SaldoCuotaServiceInterface::class)->saldoTotal($cuota->fresh()))->toBe('0.00');
         expect($cuota->fresh()->estado_cuota_grupal)->toBe('cancelada');
         expect($mora->fresh()->estado_mora)->toBe('pagada');
     });
@@ -245,24 +241,29 @@ describe('Funcionalidad de rechazo de pagos', function ()
         ([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 200,
-            'saldo_pendiente' => 100,
             'estado_pago' => 'parcial',
         ]);
         $pagoAprobado = Pago::factory()->create
         ([
             'cuota_grupal_id' => $cuota->id,
             'monto_pagado' => 100,
+            // Pinned (no aleatorio): SaldoCuotaService neta monto_mora_pagada contra
+            // el pago antes de aplicar el resto a capital (waterfall mora-primero);
+            // el default del factory es aleatorio (0-50) y este escenario es
+            // deliberadamente "sin mora".
+            'monto_mora_pagada' => 0,
             'estado_pago' => 'Aprobado',
         ]);
         $pagoARechazar = Pago::factory()->create
         ([
             'cuota_grupal_id' => $cuota->id,
             'monto_pagado' => 50,
+            'monto_mora_pagada' => 0,
             'estado_pago' => 'pendiente',
         ]);
         $pagoARechazar->rechazar();
         expect($pagoARechazar->fresh()->estado_pago)->toBe('rechazado');
-        expect($cuota->fresh()->saldo_pendiente)->toBe('100.00');
+        expect(app(SaldoCuotaServiceInterface::class)->saldoTotal($cuota->fresh()))->toBe('100.00');
         expect($cuota->fresh()->estado_pago)->toBe('parcial');
     });
 
@@ -294,7 +295,6 @@ describe('Regresión: casing de estado_pago', function ()
         $cuota = CuotasGrupales::factory()->create([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 150,
-            'saldo_pendiente' => 150,
             'estado_pago' => 'pendiente',
             'estado_cuota_grupal' => 'vigente',
         ]);
@@ -308,7 +308,7 @@ describe('Regresión: casing de estado_pago', function ()
         $pago->aprobar();
 
         expect($pago->fresh()->estado_pago)->toBe('aprobado');
-        expect($cuota->fresh()->saldo_pendiente)->toEqual(0.00);
+        expect(app(SaldoCuotaServiceInterface::class)->saldoTotal($cuota->fresh()))->toBe('0.00');
     });
 
     it('la migración de normalización permite que los filtros en memoria detecten filas legacy con casing capitalizado', function ()
@@ -320,7 +320,6 @@ describe('Regresión: casing de estado_pago', function ()
         $cuota = CuotasGrupales::factory()->create([
             'prestamo_id' => $prestamo->id,
             'monto_cuota_grupal' => 200,
-            'saldo_pendiente' => 200,
         ]);
 
         // Simula una fila legacy insertada antes del fix, con estado_pago capitalizado (sin pasar por el mutator).

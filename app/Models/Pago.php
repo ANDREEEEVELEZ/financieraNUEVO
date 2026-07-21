@@ -68,14 +68,6 @@ class Pago extends Model
         return $this->hasMany(AplicacionPago::class, 'pago_id');
     }
 
-    /**
-     * Alias de compatibilidad para el recurso Filament.
-     */
-    public function detallesPago()
-    {
-        return $this->aplicacionesPago();
-    }
-
     public function ingreso(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Ingreso::class);

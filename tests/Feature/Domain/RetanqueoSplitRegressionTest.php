@@ -69,12 +69,10 @@ it('RetanqueoQueryService obtenerGruposElegibles returns group with exactly 1 cu
     CuotasGrupales::factory()->count(3)->create([
         'prestamo_id'   => $prestamo->id,
         'estado_pago'   => 'pagado',
-        'saldo_pendiente' => 0,
     ]);
     CuotasGrupales::factory()->create([
         'prestamo_id'    => $prestamo->id,
         'estado_pago'    => 'pendiente',
-        'saldo_pendiente' => 100,
     ]);
 
     $result = $service->obtenerGruposElegibles();
@@ -98,12 +96,10 @@ it('RetanqueoQueryService obtenerGruposElegibles excludes group with 2+ cuotas p
     CuotasGrupales::factory()->count(2)->create([
         'prestamo_id'    => $prestamo->id,
         'estado_pago'    => 'pagado',
-        'saldo_pendiente' => 0,
     ]);
     CuotasGrupales::factory()->count(2)->create([
         'prestamo_id'    => $prestamo->id,
         'estado_pago'    => 'pendiente',
-        'saldo_pendiente' => 100,
     ]);
 
     $result = $service->obtenerGruposElegibles();

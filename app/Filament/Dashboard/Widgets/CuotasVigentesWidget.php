@@ -82,7 +82,8 @@ class CuotasVigentesWidget extends BaseWidget
                 Tables\Columns\TextColumn::make('saldo_pendiente')
                     ->label('Saldo')
                     ->money('PEN')
-                    ->sortable()
+                    // .sortable() removido: el saldo es ledger-derived (getStateUsing,
+                    // ver SDD core-contable-seguridad Req 3), no una columna DB (R-c2/R-b2-2).
                     ->getStateUsing(fn ($record) => app(SaldoCuotaServiceInterface::class)->saldoTotal($record)),
 
                 Tables\Columns\TextColumn::make('prestamo.grupo.asesor.persona.nombre')

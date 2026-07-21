@@ -31,40 +31,6 @@ class RetanqueoIndividual extends Model
         return $this->belongsTo(Cliente::class, 'cliente_id');
     }
 
-    // Método para calcular el aporte de cobertura basado en deuda pendiente
-    public function calcularAporteCobertura()
-    {
-        if ($this->participacion_tipo !== 'retanquea') {
-            return 0;
-        }
-
-        $retanqueo = $this->retanqueo;
-        $prestamoAntiguo = $retanqueo->prestamoAntiguo;
-        
-        // Obtener todas las cuotas grupales del préstamo antiguo
-        $cuotasGrupales = $prestamoAntiguo->cuotasGrupales()
-            ->where('estado_pago', '!=', 'pagado')
-            ->get();
-
-        $totalDeudaGrupal = $cuotasGrupales->sum('saldo_pendiente');
-        
-        if ($totalDeudaGrupal <= 0) {
-            return 0;
-        }
-
-        // Obtener cantidad de integrantes que retanquean
-        $integrantesQueRetanquean = $retanqueo->retanqueosIndividuales()
-            ->where('participacion_tipo', 'retanquea')
-            ->count();
-
-        if ($integrantesQueRetanquean <= 0) {
-            return 0;
-        }
-
-        // Dividir la deuda proporcionalmente
-        return round($totalDeudaGrupal / $integrantesQueRetanquean, 2);
-    }
-
     // Método para calcular monto a desembolsar
     public function calcularMontoDesembolsar()
     {

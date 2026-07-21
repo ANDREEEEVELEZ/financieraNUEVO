@@ -37,8 +37,6 @@ function delegacionCuota(int $integrantes, array $cuotaAttrs = [], array $pagos 
     $cuota = CuotasGrupales::factory()->create(array_merge([
         'prestamo_id' => $prestamo->id,
         'monto_cuota_grupal' => 200,
-        // Stale/wrong on purpose: proves the accessor never reads this legacy column.
-        'saldo_pendiente' => 999999.99,
         'estado_pago' => 'pendiente',
         'estado_cuota_grupal' => 'vigente',
     ], $cuotaAttrs));
@@ -59,12 +57,13 @@ function delegacionCuota(int $integrantes, array $cuotaAttrs = [], array $pagos 
     return $cuota->fresh();
 }
 
-it('getMontoTotalAPagarAttribute returns the ledger-derived total, ignoring the stale saldo_pendiente column', function () {
+it('getMontoTotalAPagarAttribute returns the ledger-derived total (legacy saldo_pendiente column dropped in Slice D)', function () {
     // monto_cuota_grupal = 200; one approved pago of 50 (nada a mora); no Mora row.
     // saldoCuota = 200 - max(0, 50 - 0) = 150.00 ; saldoMora = 0.00 (sin fila Mora)
     // total esperado = 150.00
-    // La fórmula legacy habría devuelto la columna saldo_pendiente (999999.99) + mora
-    // recalculada en vivo; fijar 150.00 detecta una regresión a leer la columna.
+    // Un valor pinneado y concreto detecta una regresión a cualquier fórmula
+    // distinta de la del ledger (la columna legacy que esto una vez probaba
+    // contra ya no existe — ver SDD core-contable-seguridad, Slice D).
     $cuota = delegacionCuota(2, ['monto_cuota_grupal' => 200], [
         ['monto_pagado' => 50, 'monto_mora_pagada' => 0, 'estado_pago' => 'aprobado'],
     ]);

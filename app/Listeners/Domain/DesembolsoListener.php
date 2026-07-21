@@ -137,7 +137,6 @@ final class DesembolsoListener
                 'prestamo_id'           => $prestamo->id,
                 'numero_cuota'          => $i,
                 'monto_cuota_grupal'    => round($montoPorCuota, 2),
-                'saldo_pendiente'       => round($montoPorCuota, 2),
                 'fecha_vencimiento'     => $fechaVencimiento,
                 'estado_cuota_grupal'   => 'vigente',
                 'estado_pago'           => 'pendiente',
