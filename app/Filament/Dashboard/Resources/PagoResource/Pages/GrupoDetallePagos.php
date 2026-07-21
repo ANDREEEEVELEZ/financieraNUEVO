@@ -2,8 +2,10 @@
 
 namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
 
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Domain\Pagos\PagoService;
 use App\Filament\Dashboard\Resources\PagoResource;
+use App\Models\CuotasGrupales;
 use App\Models\Grupo;
 use App\Models\Pago;
 use App\Models\Prestamo;
@@ -62,6 +64,16 @@ class GrupoDetallePagos extends Page implements HasTable
                 $query->where('prestamo_id', $this->prestamo->id);
             })
             ->with([
+                // withSum precomputa las sumas que SaldoCuotaService necesita, evitando
+                // una query adicional por fila en la columna "Saldo Pendiente" (D8, no N+1).
+                'cuotaGrupal' => function ($query) {
+                    $query->withSum(['pagos as monto_pagado_aprobado_sum' => function ($q) {
+                        $q->where('estado_pago', 'aprobado');
+                    }], 'monto_pagado')
+                        ->withSum(['pagos as monto_mora_pagada_aprobado_sum' => function ($q) {
+                            $q->where('estado_pago', 'aprobado');
+                        }], 'monto_mora_pagada');
+                },
                 'cuotaGrupal.prestamo.grupo',
                 'cuotaGrupal.mora',
                 'aplicacionesPago.cuota.cliente.persona',
@@ -149,12 +161,14 @@ class GrupoDetallePagos extends Page implements HasTable
                             return 'N/A';
                         }
 
-                        $cuota = $record->cuotaGrupal?->fresh();
+                        $cuota = $record->cuotaGrupal;
                         if (! $cuota) {
                             return 0;
                         }
 
-                        return $cuota->saldoPendiente();
+                        // Sin ->fresh(): se reutiliza la instancia precargada por
+                        // getTableQuery() (withSum) para evitar una query extra por fila.
+                        return $this->saldoPendienteCuota($cuota);
                     })
                     ->formatStateUsing(fn ($state) => $state === 'N/A' ? $state : 'S/. '.number_format($state, 2))
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
@@ -322,13 +336,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                                 ->afterStateHydrated(function ($component, $state, $record) {
                                                     if ($record && $record->cuotaGrupal) {
                                                         $cuota = $record->cuotaGrupal->fresh();
-                                                        $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                                        $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                                                        $pagosAprobados = $cuota->pagos()
-                                                            ->where('estado_pago', 'aprobado')
-                                                            ->sum('monto_pagado');
-                                                        $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                                                        $component->state($saldoPendiente);
+                                                        $component->state($this->saldoPendienteCuota($cuota));
                                                     } else {
                                                         $component->state(0);
                                                     }
@@ -372,15 +380,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                                     }
 
                                                     $cuota = $record->cuotaGrupal;
-                                                    $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                                    $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                                                    $pagosAprobados = $cuota->pagos()
-                                                        ->where('estado_pago', 'aprobado')
-                                                        ->where('id', '!=', $record->id)
-                                                        ->sum('monto_pagado');
-
-                                                    $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                    $saldoPendiente = $this->saldoPendienteCuota($cuota);
 
                                                     if ($state === 'pago_completo') {
                                                         $set('monto_pagado', $saldoPendiente);
@@ -442,15 +442,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                                     }
 
                                                     $cuota = $record->cuotaGrupal;
-                                                    $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                                    $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                                                    $pagosAprobados = $cuota->pagos()
-                                                        ->where('estado_pago', 'aprobado')
-                                                        ->where('id', '!=', $record->id)
-                                                        ->sum('monto_pagado');
-
-                                                    $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                    $saldoPendiente = $this->saldoPendienteCuota($cuota);
                                                     $montoPagado = floatval($state ?? 0);
 
                                                     if ($montoPagado > $saldoPendiente && $saldoPendiente > 0) {
@@ -469,15 +461,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                                     }
 
                                                     $cuota = $record->cuotaGrupal;
-                                                    $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                                    $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                                                    $pagosAprobados = $cuota->pagos()
-                                                        ->where('estado_pago', 'aprobado')
-                                                        ->where('id', '!=', $record->id)
-                                                        ->sum('monto_pagado');
-
-                                                    $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                    $saldoPendiente = $this->saldoPendienteCuota($cuota);
 
                                                     if ($saldoPendiente > 0 && strtolower($record->estado_pago) === 'pendiente') {
                                                         return '💡 Máximo: S/. '.number_format($saldoPendiente, 2);
@@ -493,15 +477,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                                             }
 
                                                             $cuota = $record->cuotaGrupal;
-                                                            $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                                            $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                                                            $pagosAprobados = $cuota->pagos()
-                                                                ->where('estado_pago', 'aprobado')
-                                                                ->where('id', '!=', $record->id)
-                                                                ->sum('monto_pagado');
-
-                                                            $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                                                            $saldoPendiente = $this->saldoPendienteCuota($cuota);
 
                                                             if (floatval($value) > $saldoPendiente) {
                                                                 $fail('El monto no puede ser mayor al saldo pendiente (S/. '.number_format($saldoPendiente, 2).')');
@@ -794,20 +770,9 @@ class GrupoDetallePagos extends Page implements HasTable
                                 ? abs($record->cuotaGrupal->mora->monto_mora_calculado)
                                 : 0;
 
-                            if ($record->cuotaGrupal) {
-                                $cuota = $record->cuotaGrupal;
-                                $montoCuota = floatval($cuota->monto_cuota_grupal);
-                                $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-
-                                $pagosAprobados = $cuota->pagos()
-                                    ->where('estado_pago', 'aprobado')
-                                    ->where('id', '!=', $record->id)
-                                    ->sum('monto_pagado');
-
-                                $data['saldo_pendiente_actual'] = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
-                            } else {
-                                $data['saldo_pendiente_actual'] = 0;
-                            }
+                            $data['saldo_pendiente_actual'] = $record->cuotaGrupal
+                                ? $this->saldoPendienteCuota($record->cuotaGrupal)
+                                : 0;
 
                             // Mapear integrantes desde AplicacionPago (V2) → CuotaIndividual → Cliente
                             $aplicaciones = $record->aplicacionesPago;
@@ -1025,6 +990,17 @@ class GrupoDetallePagos extends Page implements HasTable
                     return $user->hasRole('Asesor');
                 }),
         ];
+    }
+
+    /**
+     * Saldo total pendiente (capital + mora) de la cuota, vía SaldoCuotaService —
+     * única fuente autoritativa (Req 3 — single saldo service). Reemplaza las
+     * recomputaciones inline ($montoCuota + $montoMora) - $pagosAprobados que
+     * existían en el formulario de este page (Scenario 3.2).
+     */
+    protected function saldoPendienteCuota(CuotasGrupales $cuota): float
+    {
+        return (float) app(SaldoCuotaServiceInterface::class)->saldoTotal($cuota);
     }
 
     /**

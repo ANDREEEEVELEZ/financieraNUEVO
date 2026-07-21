@@ -7,6 +7,7 @@ use App\Filament\Dashboard\Resources\PagoResource;
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
 use App\Contracts\CacheServiceInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -40,6 +41,14 @@ class CuotasResource extends Resource
 
         return CuotasGrupales::query()
             ->with(['prestamo.grupo.asesor.persona', 'mora'])
+            // withSum precomputa las sumas que SaldoCuotaService necesita, evitando
+            // una query adicional por fila en la columna "Saldo" (D8, no N+1).
+            ->withSum(['pagos as monto_pagado_aprobado_sum' => function ($q) {
+                $q->where('estado_pago', 'aprobado');
+            }], 'monto_pagado')
+            ->withSum(['pagos as monto_mora_pagada_aprobado_sum' => function ($q) {
+                $q->where('estado_pago', 'aprobado');
+            }], 'monto_mora_pagada')
             ->join('prestamos', 'cuotas_grupales.prestamo_id', '=', 'prestamos.id')
             ->leftJoin('grupos', 'prestamos.grupo_id', '=', 'grupos.id')
             ->whereIn('prestamos.estado', Prestamo::ESTADOS_ACTIVOS)
@@ -96,7 +105,8 @@ class CuotasResource extends Resource
                     ->money('PEN')
                     ->sortable()
                     ->alignRight()
-                    ->color(fn($record) => $record->saldo_pendiente > 0 ? 'danger' : 'success'),
+                    ->getStateUsing(fn ($record) => app(SaldoCuotaServiceInterface::class)->saldoTotal($record))
+                    ->color(fn($state) => $state > 0 ? 'danger' : 'success'),
 
                 Tables\Columns\TextColumn::make('estado_cuota_grupal')
                     ->label('Estado Cuota')

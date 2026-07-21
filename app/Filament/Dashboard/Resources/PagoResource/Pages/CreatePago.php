@@ -2,6 +2,7 @@
 
 namespace App\Filament\Dashboard\Resources\PagoResource\Pages;
 
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Filament\Dashboard\Resources\PagoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
@@ -38,11 +39,9 @@ class CreatePago extends CreateRecord
         if ($cuotaGrupalId) {
             $cuota = \App\Models\CuotasGrupales::with('mora', 'prestamo.grupo')->find($cuotaGrupalId);
             if ($cuota) {
-                // Calcular el saldo pendiente actual
-                $pagosAprobados = $cuota->pagos()->where('estado_pago', 'aprobado')->sum('monto_pagado');
-                $montoCuota = floatval($cuota->monto_cuota_grupal);
+                // Saldo pendiente actual: única fuente autoritativa (Req 3 — SaldoCuotaService).
                 $montoMora = $cuota->mora ? abs($cuota->mora->monto_mora_calculado) : 0;
-                $saldoPendiente = max(($montoCuota + $montoMora) - $pagosAprobados, 0);
+                $saldoPendiente = (float) app(SaldoCuotaServiceInterface::class)->saldoTotal($cuota);
 
                 $this->form->fill([
                     'cuota_grupal_id' => $cuota->id,

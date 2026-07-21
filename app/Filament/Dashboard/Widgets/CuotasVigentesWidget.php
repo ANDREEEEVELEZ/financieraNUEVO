@@ -5,6 +5,7 @@ namespace App\Filament\Dashboard\Widgets;
 use App\Models\CuotasGrupales;
 use App\Models\Prestamo;
 use App\Contracts\CacheServiceInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -28,6 +29,14 @@ class CuotasVigentesWidget extends BaseWidget
             ->query(
                 CuotasGrupales::query()
                     ->with(['prestamo.grupo.asesor.persona', 'mora'])
+                    // withSum precomputa las sumas que SaldoCuotaService necesita,
+                    // evitando una query adicional por fila en "Saldo" (D8, no N+1).
+                    ->withSum(['pagos as monto_pagado_aprobado_sum' => function ($q) {
+                        $q->where('estado_pago', 'aprobado');
+                    }], 'monto_pagado')
+                    ->withSum(['pagos as monto_mora_pagada_aprobado_sum' => function ($q) {
+                        $q->where('estado_pago', 'aprobado');
+                    }], 'monto_mora_pagada')
                     ->join('prestamos', 'cuotas_grupales.prestamo_id', '=', 'prestamos.id')
                     ->leftJoin('grupos', 'prestamos.grupo_id', '=', 'grupos.id')
                     ->whereIn('prestamos.estado', Prestamo::ESTADOS_ACTIVOS)
@@ -73,7 +82,8 @@ class CuotasVigentesWidget extends BaseWidget
                 Tables\Columns\TextColumn::make('saldo_pendiente')
                     ->label('Saldo')
                     ->money('PEN')
-                    ->sortable(),
+                    ->sortable()
+                    ->getStateUsing(fn ($record) => app(SaldoCuotaServiceInterface::class)->saldoTotal($record)),
 
                 Tables\Columns\TextColumn::make('prestamo.grupo.asesor.persona.nombre')
                     ->label('Asesor')
