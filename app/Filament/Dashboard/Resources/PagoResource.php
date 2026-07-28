@@ -114,7 +114,7 @@ class PagoResource extends Resource
 
                                 $user = request()->user();
                                 if (
-                                    $record->estado_pago !== 'pendiente' ||
+                                    strtolower((string) $record->estado_pago) !== 'pendiente' ||
                                     $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])
                                 ) {
                                     $component->disabled(true);

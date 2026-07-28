@@ -76,3 +76,26 @@ it('renders GrupoDetallePagos without exceptions', function () {
         'prestamo' => $this->prestamo,
     ])->assertSuccessful();
 });
+
+it('CreatePago::mutateFormDataBeforeCreate strips detalles_pago before persist', function () {
+    // Pins Fix 2 (CRITICAL-3): defense-in-depth behind the Repeater's own
+    // dehydrated(false). Before the fix this key (bound via
+    // ->relationship('aplicacionesPago')) reached Pago::create() and wrote
+    // zero-amount ghost AplicacionPago rows, since its shape doesn't match
+    // AplicacionPago::$fillable.
+    $page = new CreatePago();
+
+    $method = new ReflectionMethod($page, 'mutateFormDataBeforeCreate');
+    $method->setAccessible(true);
+
+    $result = $method->invoke($page, [
+        'cuota_grupal_id' => $this->cuota->id,
+        'monto_pagado' => 50,
+        'detalles_pago' => [
+            ['prestamo_individual_id' => 1, 'cuota_id' => 1, 'monto_pagado' => 50],
+        ],
+    ]);
+
+    expect($result)->not->toHaveKey('detalles_pago');
+    expect($result)->toHaveKey('cuota_grupal_id', $this->cuota->id);
+});

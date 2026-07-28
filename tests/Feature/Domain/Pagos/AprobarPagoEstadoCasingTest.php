@@ -106,3 +106,50 @@ it('does not double-approve an already-approved pago', function () {
 
     expect(Ingreso::where('pago_id', $pago->id)->count())->toBe(1);
 });
+
+it('rejects a pago written with legacy mixed-case Pendiente', function () {
+    $cuota = crearCuotaGrupalActiva();
+
+    $pagoId = DB::table('pagos')->insertGetId([
+        'cuota_grupal_id' => $cuota->id,
+        'tipo_pago' => 'completo',
+        'codigo_operacion' => 'TEST-CASING-RECHAZO',
+        'monto_pagado' => 100.00,
+        'monto_mora_pagada' => 0,
+        'fecha_pago' => now(),
+        'estado_pago' => 'Pendiente',
+        'observaciones' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $pago = Pago::find($pagoId);
+
+    app(PagoService::class)->rechazarPago($pago);
+
+    expect($pago->fresh()->estado_pago)->toBe('rechazado');
+});
+
+it('reverts a pago written with legacy mixed-case Aprobado', function () {
+    $cuota = crearCuotaGrupalActiva();
+
+    $pagoId = DB::table('pagos')->insertGetId([
+        'cuota_grupal_id' => $cuota->id,
+        'tipo_pago' => 'completo',
+        'codigo_operacion' => 'TEST-CASING-REVERTIR',
+        'monto_pagado' => 100.00,
+        'monto_mora_pagada' => 0,
+        'fecha_pago' => now(),
+        'estado_pago' => 'Aprobado',
+        'observaciones' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $pago = Pago::find($pagoId);
+
+    $resultado = app(PagoService::class)->revertirPago($pago);
+
+    expect($resultado)->toBeTrue();
+    expect($pago->fresh()->estado_pago)->toBe('pendiente');
+});
