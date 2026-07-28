@@ -105,6 +105,12 @@ private function shouldDisableForm(): bool
             }
         }
 
+        // Defensivo: 'detalles_pago' es un Repeater UI-only (->dehydrated(false)
+        // en PagoResource::form()) usado solo para validar el monto contra el
+        // saldo pendiente. Nunca debe llegar a Pago::update() — AplicacionPago
+        // se escribe únicamente en PagoService::aprobarPago().
+        unset($data['detalles_pago']);
+
         return $data;
     }
 

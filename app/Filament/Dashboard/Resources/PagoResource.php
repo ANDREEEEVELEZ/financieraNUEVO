@@ -619,7 +619,14 @@ class PagoResource extends Resource
                 ->schema([
                     Repeater::make('detalles_pago')
                         ->label('Detalle de pago por integrante')
-                        ->relationship('aplicacionesPago')
+                        // UI-only computation aid — NO ->relationship(). AplicacionPago
+                        // rows are written exclusively by PagoService::aprobarPago() at
+                        // approval time (ADR "UI collection ≠ persistence path", SDD
+                        // backend-completion-pagos-auth, CRITICAL-3). Binding this Repeater
+                        // to the aplicacionesPago relation wrote zero-amount ghost rows on
+                        // save (monto_pagado/prestamo_individual_id are not in
+                        // AplicacionPago::$fillable), which aprobarPago() then duplicated.
+                        ->dehydrated(false)
                         ->schema([
                             Hidden::make('cuota_id')
                                 ->default(function (callable $get) {

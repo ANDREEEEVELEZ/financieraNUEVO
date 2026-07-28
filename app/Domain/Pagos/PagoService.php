@@ -32,7 +32,9 @@ class PagoService implements PagoServiceInterface
             // Bloqueo pesimista
             $pago = Pago::where('id', $pago->id)->lockForUpdate()->firstOrFail();
 
-            if ($pago->estado_pago !== 'pendiente') {
+            // Defensivo: filas históricas escritas antes de que el mutator de
+            // estado_pago existiera pueden conservar casing mixto (p.ej. 'Pendiente').
+            if (strtolower((string) $pago->estado_pago) !== 'pendiente') {
                 return $pago;
             }
 
@@ -163,7 +165,8 @@ class PagoService implements PagoServiceInterface
         return DB::transaction(function () use ($pago) {
             $pago = Pago::where('id', $pago->id)->lockForUpdate()->firstOrFail();
 
-            if ($pago->estado_pago !== 'pendiente') {
+            // Defensivo: ver comentario equivalente en aprobarPago().
+            if (strtolower((string) $pago->estado_pago) !== 'pendiente') {
                 return $pago;
             }
 
@@ -230,7 +233,8 @@ class PagoService implements PagoServiceInterface
         return DB::transaction(function () use ($pago) {
             $pago = Pago::where('id', $pago->id)->lockForUpdate()->firstOrFail();
 
-            if ($pago->estado_pago !== 'aprobado') {
+            // Defensivo: ver comentario equivalente en aprobarPago().
+            if (strtolower((string) $pago->estado_pago) !== 'aprobado') {
                 return false;
             }
 

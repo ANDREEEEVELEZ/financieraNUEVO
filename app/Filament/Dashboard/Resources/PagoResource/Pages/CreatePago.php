@@ -23,6 +23,12 @@ class CreatePago extends CreateRecord
         }
           $data['monto_mora_pagada'] = $data['monto_mora_pagada'] ?? 0;
 
+        // Defensivo: 'detalles_pago' es un Repeater UI-only (->dehydrated(false)
+        // en PagoResource::form()) usado solo para validar el monto contra el
+        // saldo pendiente. Nunca debe llegar a Pago::create() — AplicacionPago
+        // se escribe únicamente en PagoService::aprobarPago().
+        unset($data['detalles_pago']);
+
         return $data;
     }
 
