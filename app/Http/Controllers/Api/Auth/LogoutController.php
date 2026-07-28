@@ -17,7 +17,7 @@ class LogoutController extends Controller
      */
     public function __invoke(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $request->user()?->currentAccessToken()?->delete();
 
         return ApiResponse::success(null, 'Logged out successfully.');
     }

@@ -75,6 +75,26 @@ it('returns 422 when required fields are missing', function () {
              ->assertJsonStructure(['errors']);
 });
 
+it('issued token authenticates a subsequent auth:sanctum request', function () {
+    $user = User::factory()->create([
+        'password' => bcrypt('password'),
+        'active'   => true,
+    ]);
+    $user->assignRole('super_admin');
+
+    $login = $this->postJson('/api/auth/login', [
+        'email'       => $user->email,
+        'password'    => 'password',
+        'device_name' => 'test-device',
+    ]);
+
+    $token = $login->json('data.token');
+
+    $response = $this->withToken($token)->getJson('/api/v1/dashboard');
+
+    $response->assertOk()->assertJson(['success' => true]);
+});
+
 it('returns 429 after exceeding rate limit', function () {
     $user = User::factory()->create([
         'password' => bcrypt('password'),
