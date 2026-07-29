@@ -77,6 +77,30 @@ it('renders GrupoDetallePagos without exceptions', function () {
     ])->assertSuccessful();
 });
 
+it('detalles_pago Repeater carries no relationship binding and is not dehydrated', function () {
+    // Pins Fix 2 (CRITICAL-3) at the layer that actually matters: Filament
+    // persists a relationship-bound Repeater via saveRelationships(), which
+    // runs AFTER Model::create() and reads the component's own form state —
+    // NOT the $data mutated by mutateFormDataBeforeCreate(). The reflection
+    // test above pins the wrong layer: it would stay green even if
+    // ->relationship('aplicacionesPago') were re-added to the Repeater,
+    // because that binding is resolved independently of mutateFormDataBeforeCreate.
+    // This test introspects the actual live component built by
+    // PagoResource::form() and fails if the relationship binding returns.
+    $form = Livewire::test(CreatePago::class)->instance()->getForm('form');
+
+    $repeater = $form->getComponent(
+        fn ($component) => $component instanceof \Filament\Forms\Components\Repeater
+            && $component->getName() === 'detalles_pago',
+        withHidden: true,
+    );
+
+    expect($repeater)->not->toBeNull();
+    expect($repeater->hasRelationship())->toBeFalse();
+    expect($repeater->getRelationshipName())->toBeNull();
+    expect($repeater->isDehydrated())->toBeFalse();
+});
+
 it('CreatePago::mutateFormDataBeforeCreate strips detalles_pago before persist', function () {
     // Pins Fix 2 (CRITICAL-3): defense-in-depth behind the Repeater's own
     // dehydrated(false). Before the fix this key (bound via
