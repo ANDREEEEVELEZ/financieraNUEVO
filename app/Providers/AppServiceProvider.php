@@ -29,15 +29,19 @@ use App\Observers\SeparacionClienteObserver;
 use App\Contracts\AuditServiceInterface;
 use App\Contracts\CacheServiceInterface;
 use App\Contracts\NotificationServiceInterface;
+use App\Contracts\TokenIssuerInterface;
 use App\Infrastructure\Cache\CacheService;
 use App\Contracts\CronogramaServiceInterface;
 use App\Contracts\PagoServiceInterface;
 use App\Contracts\RetanqueoEjecucionInterface;
 use App\Contracts\RetanqueoQueryInterface;
 use App\Contracts\RetanqueoWorkflowInterface;
+use App\Contracts\SaldoCuotaIndividualServiceInterface;
 use App\Contracts\SaldoCuotaServiceInterface;
 use App\Contracts\SeparacionServiceInterface;
+use App\Domain\Auth\IssueTokenPair;
 use App\Domain\Pagos\PagoService;
+use App\Domain\Pagos\SaldoCuotaIndividualService;
 use App\Domain\Pagos\SaldoCuotaService;
 use App\Domain\Prestamos\CronogramaService;
 use App\Domain\Prestamos\RetanqueoEjecucionService;
@@ -65,6 +69,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AuditServiceInterface::class, AuditService::class);
         $this->app->bind(SeparacionServiceInterface::class, MorosoSeparationService::class);
         $this->app->bind(SaldoCuotaServiceInterface::class, SaldoCuotaService::class);
+        $this->app->bind(SaldoCuotaIndividualServiceInterface::class, SaldoCuotaIndividualService::class);
+        $this->app->bind(TokenIssuerInterface::class, IssueTokenPair::class);
 
         // Retanqueo service decomposition — SR-4
         $this->app->bind(RetanqueoQueryInterface::class, function ($app) {
