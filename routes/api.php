@@ -1,7 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\Auth\ForgotPasswordController;
 use App\Http\Controllers\Api\Auth\LoginController;
+use App\Http\Controllers\Api\Auth\LogoutAllController;
 use App\Http\Controllers\Api\Auth\LogoutController;
+use App\Http\Controllers\Api\Auth\RefreshTokenController;
+use App\Http\Controllers\Api\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\CuotaController;
 use App\Http\Controllers\Api\DashboardController;
@@ -22,6 +26,18 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/login', LoginController::class)
         ->middleware('throttle:api-auth')
         ->name('api.v1.auth.login');
+
+    Route::post('/auth/refresh', RefreshTokenController::class)
+        ->middleware('throttle:api-auth')
+        ->name('api.v1.auth.refresh');
+
+    Route::post('/auth/forgot-password', ForgotPasswordController::class)
+        ->middleware('throttle:password-reset')
+        ->name('api.v1.auth.forgot-password');
+
+    Route::post('/auth/reset-password', ResetPasswordController::class)
+        ->middleware('throttle:password-reset')
+        ->name('api.v1.auth.reset-password');
 });
 
 // ---------------------------------------------------------------------------
@@ -31,6 +47,7 @@ Route::prefix('v1')->group(function () {
 Route::prefix('v1')->name('v1.')->middleware(['auth:sanctum', \App\Http\Middleware\CheckUserActive::class])->group(function () {
 
     Route::post('/auth/logout', LogoutController::class)->name('api.auth.logout');
+    Route::post('/auth/logout-all', LogoutAllController::class)->name('api.auth.logout-all');
 
     // Dashboard
     Route::get('/dashboard', DashboardController::class)->name('api.dashboard');
