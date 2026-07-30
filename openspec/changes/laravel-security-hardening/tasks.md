@@ -13,11 +13,11 @@ Reads: `spec.md` (reconciled, RFC-2119), `design.md` (D1-D8), `proposal.md`. Str
 | Chained PRs recommended | Yes |
 | Suggested split | 13 work units, PR1 → PR13 (see table) |
 | Delivery strategy | ask-on-risk |
-| Chain strategy | feature-branch-chain (tracker: `feature/laravel-security-hardening`, PR1 = `laravel-security-hardening/01-auth-token-wiring`) |
+| Chain strategy | pending |
 
-Decision needed before apply: Resolved — feature-branch-chain
+Decision needed before apply: Yes
 Chained PRs recommended: Yes
-Chain strategy: feature-branch-chain
+Chain strategy: pending
 400-line budget risk: High
 
 ### Per-Slice Line Estimate
@@ -62,17 +62,17 @@ Chain strategy: feature-branch-chain
 
 ## Slice 1 — Auth token wiring + password-reset throttle
 
-- [x] 1.1 RED: update `tests/Feature/Api/Auth/LoginTest.php` to assert `data.access_token`/`data.refresh_token`/`token_type`/`expires_in` instead of `data.token` (Scenario 1.1.a); confirm it fails against current `LoginController`.
-- [x] 1.2 RED: add TTL assertions — access token ~7200s, refresh token ~30d (Scenarios 1.1.b, 1.1.c).
-- [x] 1.3 GREEN: create `app/Contracts/TokenIssuerInterface.php` + `app/Domain/Auth/IssueTokenPair.php` (explicit `createToken(...,$expiresAt)`, reuse `RefreshToken::issueFor()` unchanged).
-- [x] 1.4 GREEN: `config/sanctum.php` `expiration` → `env('SANCTUM_EXPIRATION')` (null); add `access_token_ttl_minutes` to `config/api_auth.php`.
-- [x] 1.5 GREEN: bind `TokenIssuerInterface` in `AppServiceProvider::register()`; rewrite `LoginController::__invoke()` to delegate, both `/auth/login` and `/v1/auth/login`.
-- [x] 1.6 RED: guard test — `expires_in` never `0` once `sanctum.expiration` is null (Scenario 1.1.d).
-- [x] 1.7 GREEN: fix `RefreshTokenController.php:55` to read `api_auth.access_token_ttl_minutes` via `IssueTokenPair`, not `config('sanctum.expiration')`.
-- [x] 1.8 GREEN: wire `routes/api.php` — `v1` routes for `refresh` (public), `logout-all` (`auth:sanctum`), `forgot-password`/`reset-password` (public); no legacy unprefixed aliases (D3).
-- [x] 1.9 RED then GREEN: add Scenario 1.3.a test (4th `forgot-password` request/min → 429); apply `throttle:password-reset` middleware.
-- [x] 1.10 RUN: `php artisan test tests/Feature/Api/Auth --compact` — 0 failures across all 5 files (Scenario 1.1.e); record actual pass count.
-- [x] 1.11 Update `BACKLOG.md:9` to the actually-observed count, replacing the stale "95/95" claim.
+- [ ] 1.1 RED: update `tests/Feature/Api/Auth/LoginTest.php` to assert `data.access_token`/`data.refresh_token`/`token_type`/`expires_in` instead of `data.token` (Scenario 1.1.a); confirm it fails against current `LoginController`.
+- [ ] 1.2 RED: add TTL assertions — access token ~7200s, refresh token ~30d (Scenarios 1.1.b, 1.1.c).
+- [ ] 1.3 GREEN: create `app/Contracts/TokenIssuerInterface.php` + `app/Domain/Auth/IssueTokenPair.php` (explicit `createToken(...,$expiresAt)`, reuse `RefreshToken::issueFor()` unchanged).
+- [ ] 1.4 GREEN: `config/sanctum.php` `expiration` → `env('SANCTUM_EXPIRATION')` (null); add `access_token_ttl_minutes` to `config/api_auth.php`.
+- [ ] 1.5 GREEN: bind `TokenIssuerInterface` in `AppServiceProvider::register()`; rewrite `LoginController::__invoke()` to delegate, both `/auth/login` and `/v1/auth/login`.
+- [ ] 1.6 RED: guard test — `expires_in` never `0` once `sanctum.expiration` is null (Scenario 1.1.d).
+- [ ] 1.7 GREEN: fix `RefreshTokenController.php:55` to read `api_auth.access_token_ttl_minutes` via `IssueTokenPair`, not `config('sanctum.expiration')`.
+- [ ] 1.8 GREEN: wire `routes/api.php` — `v1` routes for `refresh` (public), `logout-all` (`auth:sanctum`), `forgot-password`/`reset-password` (public); no legacy unprefixed aliases (D3).
+- [ ] 1.9 RED then GREEN: add Scenario 1.3.a test (4th `forgot-password` request/min → 429); apply `throttle:password-reset` middleware.
+- [ ] 1.10 RUN: `php artisan test tests/Feature/Api/Auth --compact` — 0 failures across all 5 files (Scenario 1.1.e); record actual pass count.
+- [ ] 1.11 Update `BACKLOG.md:9` to the actually-observed count, replacing the stale "95/95" claim.
 
 ## Slice 2 — Global password policy
 
