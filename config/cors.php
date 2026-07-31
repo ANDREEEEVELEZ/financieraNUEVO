@@ -8,7 +8,7 @@ return [
 
     'allowed_origins' => array_filter(array_map(
         'trim',
-        explode(',', env('FRONTEND_URLS', 'http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173'))
+        explode(',', env('FRONTEND_URLS', ''))
     )),
 
     'allowed_origins_patterns' => [],
