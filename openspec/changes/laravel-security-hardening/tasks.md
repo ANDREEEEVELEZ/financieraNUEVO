@@ -183,19 +183,36 @@ No standalone task set. Spec's Requirement 4 (authorization consolidation) is fu
 
 **Scope discipline confirmed**: `git status --short` shows exactly the 10 intended production files + the 1 new test file touched — no other Filament files, no `PermissionSeeder` changes (all new/modified Policy methods use `hasRole`/`hasAnyRole` directly, matching the established domain-verb-method convention, not Spatie permission strings requiring seeder rows).
 
-## Slice 6 — Auth-event logging (spec Requirement 5 / design D8)
+## Slice 6 — Auth-event logging (spec Requirement 5 / design D8) — PR13, LAST PR IN THE 13-WORK-UNIT CHAIN
 
-- [ ] 6.1 RED: migration test — `audit_logs.auditable_type`/`auditable_id` accept null.
-- [ ] 6.2 GREEN: create `database/migrations/*_make_auditable_nullable_in_audit_logs.php` (precedent: `2026_05_26_172145_make_user_id_nullable_in_audit_logs.php`).
-- [ ] 6.3 RED: successful login produces an `audit_logs` row, `accion=auth_login` (Scenario 5.1.a).
-- [ ] 6.4 GREEN: create `app/Contracts/AuthEventLoggerInterface.php` + `app/Domain/Auth/AuthEventLogger.php` (writes `AuditLog` directly) + `app/Listeners/Auth/LogSuccessfulLogin.php`; register via `Event::listen()` in `AppServiceProvider::boot()`.
-- [ ] 6.5 RED: failed login for a KNOWN user produces a row, no password logged (Scenario 5.1.b).
-- [ ] 6.6 GREEN: create `app/Listeners/Auth/LogFailedLogin.php` (known-user branch).
-- [ ] 6.7 RED: failed login for an UNKNOWN email still produces a row via the nullable-auditable path (Scenario 5.1.c).
-- [ ] 6.8 GREEN: extend `LogFailedLogin`/`AuthEventLogger` for the null-model case.
-- [ ] 6.9 RED: logout produces a row (Scenario 5.1.d).
-- [ ] 6.10 GREEN: create `app/Listeners/Auth/LogSuccessfulLogout.php`.
-- [ ] 6.11 RED: password reset produces EXACTLY ONE row (Scenario 5.1.e).
-- [ ] 6.12 GREEN: create `app/Listeners/Auth/LogPasswordReset.php`; REMOVE `ResetPasswordController.php:30`'s inline `registrar('password_reset', ...)` call.
-- [ ] 6.13 RUN: assert no email/Slack/webhook side effect fires from any listener (Scenario 5.1.f).
-- [ ] 6.14 RUN: `php artisan test --compact` full suite — 0 failures (cross-cutting constraint).
+- [x] 6.1 RED: migration test — `audit_logs.auditable_type`/`auditable_id` accept null. `tests/Unit/Database/Migrations/AuditLogsAuditableNullableMigrationTest.php` (new, in-memory SQLite, never touches the unreachable remote DB). Genuine RED confirmed via `git stash`: `Failed asserting that false is true` (columns not nullable) pre-implementation.
+- [x] 6.2 GREEN: **rewrote the ORIGINAL migration in place** — `database/migrations/2026_03_10_000002_create_audit_logs_table.php` (`create_audit_logs_table`) — adding `->nullable()` to `auditable_type`/`auditable_id`, per this project's standing clean-core directive (pre-prod, no ALTER migration for a schema change; rewrite the original). **Not a new migration file.** The existing, unrelated `2026_05_26_172145_make_user_id_nullable_in_audit_logs.php` (a pre-existing ALTER for `user_id`) was left untouched, as instructed.
+- [x] 6.3 RED: successful login produces an `audit_logs` row, `accion=auth_login` (Scenario 5.1.a). `tests/Unit/Listeners/Auth/LogSuccessfulLoginTest.php` (Mockery-mocked `AuthEventLoggerInterface`, DB-free). Genuine RED confirmed via `git stash`: `Class "App\Listeners\Auth\LogSuccessfulLogin" not found`.
+- [x] 6.4 GREEN: created `app/Contracts/AuthEventLoggerInterface.php` + `app/Domain/Auth/AuthEventLogger.php` (writes `AuditLog` directly, tolerates a null model) + `app/Listeners/Auth/LogSuccessfulLogin.php`; registered via `Event::listen()` in `AppServiceProvider::boot()`. Registration itself covered by `tests/Unit/Providers/AuthEventListenerRegistrationTest.php`.
+- [x] 6.5 RED: failed login for a KNOWN user produces a row, no password logged (Scenario 5.1.b). `tests/Unit/Listeners/Auth/LogFailedLoginTest.php`.
+- [x] 6.6 GREEN: created `app/Listeners/Auth/LogFailedLogin.php` (known-user branch — `Failed::$user` is a real `User` model).
+- [x] 6.7 RED: failed login for an UNKNOWN email still produces a row via the nullable-auditable path (Scenario 5.1.c). Same test file, second case (`Failed::$user === null`, which is Laravel's OWN behavior when `retrieveByCredentials()` can't resolve a user — verified against `SessionGuard`/`EloquentUserProvider`, not assumed).
+- [x] 6.8 GREEN: `LogFailedLogin` and `AuthEventLogger` both handle the null-model case (nullable `auditable_type`/`auditable_id`, `email_attempted` still recorded, password never read from `$event->credentials`).
+- [x] 6.9 RED: logout produces a row (Scenario 5.1.d). `tests/Unit/Listeners/Auth/LogSuccessfulLogoutTest.php`.
+- [x] 6.10 GREEN: created `app/Listeners/Auth/LogSuccessfulLogout.php`.
+- [x] 6.11 RED: password reset produces EXACTLY ONE row (Scenario 5.1.e), at the listener level (`->once()` Mockery expectation is the load-bearing "exactly one" proof). `tests/Unit/Listeners/Auth/LogPasswordResetTest.php`.
+- [x] 6.12 GREEN (partial — see risk note below): created `app/Listeners/Auth/LogPasswordReset.php`, registered against `Illuminate\Auth\Events\PasswordReset`. **The other half of this task — removing `ResetPasswordController.php:30`'s inline `registrar('password_reset', ...)` call — could NOT be done in this PR**: `ResetPasswordController.php` does not exist on this branch's ancestry (it is Slice 1/PR1's file, and PR13 was branched from PR12's tip, not PR1's — the two chains never converged before this PR). This is a tracked follow-up, not a silently-dropped requirement; see apply-progress and the risk note below.
+- [x] 6.13 RUN: assert no email/Slack/webhook side effect fires from any listener (Scenario 5.1.f). `tests/Unit/Architecture/NoAlertingInAuthEventListenersTest.php` (framework-free file-content guard, same convention as `NoInlineSaldoFormulaTest.php`).
+- [x] 6.14 RUN (DB-free scope only — see risk note): `php artisan test --compact tests/Unit/Listeners tests/Unit/Domain/Auth tests/Unit/Database/Migrations tests/Unit/Providers tests/Unit/Architecture tests/Unit/Policies` — 235 passed, 543 assertions, zero regression. Full-suite `php artisan test --compact` NOT run: remote test DB (`metro.proxy.rlwy.net:13114`) unreachable in this sandbox — `timeout 15 php artisan db:show` → exit 124 (13th consecutive PR with this constraint, see PR2-PR12 apply-progress).
+
+### Discoveries this PR made that neither spec nor design anticipated
+
+1. **None of the four native Illuminate Auth events fired at all under the app's ACTUAL pre-existing code**, verified by reading `vendor/laravel/framework`'s `SessionGuard`/`PasswordBroker` source directly (not assumed):
+   - `LoginController::__invoke()` (both the version in this branch and PR1's rewritten version) calls `Auth::guard('web')->validate($credentials)` — deliberately "without touching session state" per its own docblock. `SessionGuard::validate()` (line 301) never calls `fireAttemptEvent()`/`fireFailedEvent()` — only `attempt()`/`once()` do. So neither `Login` nor `Failed` ever fired.
+   - `LogoutController::__invoke()` calls `$request->user()?->currentAccessToken()?->delete()` directly — never goes through any guard's `logout()` method, so `Logout` never fired either.
+   - `ResetPasswordController` (PR1 branch, not present here) calls `Password::reset($credentials, $callback)` directly. `Illuminate\Auth\Passwords\PasswordBroker::reset()` (read in full) does NOT dispatch `Illuminate\Auth\Events\PasswordReset` anywhere — that event is fired by the `Illuminate\Foundation\Auth\ResetsPasswords` trait used by Laravel's default web `ResetPasswordController`, which this app's custom API controller does not use.
+   - **Fix applied**: `LoginController` and `LogoutController` (both present on this branch) now fire `Login`/`Failed`/`Logout` explicitly via the global `event()` helper, at the exact points where the old code already had the information needed (guard's own `getLastAttempted()` for the Failed case, avoiding any extra DB lookup). Zero change to either controller's response contract or existing behavior — purely additive event dispatch for logging.
+   - **PasswordReset firing is still unresolved** — see risk note below, since `ResetPasswordController` isn't in this branch to fix.
+
+### Risk: cross-branch dependency gap (PR1 vs PR12 ancestry) — full resolution deferred
+
+PR13 was branched from PR12's tip (`laravel-security-hardening/12-remaining-resources-callsites`, the 5a-5g authorization chain), per this delivery's established branch order. Slice 1 (PR1, `laravel-security-hardening/01-auth-token-wiring`) is a SEPARATE, independent branch that was never merged into the 5a-5g chain. Design D8 and spec Requirement 5.1.e assume `ResetPasswordController.php` exists and needs its inline `registrar()` call removed — but that file (along with `RefreshToken` model, `ResetPasswordRequest`, `ForgotPasswordController`, etc.) lives ONLY on PR1's branch, absent here.
+
+**What was verified to exist only on PR1's branch (via `git show laravel-security-hardening/01-auth-token-wiring:<path>`), not recreated here to avoid duplicating/conflicting with that branch's own eventual merge**: `app/Http/Controllers/Api/Auth/ResetPasswordController.php`, `ForgotPasswordController.php`, `RefreshTokenController.php`, `LogoutAllController.php`, `app/Models/RefreshToken.php`, `app/Http/Requests/Api/Auth/ResetPasswordRequest.php`.
+
+**Follow-up required, not yet done**: once PR1 and PR13 converge (merge/rebase into the tracker `feature/laravel-security-hardening`, per this PR's instructions NOT to be done by this session), `ResetPasswordController.php:30`'s inline `AuditServiceInterface::registrar('password_reset', ...)` call must be removed so `LogPasswordReset` becomes the single source of Scenario 5.1.e's log entry — otherwise password resets will double-log once both PRs are integrated. `LogPasswordReset` itself is fully implemented and tested (task 6.11/6.12) and ready for that follow-up; only the removal-of-the-old-call half of 6.12 remains.
