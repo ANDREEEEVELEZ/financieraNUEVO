@@ -20,7 +20,6 @@ use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Dashboard\Resources\Badge;
 use Filament\Tables\Columns\BadgeColumn;
-use Illuminate\Support\Facades\Auth;
 
 class IngresosResource extends Resource
 {
@@ -229,16 +228,6 @@ class IngresosResource extends Resource
         return [
             //
         ];
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return Auth::check() && Auth::user()->hasRole(['super_admin', 'Jefe de operaciones']);
-    }
-
-    public static function canAccess(): bool
-    {
-        return Auth::check() && Auth::user()->hasRole(['super_admin', 'Jefe de operaciones']);
     }
 
     public static function getPages(): array

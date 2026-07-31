@@ -94,7 +94,7 @@ class CuotasVigentesWidget extends BaseWidget
                             return '-';
                         return $asesor->persona->nombre . ' ' . $asesor->persona->apellidos;
                     })
-                    ->visible(fn() => !request()->user()?->hasRole('Asesor'))
+                    ->visible(fn() => (bool) request()->user()?->can('verColumnaAsesor', CuotasGrupales::class))
                     ->limit(18),
             ])
             ->emptyStateHeading('Sin cuotas próximas a vencer')

@@ -7,25 +7,28 @@ use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 /**
- * CuotasGrupales has a Filament Resource (CuotasResource) but it carries no
- * authorization gate — CuotasResource::getTableQuery() only data-scopes
- * (Bucket B: hasRole('Asesor') filters WHICH rows are returned, it never
- * denies access), CuotasResource::canCreate() is hardcoded false for
- * everyone (a product decision, not a role gate), and the one column-level
- * ->visible() call is UI cosmetics (Bucket C — hides the "Asesor" column
- * from Asesor users viewing their own data, not an authorization decision).
- * No hasRole/hasAnyRole/authorize/canEdit/canView/canDelete gate exists.
- *
- * Parity-preserving choice: Shield-style CRUD permission checks, consistent
- * with the other 11 existing Policies (mirrors PrestamoPolicy's shape per
- * design D7's instruction for models with no inline check). PermissionSeeder
- * grants every permission below to ALL FOUR existing roles, so this is
+ * CuotasGrupales has a Filament Resource (CuotasResource). At the time this
+ * Policy was created (Slice 5b-financial, PR5), CuotasResource::getTableQuery()
+ * data-scoped by asesor (Bucket B) and CuotasResource::canCreate() was
+ * hardcoded false for everyone (a product decision, not a role gate); the
+ * CRUD methods below mirror PrestamoPolicy's Shield shape per design D7's
+ * instruction for models with no inline check at the time. PermissionSeeder
+ * grants every CRUD permission below to ALL FOUR existing roles, so this is
  * functionally equivalent to "allow any authenticated user" — the current
  * de-facto behavior — while staying idiomatically consistent with the
  * codebase (Requirement 4.3 forbids silently tightening access).
  *
- * Not yet referenced by any Filament call site — that migration is Slice
- * 5c-5g (later PRs). This Policy is additive-only in this change.
+ * CORRECTION (Slice 5g, PR12): PR5's docblock originally classified
+ * `CuotasResource`'s asesor-column `->visible()` call as Bucket C (UI
+ * cosmetics). New evidence — the repeated, 3x-confirmed precedent from
+ * `PrestamoPolicy::verFiltroAsesor` (PR9), `RetanqueoPolicy::verColumnaAsesor`
+ * (PR10), and `GrupoPolicy::verFiltroAsesor` (PR11) — shows this exact shape
+ * (`->visible(fn() => !hasRole('Asesor'))`, hiding the asesor identity column
+ * from Asesor-role users) is Bucket A per D6's literal signature
+ * (`->visible()`), not Bucket C: it is an information-disclosure
+ * authorization decision, not merely cosmetic. `verColumnaAsesor()` below
+ * migrates that call site (and its sibling in `CuotasVigentesWidget`, same
+ * model, same check, reused as one Policy method) accordingly.
  */
 class CuotasGrupalesPolicy
 {
@@ -54,5 +57,16 @@ class CuotasGrupalesPolicy
     public function delete(User $user, CuotasGrupales $cuotasGrupales): bool
     {
         return $user->can('delete_cuotas_grupales');
+    }
+
+    /**
+     * Slice 5g: gates the asesor identity column's visibility in
+     * `CuotasResource::table()` and `CuotasVigentesWidget::table()` — both
+     * call sites share the exact same closure (`!hasRole('Asesor')`), so this
+     * single Policy method covers both.
+     */
+    public function verColumnaAsesor(User $user): bool
+    {
+        return ! $user->hasRole('Asesor');
     }
 }
