@@ -135,6 +135,24 @@ class PermissionSeeder extends Seeder
             'ajustes.descontar_interes', // Descuento de interés (JO)
         ];
 
+        // ─── Permisos Slice 5b-financial (laravel-security-hardening) ───
+        // Shield-style CRUD permissions for Mora, CuotaIndividual,
+        // CuotasGrupales, AplicacionPago, AjusteDeuda — these 5 models have
+        // no existing Filament Resource of their own and currently ZERO
+        // authorization gate anywhere in the codebase (see each Policy
+        // class's docblock for the grep-derived evidence). Granted to ALL
+        // FOUR roles below to preserve that de-facto "open to any
+        // authenticated user" behavior — spec Requirement 4.3 forbids this
+        // refactor from silently tightening access. Not yet referenced by
+        // any Filament call site (that wiring is Slice 5c-5g, later PRs).
+        $financieroPermisos = [
+            'view_any_mora', 'view_mora', 'create_mora', 'update_mora', 'delete_mora',
+            'view_any_cuota_individual', 'view_cuota_individual', 'create_cuota_individual', 'update_cuota_individual', 'delete_cuota_individual',
+            'view_any_cuotas_grupales', 'view_cuotas_grupales', 'create_cuotas_grupales', 'update_cuotas_grupales', 'delete_cuotas_grupales',
+            'view_any_aplicacion_pago', 'view_aplicacion_pago', 'create_aplicacion_pago', 'update_aplicacion_pago', 'delete_aplicacion_pago',
+            'view_any_ajuste_deuda', 'view_ajuste_deuda', 'create_ajuste_deuda', 'update_ajuste_deuda', 'delete_ajuste_deuda',
+        ];
+
         // ─── Permisos de Productos Financieros ──────────────────────────
         $productoPermisos = [
             'productos.crear',
@@ -172,6 +190,7 @@ class PermissionSeeder extends Seeder
             $pagoPermisos,
             $retanqueoPermisos,
             $ajustePermisos,
+            $financieroPermisos,
             $productoPermisos,
             $reportePermisos
         );
@@ -238,6 +257,9 @@ class PermissionSeeder extends Seeder
 
             // Ajustes
             'ajustes.condonar_mora',
+
+            // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
+            ...$financieroPermisos,
 
             // Productos
             'productos.ver',
@@ -308,6 +330,9 @@ class PermissionSeeder extends Seeder
             'ajustes.condonar_mora',
             'ajustes.descontar_capital',
 
+            // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
+            ...$financieroPermisos,
+
             // Productos
             'productos.ver',
             'view_any_producto::financiero',
@@ -357,6 +382,9 @@ class PermissionSeeder extends Seeder
             'view_pago',
             'create_pago',
             'reorder_pago',
+
+            // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
+            ...$financieroPermisos,
 
             // Productos
             'productos.ver',
