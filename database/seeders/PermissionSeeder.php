@@ -153,6 +153,28 @@ class PermissionSeeder extends Seeder
             'view_any_ajuste_deuda', 'view_ajuste_deuda', 'create_ajuste_deuda', 'update_ajuste_deuda', 'delete_ajuste_deuda',
         ];
 
+        // ─── Permisos Slice 5b-lifecycle (laravel-security-hardening) ───
+        // Shield-style CRUD permissions for PrestamoIndividual,
+        // SeparacionCliente, Reagrupacion, RetanqueoIndividual. Grep across
+        // app/Filament and app/Domain/Prestamos + app/Domain/Grupos confirmed
+        // zero existing authorization gate for any of these 4 models: the
+        // Filament call sites that touch PrestamoIndividual/RetanqueoIndividual
+        // are plain data reads/writes (never a hasRole/hasAnyRole/visible/
+        // hidden/authorize/canX check), and SeparacionCliente/Reagrupacion
+        // have no Filament Resource of their own — written only by ungated
+        // domain services (MorosoSeparationService, RetanqueoWorkflowService/
+        // RetanqueoEjecucionService). Granted to ALL FOUR roles below to
+        // preserve that de-facto "open to any authenticated user" behavior —
+        // spec Requirement 4.3 forbids this refactor from silently tightening
+        // access. Not yet referenced by any Filament call site (that wiring
+        // is Slice 5c-5g, later PRs).
+        $lifecyclePermisos = [
+            'view_any_prestamo_individual', 'view_prestamo_individual', 'create_prestamo_individual', 'update_prestamo_individual', 'delete_prestamo_individual',
+            'view_any_separacion_cliente', 'view_separacion_cliente', 'create_separacion_cliente', 'update_separacion_cliente', 'delete_separacion_cliente',
+            'view_any_reagrupacion', 'view_reagrupacion', 'create_reagrupacion', 'update_reagrupacion', 'delete_reagrupacion',
+            'view_any_retanqueo_individual', 'view_retanqueo_individual', 'create_retanqueo_individual', 'update_retanqueo_individual', 'delete_retanqueo_individual',
+        ];
+
         // ─── Permisos de Productos Financieros ──────────────────────────
         $productoPermisos = [
             'productos.crear',
@@ -191,6 +213,7 @@ class PermissionSeeder extends Seeder
             $retanqueoPermisos,
             $ajustePermisos,
             $financieroPermisos,
+            $lifecyclePermisos,
             $productoPermisos,
             $reportePermisos
         );
@@ -260,6 +283,9 @@ class PermissionSeeder extends Seeder
 
             // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
             ...$financieroPermisos,
+
+            // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
+            ...$lifecyclePermisos,
 
             // Productos
             'productos.ver',
@@ -333,6 +359,9 @@ class PermissionSeeder extends Seeder
             // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
             ...$financieroPermisos,
 
+            // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
+            ...$lifecyclePermisos,
+
             // Productos
             'productos.ver',
             'view_any_producto::financiero',
@@ -385,6 +414,9 @@ class PermissionSeeder extends Seeder
 
             // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
             ...$financieroPermisos,
+
+            // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
+            ...$lifecyclePermisos,
 
             // Productos
             'productos.ver',

@@ -14,8 +14,12 @@ use App\Models\Ingreso;
 use App\Models\Mora;
 use App\Models\Pago;
 use App\Models\Prestamo;
+use App\Models\PrestamoIndividual;
 use App\Models\ProductoFinanciero;
+use App\Models\Reagrupacion;
 use App\Models\Retanqueo;
+use App\Models\RetanqueoIndividual;
+use App\Models\SeparacionCliente;
 use App\Models\User;
 use App\Policies\AjusteDeudaPolicy;
 use App\Policies\AplicacionPagoPolicy;
@@ -28,10 +32,14 @@ use App\Policies\GrupoPolicy;
 use App\Policies\IngresoPolicy;
 use App\Policies\MoraPolicy;
 use App\Policies\PagoPolicy;
+use App\Policies\PrestamoIndividualPolicy;
 use App\Policies\PrestamoPolicy;
 use App\Policies\ProductoFinancieroPolicy;
+use App\Policies\ReagrupacionPolicy;
+use App\Policies\RetanqueoIndividualPolicy;
 use App\Policies\RetanqueoPolicy;
 use App\Policies\RolePolicy;
+use App\Policies\SeparacionClientePolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -49,14 +57,16 @@ use Spatie\Permission\Models\Role;
  * inside `bezhansalleh/filament-shield`'s own opt-in registration).
  *
  * Slice 5a registered the 11 EXISTING Policy classes (zero behavior change:
- * no new Policies, no call-site changes). Slice 5b-financial adds the first
+ * no new Policies, no call-site changes). Slice 5b-financial added the first
  * group of the ~20 missing Policies (design D7's remaining models): Mora,
- * CuotaIndividual, CuotasGrupales, AplicacionPago, AjusteDeuda. These 5 are
- * newly-created and additive-only in this change — they are not yet
- * referenced by any Filament call site (that migration is Slice 5c-5g,
- * later PRs). See each Policy class's docblock for its rule-parity
- * derivation. The remaining ~15 models (lifecycle/catalog groups) land in
- * subsequent PRs and will extend this same map.
+ * CuotaIndividual, CuotasGrupales, AplicacionPago, AjusteDeuda. Slice
+ * 5b-lifecycle adds the second group: PrestamoIndividual, SeparacionCliente,
+ * Reagrupacion, RetanqueoIndividual. All 9 of these are newly-created and
+ * additive-only in this change — they are not yet referenced by any
+ * Filament call site (that migration is Slice 5c-5g, later PRs). See each
+ * Policy class's docblock for its rule-parity derivation. The remaining
+ * ~11 models (catalog group) land in a subsequent PR and will extend this
+ * same map.
  */
 class AuthServiceProvider extends ServiceProvider
 {
@@ -78,9 +88,13 @@ class AuthServiceProvider extends ServiceProvider
         Mora::class => MoraPolicy::class,
         Pago::class => PagoPolicy::class,
         Prestamo::class => PrestamoPolicy::class,
+        PrestamoIndividual::class => PrestamoIndividualPolicy::class,
         ProductoFinanciero::class => ProductoFinancieroPolicy::class,
+        Reagrupacion::class => ReagrupacionPolicy::class,
         Retanqueo::class => RetanqueoPolicy::class,
+        RetanqueoIndividual::class => RetanqueoIndividualPolicy::class,
         Role::class => RolePolicy::class,
+        SeparacionCliente::class => SeparacionClientePolicy::class,
         User::class => UserPolicy::class,
     ];
 
