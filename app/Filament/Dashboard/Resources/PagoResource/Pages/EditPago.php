@@ -162,7 +162,7 @@ private function shouldDisableForm(): bool
                 ->size('sm')
                 ->visible(fn($record) =>
                     in_array(strtolower($record->estado_pago), ['pendiente']) &&
-                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones'])
+                    $user->can('aprobar', $record)
                 )
                 ->action(function ($record) {
                     try {
@@ -188,7 +188,7 @@ private function shouldDisableForm(): bool
                 ->size('sm')
                 ->visible(fn($record) =>
                     in_array(strtolower($record->estado_pago), ['pendiente']) &&
-                    $user->hasAnyRole(['super_admin', 'Jefe de operaciones'])
+                    $user->can('rechazar', $record)
                 )
                 ->action(function ($record) {
                     try {

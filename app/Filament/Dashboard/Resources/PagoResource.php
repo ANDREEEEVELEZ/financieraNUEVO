@@ -1010,7 +1010,7 @@ class PagoResource extends Resource
                         ->label('Aprobar')
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                        ->visible(fn($record) => in_array(strtolower($record->estado_pago), ['pendiente']) && request()->user()?->can('aprobar', $record))
                         ->action(function ($record) {
                             try {
                                 app(PagoService::class)->aprobarPago($record);
@@ -1035,7 +1035,7 @@ class PagoResource extends Resource
                         ->label('Rechazar')
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn($record) => strtolower($record->estado_pago) === 'pendiente' && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                        ->visible(fn($record) => strtolower($record->estado_pago) === 'pendiente' && request()->user()?->can('rechazar', $record))
                         ->action(function ($record) {
                             try {
                                 app(PagoService::class)->rechazarPago($record);
@@ -1060,7 +1060,7 @@ class PagoResource extends Resource
                         ->modalHeading('¿Revertir este pago aprobado?')
                         ->modalDescription('El pago volverá al estado "Pendiente" y los saldos de la cuota serán recalculados. Use esta opción solo si la aprobación fue un error.')
                         ->modalSubmitActionLabel('Sí, revertir')
-                        ->visible(fn($record) => strtolower($record->estado_pago) === 'aprobado' && request()->user()?->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                        ->visible(fn($record) => strtolower($record->estado_pago) === 'aprobado' && request()->user()?->can('revertir', $record))
                         ->action(function ($record) {
                             try {
                                 if (app(PagoService::class)->revertirPago($record)) {
