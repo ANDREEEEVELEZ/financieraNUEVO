@@ -6,6 +6,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Models\Grupo;
 use App\Models\Cliente;
 use App\Models\Prestamo;
+use App\Models\ProductoFinanciero;
+use App\Domain\Mora\Strategies\MoraFlatPorIntegranteStrategy;
+use App\Domain\Mora\Strategies\MoraPorcentualSobreSaldoStrategy;
 
 uses(Tests\TestCase::class, RefreshDatabase::class);
 
@@ -112,6 +115,60 @@ describe('Mora', function () {
         expect($mora->fresh()->fecha_atraso)->toEqual($original);
     });
 
+    // Eje 2 (dominio-pagos-mora-retanqueo) — delegación a MoraCalculationStrategy.
+    describe('delegación a MoraCalculationStrategy (Eje 2)', function () {
+        it('ProductoFinanciero::moraStrategy() cae en flat para tipo grupal sin tipo_calculo_mora seteado', function () {
+            $producto = ProductoFinanciero::factory()->create([
+                'tipo' => 'grupal',
+                'tipo_calculo_mora' => null,
+            ]);
 
+            expect($producto->moraStrategy())->toBeInstanceOf(MoraFlatPorIntegranteStrategy::class);
+        });
 
+        it('ProductoFinanciero::moraStrategy() cae en porcentual para tipo individual sin tipo_calculo_mora seteado', function () {
+            $producto = ProductoFinanciero::factory()->create([
+                'tipo' => 'individual',
+                'tipo_calculo_mora' => null,
+            ]);
+
+            expect($producto->moraStrategy())->toBeInstanceOf(MoraPorcentualSobreSaldoStrategy::class);
+        });
+
+        it('ProductoFinanciero::moraStrategy() respeta tipo_calculo_mora explícito por sobre el fallback por tipo', function () {
+            $producto = ProductoFinanciero::factory()->create([
+                'tipo' => 'grupal',
+                'tipo_calculo_mora' => 'porcentual_sobre_saldo',
+            ]);
+
+            expect($producto->moraStrategy())->toBeInstanceOf(MoraPorcentualSobreSaldoStrategy::class);
+        });
+
+        it('Mora::calcularMontoMora() delega en la estrategia resuelta desde producto_financiero.tipo_calculo_mora', function () {
+            $producto = ProductoFinanciero::factory()->create([
+                'tipo' => 'grupal',
+                'tipo_calculo_mora' => 'flat_por_integrante',
+            ]);
+            $grupo = Grupo::factory()->create(['numero_integrantes' => 4]);
+            $clientes = Cliente::factory()->count(4)->create();
+            $grupo->clientes()->attach($clientes->pluck('id'), [
+                'fecha_ingreso' => now(),
+                'rol' => 'miembro',
+                'estado_grupo_cliente' => 'activo',
+            ]);
+            $prestamo = Prestamo::factory()->create([
+                'grupo_id' => $grupo->id,
+                'producto_id' => $producto->id,
+            ]);
+            $cuota = CuotasGrupales::factory()->create([
+                'prestamo_id' => $prestamo->id,
+                'fecha_vencimiento' => now()->subDays(5),
+            ]);
+
+            // 4 integrantes x 4 dias de atraso (fecha_vencimiento+1 vs hoy) x 1 = 16
+            $monto = Mora::calcularMontoMora($cuota, now(), 'pendiente');
+
+            expect($monto)->toEqual(16);
+        });
+    });
 });

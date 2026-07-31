@@ -50,9 +50,9 @@ class Moras extends Page
                 $diasAtraso = $cuota->mora->dias_atraso;
             } else {
                 // Si no hay mora creada, calcular manualmente
-                $fechaVencimiento = \Carbon\Carbon::parse($cuota->getRawOriginal('fecha_vencimiento'));
-                $diasAtraso = now()->isAfter($fechaVencimiento->addDay())
-                    ? now()->diffInDays($fechaVencimiento->addDay())
+                $fechaVencimiento = \Carbon\Carbon::parse($cuota->getRawOriginal('fecha_vencimiento'))->addDay();
+                $diasAtraso = now()->isAfter($fechaVencimiento)
+                    ? now()->diffInDays($fechaVencimiento, absolute: true)
                     : 0;
             }
 

@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Domain\Mora\Strategies\MoraCalculationStrategy;
+use App\Domain\Mora\Strategies\MoraFlatPorIntegranteStrategy;
+use App\Domain\Mora\Strategies\MoraPorcentualSobreSaldoStrategy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -15,6 +18,7 @@ class ProductoFinanciero extends Model
         'codigo',
         'nombre',
         'tipo',
+        'tipo_calculo_mora',
         'tasa_interes',
         'tasa_mora',
         'permite_condonacion_mora',
@@ -88,5 +92,28 @@ class ProductoFinanciero extends Model
     public function getConfig(string $key, $default = null)
     {
         return data_get($this->config_json, $key, $default);
+    }
+
+    /**
+     * Resuelve la estrategia de cálculo de mora configurada para este
+     * producto. Las estrategias no son cuidadosamente "singleton" ni
+     * resueltas por el contenedor (mismo patrón que
+     * ElegibilidadRetanqueoStrategy) porque coexisten dos implementaciones
+     * elegidas dinámicamente por dato, no por resolución de servicio.
+     *
+     * Fallback legacy: si `tipo_calculo_mora` no está seteado (fila no
+     * backfillada, producto nuevo sin valor explícito), preserva el
+     * comportamiento histórico según el tipo de producto — grupal → flat,
+     * individual/hipotecario → porcentual.
+     */
+    public function moraStrategy(): MoraCalculationStrategy
+    {
+        $tipoCalculo = $this->tipo_calculo_mora
+            ?? ($this->tipo === 'grupal' ? 'flat_por_integrante' : 'porcentual_sobre_saldo');
+
+        return match ($tipoCalculo) {
+            'porcentual_sobre_saldo' => new MoraPorcentualSobreSaldoStrategy(),
+            default => new MoraFlatPorIntegranteStrategy(),
+        };
     }
 }
