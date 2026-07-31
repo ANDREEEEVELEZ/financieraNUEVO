@@ -733,7 +733,13 @@ class PrestamoResource extends Resource
 
             TextColumn::make('numero_cuenta_desembolso')
                 ->label('N° de Cuenta')
-                ->searchable()
+                // ->searchable() intentionally removed (Requirement 3.1 audit
+                // gate, Slice 3): this column is now `encrypted` (random IV
+                // per write), so Filament's default LIKE-based column search
+                // would compare a plaintext search term against ciphertext —
+                // it would never match, silently breaking search rather than
+                // erroring. User-confirmed tradeoff: losing search-by-account-
+                // number here is accepted in exchange for encryption at rest.
                 ->placeholder('No especificado')
                 ->toggleable(),
             TextColumn::make('detalle_individual')
