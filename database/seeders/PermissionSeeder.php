@@ -175,6 +175,34 @@ class PermissionSeeder extends Seeder
             'view_any_retanqueo_individual', 'view_retanqueo_individual', 'create_retanqueo_individual', 'update_retanqueo_individual', 'delete_retanqueo_individual',
         ];
 
+        // ─── Permisos Slice 5b-catalog (laravel-security-hardening) ─────
+        // Shield-style CRUD permissions for the remaining 10 catalog models:
+        // AuditLog, BusinessRuleConfig, Categoria, ClienteScoring,
+        // ConsultaAsistente, MetaMensual, MetricaDiariaAsesor,
+        // MovimientoFinanciero, Persona, Subcategoria. This completes Slice
+        // 5b (11 original + 5 financial + 4 lifecycle + 10 catalog = 30
+        // Policies; the 31st model per design D7's count, GrupoCliente, is a
+        // justified exclusion — see AuthServiceProvider's docblock).
+        // None of these 10 models have a Filament Resource of their own and
+        // none have an existing authorization gate anywhere in the codebase
+        // (see each Policy class's docblock for the grep-derived evidence).
+        // Granted to ALL FOUR roles below to preserve that de-facto "open to
+        // any authenticated user" behavior — spec Requirement 4.3 forbids
+        // this refactor from silently tightening access. Not yet referenced
+        // by any Filament call site (that wiring is Slice 5c-5g, later PRs).
+        $catalogoPermisos = [
+            'view_any_audit_log', 'view_audit_log', 'create_audit_log', 'update_audit_log', 'delete_audit_log',
+            'view_any_business_rule_config', 'view_business_rule_config', 'create_business_rule_config', 'update_business_rule_config', 'delete_business_rule_config',
+            'view_any_categoria', 'view_categoria', 'create_categoria', 'update_categoria', 'delete_categoria',
+            'view_any_cliente_scoring', 'view_cliente_scoring', 'create_cliente_scoring', 'update_cliente_scoring', 'delete_cliente_scoring',
+            'view_any_consulta_asistente', 'view_consulta_asistente', 'create_consulta_asistente', 'update_consulta_asistente', 'delete_consulta_asistente',
+            'view_any_meta_mensual', 'view_meta_mensual', 'create_meta_mensual', 'update_meta_mensual', 'delete_meta_mensual',
+            'view_any_metrica_diaria_asesor', 'view_metrica_diaria_asesor', 'create_metrica_diaria_asesor', 'update_metrica_diaria_asesor', 'delete_metrica_diaria_asesor',
+            'view_any_movimiento_financiero', 'view_movimiento_financiero', 'create_movimiento_financiero', 'update_movimiento_financiero', 'delete_movimiento_financiero',
+            'view_any_persona', 'view_persona', 'create_persona', 'update_persona', 'delete_persona',
+            'view_any_subcategoria', 'view_subcategoria', 'create_subcategoria', 'update_subcategoria', 'delete_subcategoria',
+        ];
+
         // ─── Permisos de Productos Financieros ──────────────────────────
         $productoPermisos = [
             'productos.crear',
@@ -214,6 +242,7 @@ class PermissionSeeder extends Seeder
             $ajustePermisos,
             $financieroPermisos,
             $lifecyclePermisos,
+            $catalogoPermisos,
             $productoPermisos,
             $reportePermisos
         );
@@ -286,6 +315,9 @@ class PermissionSeeder extends Seeder
 
             // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
             ...$lifecyclePermisos,
+
+            // AuditLog, BusinessRuleConfig, Categoria, ClienteScoring, ConsultaAsistente, MetaMensual, MetricaDiariaAsesor, MovimientoFinanciero, Persona, Subcategoria (Slice 5b-catalog)
+            ...$catalogoPermisos,
 
             // Productos
             'productos.ver',
@@ -362,6 +394,9 @@ class PermissionSeeder extends Seeder
             // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
             ...$lifecyclePermisos,
 
+            // AuditLog, BusinessRuleConfig, Categoria, ClienteScoring, ConsultaAsistente, MetaMensual, MetricaDiariaAsesor, MovimientoFinanciero, Persona, Subcategoria (Slice 5b-catalog)
+            ...$catalogoPermisos,
+
             // Productos
             'productos.ver',
             'view_any_producto::financiero',
@@ -417,6 +452,9 @@ class PermissionSeeder extends Seeder
 
             // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
             ...$lifecyclePermisos,
+
+            // AuditLog, BusinessRuleConfig, Categoria, ClienteScoring, ConsultaAsistente, MetaMensual, MetricaDiariaAsesor, MovimientoFinanciero, Persona, Subcategoria (Slice 5b-catalog)
+            ...$catalogoPermisos,
 
             // Productos
             'productos.ver',
