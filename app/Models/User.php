@@ -77,14 +77,40 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Determina si el usuario puede acceder a Filament Panel.
      */
-public function canAccessPanel(\Filament\Panel $panel): bool
-{
-    return $this->hasAnyRole([
-        'super_admin',
-        'Jefe de operaciones',
-        'Jefe de creditos',
-        'Asesor',
-    ]);
-}
+    public function canAccessPanel(\Filament\Panel $panel): bool
+    {
+        return $this->hasAnyRole([
+            'super_admin',
+            'Jefe de operaciones',
+            'Jefe de creditos',
+            'Asesor',
+        ]);
+    }
 
+    /**
+     * Retorna el rol principal del usuario de forma determinista
+     * según la jerarquía del dominio: super_admin > Jefe de creditos / Jefe de operaciones > Asesor.
+     */
+    public function getPrimaryRoleAttribute(): string
+    {
+        $roles = $this->getRoleNames()->all();
+
+        if (in_array('super_admin', $roles, true)) {
+            return 'super_admin';
+        }
+
+        if (in_array('Jefe de creditos', $roles, true)) {
+            return 'Jefe de creditos';
+        }
+
+        if (in_array('Jefe de operaciones', $roles, true)) {
+            return 'Jefe de operaciones';
+        }
+
+        if (in_array('Asesor', $roles, true)) {
+            return 'Asesor';
+        }
+
+        return $roles[0] ?? 'Asesor';
+    }
 }

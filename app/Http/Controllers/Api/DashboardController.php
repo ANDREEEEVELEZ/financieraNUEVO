@@ -25,35 +25,29 @@ final class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // Role gate: only Asesor and super_admin may access the dashboard.
-        if (! $user->hasAnyRole(['Asesor', 'super_admin'])) {
+        // Role gate: Asesor, JC, JO, super_admin are authorized.
+        if (! $user->hasAnyRole(['Asesor', 'Jefe de creditos', 'Jefe de operaciones', 'super_admin'])) {
             return ApiResponse::error('No autorizado.', 403);
         }
 
-        $asesor   = Asesor::where('user_id', $user->id)->first();
         $cartera  = app(CarteraService::class)->resumen($user);
         $metaData = app(MetaCobranzaService::class)->calcular($user, now()->startOfMonth());
 
-        // cuotas_hoy / cuotas_mora: apply asesor scope when user is an Asesor.
-        // For SA (no asesor record) these are always 0 — dashboard is asesor-scoped.
-        if ($asesor !== null) {
-            $cuotasHoy  = CuotaIndividual::ofAsesor($asesor)->dueToday()->count();
-            $cuotasMora = CuotaIndividual::ofAsesor($asesor)->enMora()->count();
-        } else {
-            $cuotasHoy  = 0;
-            $cuotasMora = 0;
-        }
+        $cuotasHoyCount = is_countable($cartera['cuotas_hoy'] ?? null)
+            ? count($cartera['cuotas_hoy'])
+            : (int) ($cartera['cuotas_hoy'] ?? 0);
 
         return ApiResponse::success([
-            'cartera_total'  => $cartera['cartera_total'],
-            'grupos_count'   => $cartera['grupos_count'],
-            'clientes_count' => $cartera['clientes_count'],
-            'cuotas_hoy'     => $cuotasHoy,
-            'cuotas_mora'    => $cuotasMora,
+            'rol_activo'     => $user->primary_role,
+            'cartera_total'  => (float) $cartera['cartera_total'],
+            'grupos_count'   => (int) $cartera['grupos_count'],
+            'clientes_count' => (int) $cartera['clientes_count'],
+            'cuotas_hoy'     => $cuotasHoyCount,
+            'cuotas_mora'    => (int) ($cartera['cuotas_mora'] ?? 0),
             'meta_mensual'   => [
-                'monto'      => $metaData['meta'],
-                'cobrado'    => $metaData['cobrado'],
-                'porcentaje' => $metaData['pct'],
+                'monto'      => (float) $metaData['meta'],
+                'cobrado'    => (float) $metaData['cobrado'],
+                'porcentaje' => (float) $metaData['pct'],
             ],
         ]);
     }

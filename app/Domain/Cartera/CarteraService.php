@@ -19,39 +19,44 @@ final class CarteraService
 
     public function resumen(User $user): array
     {
-        $key = "cartera_resumen:{$user->id}";
-
+        $primaryRole = $user->primary_role;
+        $isJefeOrAdmin = in_array($primaryRole, ['super_admin', 'Jefe de creditos', 'Jefe de operaciones'], true);
         $asesor = $this->cache->getAsesorByUserId($user->id);
 
-        $numericos = Cache::remember($key, 300, function () use ($asesor) {
-            if ($asesor === null) {
+        $key = "cartera_resumen:{$user->id}";
+
+        $numericos = Cache::remember($key, 300, function () use ($asesor, $isJefeOrAdmin) {
+            if ($isJefeOrAdmin || $asesor === null) {
                 return [
-                    'grupos_count'    => 0,
-                    'clientes_count'  => 0,
-                    'prestamos_count' => 0,
-                    'cartera_total'   => 0.0,
+                    'grupos_count'    => Grupo::count(),
+                    'clientes_count'  => Cliente::count(),
+                    'prestamos_count' => Prestamo::where('estado', 'Activo')->count(),
+                    'cartera_total'   => (float) CuotaIndividual::whereHas(
+                        'prestamo',
+                        fn ($q) => $q->where('estado', 'Activo')
+                    )->sum('saldo_capital'),
                 ];
             }
 
             return [
                 'grupos_count'    => Grupo::where('asesor_id', $asesor->id)->count(),
-                'clientes_count'  => Cliente::ofAsesor($asesor)->activo()->count(),
-                'prestamos_count' => Prestamo::ofAsesor($asesor)->activo()->count(),
+                'clientes_count'  => Cliente::ofAsesor($asesor)->count(),
+                'prestamos_count' => Prestamo::ofAsesor($asesor)->where('estado', 'Activo')->count(),
                 'cartera_total'   => (float) CuotaIndividual::whereHas(
                     'prestamo',
-                    fn ($q) => $q->ofAsesor($asesor)->activo()
+                    fn ($q) => $q->ofAsesor($asesor)->where('estado', 'Activo')
                 )->sum('saldo_capital'),
             ];
         });
 
-        // cuotas_hoy: NEVER cached — always a live query
-        $numericos['cuotas_hoy'] = $asesor !== null
-            ? CuotaIndividual::dueToday()
-                ->ofAsesor($asesor)
-                ->with(['prestamo.cliente.persona', 'prestamo.grupo'])
-                ->select(['id', 'prestamo_id', 'numero_cuota', 'saldo_capital', 'fecha_vencimiento', 'estado'])
-                ->get()
-            : collect();
+        // Live queries for time-sensitive metrics
+        if ($isJefeOrAdmin || $asesor === null) {
+            $numericos['cuotas_hoy']  = CuotaIndividual::dueToday()->get();
+            $numericos['cuotas_mora'] = CuotaIndividual::enMora()->count();
+        } else {
+            $numericos['cuotas_hoy']  = CuotaIndividual::dueToday()->ofAsesor($asesor)->get();
+            $numericos['cuotas_mora'] = CuotaIndividual::enMora()->ofAsesor($asesor)->count();
+        }
 
         return $numericos;
     }
