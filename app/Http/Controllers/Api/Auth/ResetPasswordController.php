@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\Auth;
 
-use App\Contracts\AuditServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Auth\ResetPasswordRequest;
 use App\Http\Responses\ApiResponse;
@@ -13,8 +12,6 @@ use Illuminate\Support\Facades\Password;
 
 class ResetPasswordController extends Controller
 {
-    public function __construct(private AuditServiceInterface $auditService) {}
-
     public function __invoke(ResetPasswordRequest $request): JsonResponse
     {
         $status = Password::reset(
@@ -27,7 +24,10 @@ class ResetPasswordController extends Controller
                 $user->tokens()->delete();
                 RefreshToken::active()->where('user_id', $user->id)->update(['revoked_at' => now()]);
 
-                $this->auditService->registrar('password_reset', $user, [], [], 'Password reset via API');
+                // Audit logging for password resets is handled by the
+                // LogPasswordReset listener (see laravel-security-hardening
+                // Slice 6, PR13) once that PR merges into this chain —
+                // removed here to avoid double-logging the same event.
             }
         );
 
