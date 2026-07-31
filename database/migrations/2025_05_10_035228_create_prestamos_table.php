@@ -28,7 +28,15 @@ return new class extends Migration
             $table->boolean('es_parcialmente_retanqueado')->default(false);
             $table->foreignId('prestamo_origen_id')->nullable()->constrained('prestamos')->onDelete('set null');
             $table->string('titular_cuenta_desembolso')->nullable();
-            $table->string('numero_cuenta_desembolso')->nullable();
+            // TEXT, not string/VARCHAR(255): this column holds an `encrypted`
+            // Eloquent cast (Prestamo::$casts, Requirement 3.2). Laravel's
+            // encrypted-cast ciphertext (base64 JSON, random IV per write) can
+            // exceed 255 bytes for longer account numbers — measured ~228
+            // bytes for a 10-34 char plaintext, ~288 bytes for 40 chars —
+            // so VARCHAR(255) risks silent truncation. Rewritten in place
+            // (pre-prod, no migration history to preserve) rather than adding
+            // an incremental ALTER TABLE migration.
+            $table->text('numero_cuenta_desembolso')->nullable();
             $table->foreignId('producto_id')->nullable()->constrained('producto_financiero')->onDelete('restrict');
             $table->timestamps();
             $table->index(['grupo_id', 'estado'], 'prestamos_grupo_estado_idx');
