@@ -5,10 +5,13 @@ namespace App\Domain\Prestamos;
 use App\Contracts\RetanqueoWorkflowInterface;
 use App\Contracts\SaldoCuotaServiceInterface;
 use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
+use App\Domain\Prestamos\Concerns\ValidaParticipantesRetanqueoActivos;
+use App\Domain\Prestamos\Strategies\ElegibilidadRetanqueoGrupal;
 use App\Models\Retanqueo;
 use App\Models\RetanqueoIndividual;
 use App\Models\Prestamo;
 use App\Models\Cliente;
+use App\Models\SeparacionCliente;
 use App\Helpers\CicloHelper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +19,11 @@ use Illuminate\Support\Facades\Log;
 class RetanqueoWorkflowService implements RetanqueoWorkflowInterface
 {
     use FiltraCuotasPendientesConSaldo;
+    use ValidaParticipantesRetanqueoActivos;
+
+    public function __construct(
+        private readonly ElegibilidadRetanqueoGrupal $elegibilidadGrupal = new ElegibilidadRetanqueoGrupal()
+    ) {}
 
     /**
      * Crea una nueva solicitud de retanqueo.
@@ -32,6 +40,8 @@ class RetanqueoWorkflowService implements RetanqueoWorkflowInterface
             if ($prestamo->estado !== 'Aprobado') {
                 throw new \Exception('Solo se pueden retanquear préstamos aprobados');
             }
+
+            $this->rechazarParticipantesYaSeparados($prestamoId, $participantes);
 
             $retanqueo = Retanqueo::create([
                 'prestamo_id'                     => $prestamoId,
@@ -131,6 +141,7 @@ class RetanqueoWorkflowService implements RetanqueoWorkflowInterface
         return DB::transaction(function () use ($retanqueoId, $observaciones) {
             $retanqueo = Retanqueo::with([
                 'prestamoAntiguo.grupo.clientes.persona',
+                'prestamoAntiguo.producto',
                 'retanqueosIndividuales.cliente.persona',
             ])->find($retanqueoId);
 
@@ -148,6 +159,22 @@ class RetanqueoWorkflowService implements RetanqueoWorkflowInterface
             if ($cuotasPendientes !== 1) {
                 throw new \Exception("APROBACIÓN BLOQUEADA: El préstamo {$prestamoAntiguo->id} tiene {$cuotasPendientes} cuotas pendientes. Solo se pueden aprobar retanqueos cuando queda EXACTAMENTE 1 cuota por pagar. Operación cancelada por seguridad financiera.");
             }
+
+            // Quórum real (SR-4 / Eje 1): solo aplica a retanqueos grupales —
+            // un préstamo individual (sin grupo) no tiene concepto de quórum.
+            if ($prestamoAntiguo->grupo && !$this->elegibilidadGrupal->cumpleQuorum($retanqueo)) {
+                [$retanquean, $totalOriginales, $porcentajeMinimo] = $this->elegibilidadGrupal->datosQuorum($retanqueo);
+                $porcentajeActual    = $totalOriginales > 0 ? round(($retanquean / $totalOriginales) * 100, 1) : 0.0;
+                $porcentajeRequerido = round($porcentajeMinimo * 100, 1);
+
+                throw new \Exception("APROBACIÓN BLOQUEADA: El retanqueo {$retanqueo->id} no alcanza el quórum mínimo. Solo {$retanquean} de {$totalOriginales} integrantes originales ({$porcentajeActual}%) decidieron retanquear. Se requiere al menos {$porcentajeRequerido}%. Operación cancelada por seguridad financiera.");
+            }
+
+            // Coordinación retanqueo ↔ separación (Eje 5): un integrante
+            // original pudo haber sido separado del grupo (MorosoSeparationService)
+            // en la ventana de tiempo entre crearSolicitudRetanqueo() y esta
+            // aprobación. Separación bloquea retanqueo, nunca al revés.
+            self::validarParticipantesActivos($retanqueo, 'APROBACIÓN');
 
             $retanqueo->update([
                 'estado_retanqueo' => 'aprobado',
@@ -215,6 +242,44 @@ class RetanqueoWorkflowService implements RetanqueoWorkflowInterface
     }
 
     // ─── Private helpers ────────────────────────────────────────────────────────
+
+    /**
+     * Guard de defensa en profundidad (Eje 5, task 5.2): rechaza de entrada
+     * cualquier participante cuyo cliente_id ya tenga una SeparacionCliente
+     * ejecutada para este préstamo. Estructuralmente ya debería ser imposible
+     * que un cliente separado (fecha_salida seteada en grupo_cliente) llegue
+     * como participante — pero explícito es mejor que implícito.
+     */
+    private function rechazarParticipantesYaSeparados(int $prestamoId, array $participantes): void
+    {
+        $clienteIds = array_values(array_filter(array_column($participantes, 'cliente_id')));
+
+        if (empty($clienteIds)) {
+            return;
+        }
+
+        $clientesSeparados = SeparacionCliente::where('prestamo_origen_id', $prestamoId)
+            ->where('estado', 'ejecutada')
+            ->whereIn('cliente_id', $clienteIds)
+            ->with('cliente.persona')
+            ->get();
+
+        if ($clientesSeparados->isEmpty()) {
+            return;
+        }
+
+        $nombres = $clientesSeparados->map(function (SeparacionCliente $separacion) {
+            $persona = $separacion->cliente?->persona;
+            return $persona
+                ? trim("{$persona->nombre} {$persona->apellidos}")
+                : "cliente #{$separacion->cliente_id}";
+        })->implode(', ');
+
+        throw new \Exception(
+            "SOLICITUD BLOQUEADA: no se puede crear la solicitud de retanqueo para el préstamo {$prestamoId} porque incluye integrante(s) ya separados del grupo: {$nombres}. " .
+            "Regenerá la solicitud sin estos integrantes. Operación cancelada por seguridad financiera."
+        );
+    }
 
     private function calcularAporteCoberturaIndividual($prestamo, array $participantes, ?int $clienteId = null): float
     {
