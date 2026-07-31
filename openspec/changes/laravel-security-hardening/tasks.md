@@ -76,10 +76,12 @@ Chain strategy: pending
 
 ## Slice 2 — Global password policy
 
-- [ ] 2.1 RED: Pest tests for weak-password rejection (2.1.a), compromised-password rejection (2.1.b), strong-password acceptance (2.1.c) against `ResetPasswordRequest`.
-- [ ] 2.2 GREEN: register `Password::defaults()` in `AppServiceProvider::boot()` — `min(8)->mixedCase()->numbers()->symbols()`, `->uncompromised()` guarded off in `local`/`testing` (D4).
-- [ ] 2.3 Document Scenario 2.1.d (HIBP fail-open) as an accepted risk in a code comment near the guard — no new logic, existing Laravel behavior.
-- [ ] 2.4 RUN: `php artisan test --compact --filter=Password` — green.
+**Deviation note (apply-time)**: PR1 (Slice 1, `ResetPasswordRequest` + `ResetPasswordController`) is still an open, unmerged PR against the tracker branch at the time PR2 was applied, so `ResetPasswordRequest` does not exist on this branch. Tests below validate `Password::defaults()` directly via `Illuminate\Support\Facades\Validator` instead of through `ResetPasswordRequest`. This is equivalent coverage for Requirement 2.1 (the requirement is about the `Password::defaults()` rule itself, applying to "every password-entry flow", not specifically `ResetPasswordRequest`) and remains valid once PR1 merges, since `ResetPasswordRequest` will use `Password::defaults()` and inherit this policy automatically — no retrofitting needed.
+
+- [x] 2.1 RED: Pest tests for weak-password rejection (2.1.a), compromised-password rejection (2.1.b), strong-password acceptance (2.1.c) against `Password::defaults()` directly (see deviation note above).
+- [x] 2.2 GREEN: register `Password::defaults()` in `AppServiceProvider::boot()` — `min(8)->mixedCase()->numbers()->symbols()`, `->uncompromised()` guarded off in `local`/`testing` (D4).
+- [x] 2.3 Document Scenario 2.1.d (HIBP fail-open) as an accepted risk in a code comment near the guard — no new logic, existing Laravel behavior.
+- [x] 2.4 RUN: `php artisan test --compact --filter=Password` — green.
 
 ## Slice 3 — PII encryption (`numero_cuenta_desembolso` only)
 

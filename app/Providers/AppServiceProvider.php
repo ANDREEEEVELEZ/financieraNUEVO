@@ -50,6 +50,7 @@ use App\Infrastructure\Audit\AuditService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -80,6 +81,35 @@ class AppServiceProvider extends ServiceProvider
         if (!$this->app->environment('local', 'testing')) {
             URL::forceScheme('https');
         }
+
+        // -----------------------------------------------------------------------
+        // Global password policy — applies to every password-entry flow
+        // validated via Laravel's Password rule (currently ResetPasswordRequest;
+        // any future registration/password-change flow inherits it
+        // automatically by using Password::defaults() instead of a hardcoded
+        // rule list).
+        // -----------------------------------------------------------------------
+        Password::defaults(function () {
+            $rule = Password::min(8)->mixedCase()->numbers()->symbols();
+
+            // The uncompromised() check makes a live outbound HTTP call to
+            // HaveIBeenPwned's k-anonymity API. Skipping it in local/testing
+            // keeps the suite offline and deterministic (same guard style as
+            // the HTTPS-forcing block above).
+            //
+            // Accepted risk: outside local/testing, if the HIBP lookup itself
+            // fails or times out, Laravel's uncompromised() rule fails open —
+            // an otherwise-valid password is NOT rejected solely because the
+            // breach-corpus check was unreachable. This is existing framework
+            // behavior (Illuminate\Validation\NotPwnedVerifier swallows the
+            // HTTP exception and treats an empty response as "not found"),
+            // not new logic introduced by this change.
+            if (!$this->app->environment('local', 'testing')) {
+                $rule->uncompromised();
+            }
+
+            return $rule;
+        });
 
         // -----------------------------------------------------------------------
         // Rate limiters applied via throttle middleware on specific routes.
