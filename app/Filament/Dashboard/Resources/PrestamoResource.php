@@ -818,7 +818,7 @@ class PrestamoResource extends Resource
                     }
                     return $query;
                 })
-                ->visible(fn() => request()->user() && !request()->user()->hasRole('Asesor')),
+                ->visible(fn() => (bool) auth()->user()?->can('verFiltroAsesor', Prestamo::class)),
         ];
     }
 
@@ -1101,8 +1101,7 @@ class PrestamoResource extends Resource
                             ->send();
                     }
                 })
-                ->visible(fn($record) => !$record->es_retanqueo && $record->estado === Prestamo::ESTADO_REFORMULADO
-                    && auth()->user()?->hasAnyRole(['Asesor', 'super_admin'])),
+                ->visible(fn($record) => !$record->es_retanqueo && auth()->user()?->can('reenviar', $record)),
 
             // ACCIÓN: Cancelar Préstamo (Activo/Al_Día/En_Mora → Cancelado) — JC
             Tables\Actions\Action::make('cancelar_prestamo')
@@ -1214,70 +1213,10 @@ class PrestamoResource extends Resource
         return $query->orderBy('created_at', 'desc');
     }
 
-    // Métodos de autorización
-    public static function canEdit($record): bool
-    {
-        // No se pueden editar préstamos que son retanqueos
-        if ($record->es_retanqueo) {
-            return false;
-        }
-
-        // Solo se pueden editar préstamos en estado Pendiente
-        if ($record->estado !== 'Pendiente') {
-            return false;
-        }
-
-        $user = request()->user();
-        if (!$user)
-            return false;
-
-        // Los asesores solo pueden editar sus propios préstamos
-        if ($user->hasRole('Asesor')) {
-            $asesor = app(CacheServiceInterface::class)->getAsesorByUserId($user->id);
-            if ($asesor && $record->grupo) {
-                return $record->grupo->asesor_id === $asesor->id;
-            }
-            return false;
-        }
-
-        // Jefes y super_admin pueden editar cualquier préstamo (que no sea retanqueo y esté pendiente)
-        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
-    }
-
-    public static function canView($record): bool
-    {
-        $user = request()->user();
-        if (!$user)
-            return false;
-
-        // Los asesores solo pueden ver sus propios préstamos
-        if ($user->hasRole('Asesor')) {
-            $asesor = app(CacheServiceInterface::class)->getAsesorByUserId($user->id);
-            if ($asesor && $record->grupo) {
-                return $record->grupo->asesor_id === $asesor->id;
-            }
-            return false;
-        }
-
-        // Otros roles pueden ver cualquier préstamo
-        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
-    }
-
-    public static function canCreate(): bool
-    {
-        $user = request()->user();
-        return $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos', 'Asesor']);
-    }
-
-    public static function canDelete($record): bool
-    {
-        // No se pueden eliminar préstamos que son retanqueos
-        if ($record->es_retanqueo) {
-            return false;
-        }
-
-        // Solo super_admin puede eliminar préstamos
-        $user = request()->user();
-        return $user && $user->hasRole('super_admin');
-    }
+    // Autorización: canEdit/canView/canCreate/canDelete are now delegated to
+    // `PrestamoPolicy::update/view/create/delete` (Slice 5d) via Filament's
+    // default `Resource::canEdit/canView/canCreate/canDelete` implementations
+    // — see `AuthServiceProvider`'s Gate::policy() registration (Slice 5a).
+    // The static overrides that used to duplicate this logic inline were
+    // removed; their exact bodies were moved verbatim into the Policy.
 }

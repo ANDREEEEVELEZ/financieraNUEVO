@@ -14,10 +14,10 @@ class ListRetanqueos extends ListRecords
     protected function getHeaderActions(): array
     {
         $user = request()->user();
-        
+
         $actions = [];
-        
-        if ($user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos', 'Asesor'])) {
+
+        if ($user && $user->can('create', Retanqueo::class)) {
             $actions[] = Actions\CreateAction::make()
                 ->label('Nueva Solicitud de Retanqueo')
                 ->icon('heroicon-o-plus-circle')

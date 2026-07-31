@@ -31,7 +31,7 @@ class ListClientes extends ListRecords
                 ->label('Trasladar Clientes')
                 ->icon('heroicon-o-arrow-right-circle')
                 ->color('warning')
-                ->visible(fn () => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                ->visible(fn () => request()->user() && request()->user()->can('trasladarClientesMasivo', \App\Models\Cliente::class))
                 ->form([
                     Forms\Components\Section::make('Paso 1: Seleccionar Asesor de Origen')
                         ->description('Seleccione el asesor del cual desea trasladar clientes')

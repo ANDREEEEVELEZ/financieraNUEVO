@@ -19,7 +19,7 @@ class EditRetanqueo extends EditRecord
             Actions\ViewAction::make()
                 ->icon('heroicon-m-eye'),
             Actions\DeleteAction::make()
-                ->visible(fn () => request()->user()->hasRole('super_admin') && $this->record->esSolicitudPendiente()),
+                ->visible(fn () => (bool) auth()->user()?->can('delete', $this->record)),
         ];
     }
 

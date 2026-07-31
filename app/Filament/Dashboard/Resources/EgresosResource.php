@@ -16,7 +16,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 use Filament\Notifications\Notification;
 
 class EgresosResource extends Resource
@@ -327,17 +326,6 @@ Forms\Components\TextInput::make('monto')
     {
         return [];
     }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return Auth::check() && Auth::user()->hasRole(['super_admin', 'Jefe de operaciones']);
-    }
-
-    public static function canAccess(): bool
-    {
-        return Auth::check() && Auth::user()->hasRole(['super_admin', 'Jefe de operaciones']);
-    }
-
 
     public static function getPages(): array
     {

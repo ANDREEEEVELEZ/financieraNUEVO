@@ -541,7 +541,7 @@ class RetanqueoResource extends Resource
                     })
                     ->searchable()
                     ->sortable()
-                    ->visible(fn() => !request()->user()->hasRole('Asesor')),
+                    ->visible(fn() => (bool) auth()->user()?->can('verColumnaAsesor', Retanqueo::class)),
 
                 TextColumn::make('monto_retanqueo')
                     ->label('Nuevo Préstamo')
@@ -635,8 +635,7 @@ class RetanqueoResource extends Resource
                         ->label('Aprobar')
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(fn($record) => $record->esSolicitudPendiente() &&
-                            request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn($record) => (bool) auth()->user()?->can('aprobar', $record))
                         ->requiresConfirmation()
                         ->modalHeading('Aprobar Retanqueo')
                         ->modalDescription('¿Está seguro de que desea aprobar este retanqueo?')
@@ -662,8 +661,7 @@ class RetanqueoResource extends Resource
                         ->label('Rechazar')
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn($record) => $record->esSolicitudPendiente() &&
-                            request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn($record) => (bool) auth()->user()?->can('rechazar', $record))
                         ->requiresConfirmation()
                         ->modalHeading('Rechazar Retanqueo')
                         ->modalDescription('¿Está seguro de que desea rechazar este retanqueo?')
@@ -689,8 +687,7 @@ class RetanqueoResource extends Resource
                         ->label('Ejecutar')
                         ->icon('heroicon-m-play')
                         ->color('primary')
-                        ->visible(fn($record) => $record->estaAprobado() &&
-                            request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']))
+                        ->visible(fn($record) => (bool) auth()->user()?->can('ejecutar', $record))
                         ->form(function ($record) {
                             // Verificar si ya existe un préstamo pendiente con datos
                             $tienePrestamoPendiente = $record->prestamo_nuevo_id &&
@@ -779,7 +776,7 @@ class RetanqueoResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn() => request()->user()->hasAnyRole(['super_admin']))
+                        ->visible(fn() => (bool) auth()->user()?->can('deleteAny', Retanqueo::class))
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
@@ -820,45 +817,11 @@ class RetanqueoResource extends Resource
         ];
     }
 
-    public static function canViewAny(): bool
-    {
-        $user = request()->user();
-        return $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos', 'Asesor']);
-    }
-
-    public static function canCreate(): bool
-    {
-        $user = request()->user();
-        return $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos', 'Asesor']);
-    }
-
-    public static function canEdit($record): bool
-    {
-        $user = request()->user();
-        if (!$user)
-            return false;
-
-        // Solo se pueden editar solicitudes pendientes
-        if (!$record->esSolicitudPendiente()) {
-            return false;
-        }
-
-        // Los asesores solo pueden editar sus propias solicitudes
-        if ($user->hasRole('Asesor')) {
-            $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-            if ($asesor) {
-                $grupoAsesorId = $record->prestamoAntiguo?->grupo?->asesor_id;
-                return $grupoAsesorId === $asesor->id;
-            }
-            return false;
-        }
-
-        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
-    }
-
-    public static function canDelete($record): bool
-    {
-        $user = request()->user();
-        return $user && $user->hasRole('super_admin') && $record->esSolicitudPendiente();
-    }
+    // Autorización: canViewAny/canCreate/canEdit/canDelete are now delegated
+    // to `RetanqueoPolicy::viewAny/create/update/delete` (Slice 5e) via
+    // Filament's default `Resource::canViewAny/canCreate/canEdit/canDelete`
+    // implementations — see `AuthServiceProvider`'s Gate::policy()
+    // registration (Slice 5a). The static overrides that used to duplicate
+    // this logic inline were removed; their exact bodies were moved verbatim
+    // into the Policy.
 }

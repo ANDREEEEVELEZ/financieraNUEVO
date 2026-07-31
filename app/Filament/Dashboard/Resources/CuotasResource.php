@@ -154,7 +154,7 @@ class CuotasResource extends Resource
                         }
                         return trim($asesor->persona->nombre . ' ' . $asesor->persona->apellidos);
                     })
-                    ->visible(fn() => !Auth::user()?->hasRole('Asesor'))
+                    ->visible(fn() => (bool) Auth::user()?->can('verColumnaAsesor', CuotasGrupales::class))
                     ->searchable(false),
             ])
             ->filters([

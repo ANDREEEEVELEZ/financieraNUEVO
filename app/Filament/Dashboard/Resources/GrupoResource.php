@@ -56,7 +56,7 @@ class GrupoResource extends Resource
                             ->searchable()
                             ->required()
                             ->live(onBlur: true)  // Optimizado: solo actualiza al salir del campo
-                            ->visible(fn() => $user && $user->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                            ->visible(fn() => $user && $user->can('verCampoAsesor', Grupo::class))
                             ->disabled(fn() => $isInactivo),
                         Forms\Components\TextInput::make('nombre_grupo')
                             ->maxLength(255)
@@ -360,7 +360,7 @@ class GrupoResource extends Resource
                         }
                         return $query;
                     })
-                    ->visible(fn() => request()->user() && !request()->user()->hasRole('Asesor')),
+                    ->visible(fn() => request()->user() && request()->user()->can('verFiltroAsesor', Grupo::class)),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->icon('heroicon-o-pencil-square'),
@@ -409,7 +409,7 @@ class GrupoResource extends Resource
                     Tables\Actions\BulkAction::make('cambiar_asesor')
                         ->label('Cambiar Asesor')
                         ->icon('heroicon-o-user')
-                        ->visible(fn() => (request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones'])))
+                        ->visible(fn() => (request()->user() && request()->user()->can('cambiarAsesorMasivo', Grupo::class)))
                         ->form([
                             Forms\Components\Select::make('asesor_id')
                                 ->label('Nuevo Asesor')

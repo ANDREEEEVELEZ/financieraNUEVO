@@ -6,6 +6,19 @@ use App\Models\User;
 use App\Models\Ingreso;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
+/**
+ * Slice 5g (design D6, spec Requirement 4.1): `IngresosResource` overrode
+ * `canAccess()`/`shouldRegisterNavigation()` directly with an inline
+ * `Auth::user()->hasRole([...])` check (Bucket A), bypassing this Policy
+ * entirely — same confirmed drift as `EgresoPolicy` (see its docblock for
+ * the full explanation). `view_any_ingresos` was never seeded in
+ * `database/seeders/PermissionSeeder.php`, so this Policy's `viewAny()` body
+ * was 100% unreachable AND would have denied everyone had it ever been
+ * reached. Resolution: the Resource's two overrides are deleted; `viewAny()`
+ * below is now the verbatim role check that was the actual, live
+ * authorization path. `view`/`create`/`update`/`delete`/etc. are UNCHANGED —
+ * `IngresosResource` has no competing override for any of them.
+ */
 class IngresoPolicy
 {
     use HandlesAuthorization;
@@ -15,7 +28,7 @@ class IngresoPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_ingresos');
+        return $user->hasRole(['super_admin', 'Jefe de operaciones']);
     }
 
     /**
