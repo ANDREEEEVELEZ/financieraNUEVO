@@ -85,15 +85,34 @@ Chain strategy: pending
 
 Non-goal reminder: `Persona.DNI` is explicitly descoped (Requirement 3.3) — no task here touches `DNI`, `DNI_hash`, `UniqueDNI`, or `ClienteResource`'s DNI column.
 
-- [ ] 3.1 BLOCKING AUDIT (Requirement 3.1): `rg -n "numero_cuenta_desembolso" app/ database/ resources/ routes/`; classify every hit (attribute-access/`where`/`LIKE`/`ORDER BY`/raw SQL/column-restricted select); re-confirm D5's known sites (`Api/PrestamoResource.php:36`, `PrestamoController.php:229`, `RetanqueoEjecucionService`, `RetanqueoWorkflowService`) are still attribute-access-only; record the table in the PR description.
-- [ ] 3.2 GATE: do not start 3.3+ until 3.1's table shows zero `where`/`LIKE`/`ORDER BY`/raw-SQL hits (Scenario 3.1.b).
-- [ ] 3.3 RED: test — raw DB column differs from plaintext post-cast; Eloquent read returns plaintext (Scenario 3.2.a).
-- [ ] 3.4 GREEN: add `'numero_cuenta_desembolso' => 'encrypted'` to `Prestamo::$casts`.
-- [ ] 3.5 RED: backfill test — existing plaintext rows encrypted in place, Eloquent read unchanged (Scenario 3.2.b).
-- [ ] 3.6 GREEN: create `database/migrations/*_encrypt_numero_cuenta_desembolso.php`, `Model::chunkById(500)`, each chunk in a transaction.
-- [ ] 3.7 RED: `down()` round-trip test — decrypt back to plaintext, no data loss (Scenario 3.2.c).
-- [ ] 3.8 GREEN: implement `down()` — read via cast, write plaintext via `DB::table()->update()`.
-- [ ] 3.9 OPS checklist (non-code): confirm verified DB backup precedes production execution (Scenario 3.2.d) — record in the runbook, not enforced by app code.
+- [x] 3.1 BLOCKING AUDIT (Requirement 3.1): `rg -n "numero_cuenta_desembolso" app/ database/ resources/ routes/`; classify every hit (attribute-access/`where`/`LIKE`/`ORDER BY`/raw SQL/column-restricted select). **Result: GATE FAILS.** Full table below. All hits are attribute-access EXCEPT one: `app/Filament/Dashboard/Resources/PrestamoResource.php:734` — `TextColumn::make('numero_cuenta_desembolso')->searchable()`. Filament's default column search (`vendor/filament/tables/src/Columns/Concerns/InteractsWithTableQuery.php::applySearchConstraint()`) compiles to `->where('numero_cuenta_desembolso', 'like', "%{$search}%")` directly against the raw DB column, bypassing the Eloquent cast entirely. Once encrypted, this LIKE clause runs against ciphertext (random-IV base64 JSON) and will silently match nothing — the "N° de Cuenta" table search would appear to work (no error) but always return zero results. This is the exact `LIKE`-break class design's D5 warned about for `DNI`, but D5 did not find it for `numero_cuenta_desembolso` — that finding was incomplete. This column has no `->sortable()`, so no `ORDER BY` risk.
+
+  | Hit | Type | Verdict |
+  |---|---|---|
+  | `app/Models/Prestamo.php:107` (`$fillable`) | attribute-list | safe |
+  | `app/Http/Resources/Api/PrestamoResource.php:36` | attribute read | safe |
+  | `app/Http/Controllers/Api/PrestamoController.php:229` (inside `$prestamo->update([...])`) | attribute write via Eloquent | safe |
+  | `app/Domain/Prestamos/RetanqueoWorkflowService.php:290-293` | attribute read/write (array feeding `Prestamo::create`) | safe |
+  | `app/Domain/Prestamos/RetanqueoEjecucionService.php:52-142` | attribute read/write | safe |
+  | `app/Filament/.../RetanqueoResource.php:495,705,731,758-759` | form field (`TextInput`) / attribute read | safe |
+  | `app/Filament/.../RetanqueoResource/Pages/{ViewRetanqueo,EditRetanqueo,CreateRetanqueo}.php` | form field / attribute read-write | safe |
+  | `app/Filament/.../PrestamoResource.php:580` (`TextInput::make`) | form field | safe |
+  | **`app/Filament/.../PrestamoResource.php:734-738` (`TextColumn::make(...)->searchable()`)** | **table search → raw `LIKE` on DB column** | **BLOCKING — LIKE hit** |
+  | `app/Filament/.../PrestamoResource/Pages/EditPrestamo.php:198` (`$allowedFields`, feeds `mutateFormDataBeforeSave`) | attribute write via Eloquent save | safe |
+  | `database/seeders/PrestamosDesarrolloSeeder.php:73` | Eloquent create (seeder) | safe |
+  | `database/migrations/2025_05_10_035228_create_prestamos_table.php:31` (schema def) | schema, not a query | n/a |
+  | No hits in `resources/` or `routes/` | — | — |
+  | No `whereRaw`/`selectRaw`/`DB::raw`/`DB::select`/`DB::statement`/report-export hits found anywhere for this column | — | — |
+
+- [x] 3.2 GATE: **CLEARED** by explicit user decision — remove `->searchable()` from `PrestamoResource.php:734` rather than build a blind index or descope this column. Accepted tradeoff: search-by-account-number in the Prestamos Filament table is lost; no other blocking hit exists (re-confirmed: zero `where`/`LIKE`/`ORDER BY`/raw-SQL hits remain for this column after removal). A framework-free regression guard (`tests/Unit/Architecture/NumeroCuentaDesembolsoNotSearchableTest.php`) fails loudly if `->searchable()` is ever reintroduced on this column without re-running this gate.
+- [x] 3.3 RED: test — raw DB column differs from plaintext post-cast; Eloquent read returns plaintext (Scenario 3.2.a). `tests/Unit/Models/PrestamoEncryptedCastTest.php`, isolated in-memory SQLite (shared MySQL unreachable this session, see below).
+- [x] 3.4 GREEN: add `'numero_cuenta_desembolso' => 'encrypted'` to `Prestamo::$casts`.
+- [x] 3.5 RED/GREEN (reframed — see deviation note below): backfill delivered as a one-off idempotent Artisan command (`php artisan prestamos:encrypt-numero-cuenta-desembolso`, `app/Console/Commands/EncryptNumeroCuentaDesembolso.php`) per explicit user instruction, NOT a migration. Tested in `tests/Unit/Console/Commands/EncryptNumeroCuentaDesembolsoTest.php` (encrypts plaintext row; idempotent on re-run; leaves NULLs untouched) — isolated SQLite, same reason as 3.3. **NOT executed against the real dev/test DB** — unreachable from this sandbox (confirmed via `php artisan db:show` timeout), same condition PR2 hit. No confirmation was possible on whether real data currently exists in this column.
+- [x] 3.6 GREEN: rewrote `database/migrations/2025_05_10_035228_create_prestamos_table.php` in place — `numero_cuenta_desembolso` changed from `string` (VARCHAR 255) to `text`, per user directive (no new migration file; pre-prod, matches `sdd/core-contable-seguridad` D4 precedent). Widening is necessary: measured `encrypt()` ciphertext length is ~228 bytes for a 10-34 char plaintext, ~288 bytes for 40 chars — VARCHAR(255) risks silent truncation for longer account numbers.
+- [x] 3.7/3.8 Reversibility (reframed — see deviation note): no dedicated backfill migration exists to have a `down()`, since none was created (per instruction). Reversibility for this slice = reverting this PR (removes the cast + widened column in one revert); the backfill command's inverse (decrypt back to plaintext) is not implemented, since it isn't needed unless a real backfill is executed first, which has not happened yet (DB unreachable).
+- [x] 3.9 OPS checklist (non-code): confirm verified DB backup precedes production execution of the backfill command (Scenario 3.2.d) — documented here and in the command's docblock; not enforced by app code, and not applicable yet since the command has not been run against any real environment from this session.
+
+**Deviation from original task wording (documented, not silent)**: tasks 3.5-3.8 as originally written assumed a dedicated `database/migrations/*_encrypt_numero_cuenta_desembolso.php` backfill migration with a reversible `down()`. Per this apply session's explicit (binding) user instruction, no new migration file was created; the schema change was rewritten into the original `create_prestamos_table` migration, and the backfill was delivered as an idempotent Artisan command instead. This satisfies Requirement 3.2's substance (existing rows can be backfilled in place, chunked, transactional) through a different mechanism than tasks.md originally specified.
 
 ## Slice 4 — N/A (confirmed against design)
 
