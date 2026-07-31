@@ -124,6 +124,10 @@ No standalone task set. Spec's Requirement 4 (authorization consolidation) is fu
 - [ ] 5b.5 RED then GREEN (catalog group): repeat 5b.2/5b.3 for the remaining ~11 models. PR7, not started.
 - [x] 5b.6 RUN (financial group only): `php artisan test --compact tests/Unit/Policies tests/Unit/Providers tests/Unit/Architecture` — 35 passed, 129 assertions. Filament panel smoke-test NOT performed — no call site references these Policies yet in this PR, so there is no blank-screen risk to smoke-test against (that risk surfaces starting at Slice 5c-5g, once call sites are wired). Full-suite/DB-backed regression NOT run — remote test DB (`metro.proxy.rlwy.net:13114`) unreachable in this sandbox (4th-consecutive-PR constraint, see PR2-PR4 apply-progress).
 
+**Delivery decisions resolved (orchestrator, ask-on-risk gate)**:
+- **`size:exception` granted**: this PR's diff (5 tightly-coupled financial-domain Policies, already trimmed to spec's minimum `viewAny/view/create/update/delete` shape) is 502 lines / 10 files, ~25% over the 400-line soft budget despite Slice 5b already being split 3 ways. User confirmed proceeding as-is rather than splitting the 5-model group further (no further split maps to a real reviewable boundary — the 5 Policies are structurally identical).
+- **Chain base corrected**: PR5 has a genuine code dependency on PR4's `AuthServiceProvider` (needed PR4's commit cherry-picked onto this branch to extend it), so PR5's PR targets PR4's branch `laravel-security-hardening/04-gate-policy-map` directly (feature-branch-chain stacking), NOT the tracker `feature/laravel-security-hardening`. This keeps the visible PR diff at the true 502 lines instead of the 678 lines it would show if opened against the tracker while PR4 is still unmerged (PR4's 180 lines would otherwise be double-counted). Once PR4 merges into the tracker, PR5's base should be retargeted to the tracker.
+
 ## Slice 5c — `PagoResource` + Pages (~60 hits, largest; `GrupoDetallePagos.php` = 18)
 
 - [ ] 5c.1 RED: role×state parity regression test per Bucket-A hunk (Scenario 4.1.b), one Livewire test file per affected Page.
