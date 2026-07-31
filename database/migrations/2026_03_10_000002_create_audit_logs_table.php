@@ -16,6 +16,14 @@ use Illuminate\Support\Facades\Schema;
  *
  * La relación polimórfica (auditable_type + auditable_id) permite
  * vincular el registro con cualquier modelo del sistema.
+ *
+ * auditable_type/auditable_id are nullable (laravel-security-hardening,
+ * Slice 6 / design D8): an auth event with no resolvable model — a failed
+ * login attempt against an email with no matching User — has nothing to
+ * attach the polymorphic relation to. Rewritten in place per this project's
+ * clean-core convention (no ALTER migration for a pre-prod schema change);
+ * see 2026_05_26_172145_make_user_id_nullable_in_audit_logs.php for the
+ * unrelated, pre-existing `user_id` nullable change, left untouched.
  */
 return new class extends Migration {
     public function up(): void
@@ -24,8 +32,8 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('accion', 100);          // 'revertir_pago', 'condonar_mora', etc.
-            $table->string('auditable_type');        // Modelo afectado (App\Models\Pago, etc.)
-            $table->unsignedBigInteger('auditable_id'); // ID del modelo afectado
+            $table->string('auditable_type')->nullable();        // Modelo afectado (App\Models\Pago, etc.) — null for model-less auth events
+            $table->unsignedBigInteger('auditable_id')->nullable(); // ID del modelo afectado — null for model-less auth events
             $table->json('datos_anteriores')->nullable(); // Estado previo al cambio
             $table->json('datos_nuevos')->nullable();     // Estado posterior al cambio
             $table->text('motivo')->nullable();            // Justificación obligatoria

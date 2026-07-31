@@ -27,6 +27,7 @@ use App\Observers\PrestamoObserver;
 use App\Observers\RetanqueoObserver;
 use App\Observers\SeparacionClienteObserver;
 use App\Contracts\AuditServiceInterface;
+use App\Contracts\AuthEventLoggerInterface;
 use App\Contracts\CacheServiceInterface;
 use App\Contracts\NotificationServiceInterface;
 use App\Infrastructure\Cache\CacheService;
@@ -45,10 +46,20 @@ use App\Domain\Prestamos\RetanqueoQueryService;
 use App\Domain\Prestamos\RetanqueoWorkflowService;
 use App\Domain\Prestamos\Strategies\ElegibilidadRetanqueoIndividual;
 use App\Domain\Grupos\MorosoSeparationService;
+use App\Domain\Auth\AuthEventLogger;
 use App\Infrastructure\Notifications\NotificationService;
 use App\Infrastructure\Audit\AuditService;
+use App\Listeners\Auth\LogFailedLogin;
+use App\Listeners\Auth\LogPasswordReset;
+use App\Listeners\Auth\LogSuccessfulLogin;
+use App\Listeners\Auth\LogSuccessfulLogout;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 
 class AppServiceProvider extends ServiceProvider
@@ -63,6 +74,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PagoServiceInterface::class, PagoService::class);
         $this->app->bind(CronogramaServiceInterface::class, CronogramaService::class);
         $this->app->bind(AuditServiceInterface::class, AuditService::class);
+        $this->app->bind(AuthEventLoggerInterface::class, AuthEventLogger::class);
         $this->app->bind(SeparacionServiceInterface::class, MorosoSeparationService::class);
         $this->app->bind(SaldoCuotaServiceInterface::class, SaldoCuotaService::class);
 
@@ -115,5 +127,14 @@ class AppServiceProvider extends ServiceProvider
         PrestamoIndividual::observe(PrestamoIndividualObserver::class);
         Retanqueo::observe(RetanqueoObserver::class);
         SeparacionCliente::observe(SeparacionClienteObserver::class);
+
+        // Auth-event logging (laravel-security-hardening, Slice 6 / design D8).
+        // Explicit Event::listen() registrations — no auto-discovery, matching
+        // this project's "observers are explicit here" convention. Log-only:
+        // no email/Slack/webhook side effect is attached to any of these.
+        Event::listen(Login::class, LogSuccessfulLogin::class);
+        Event::listen(Failed::class, LogFailedLogin::class);
+        Event::listen(Logout::class, LogSuccessfulLogout::class);
+        Event::listen(PasswordReset::class, LogPasswordReset::class);
     }
 }
