@@ -23,8 +23,8 @@ class PrestamoFactory extends Factory
             'monto_devolver' => $this->faker->randomFloat(2, 600, 6000),
             'cantidad_cuotas' => $this->faker->numberBetween(4, 12),
             'fecha_prestamo' => now()->toDateString(),
-            'frecuencia' => $this->faker->randomElement(['semanal', 'quincenal', 'mensual']),
-            'estado' => $this->faker->randomElement(['Pendiente', 'Aprobado', 'Rechazado']),
+            'frecuencia' => fake()->randomElement(['semanal', 'quincenal', 'mensual']),
+            'estado' => fake()->randomElement(['Pendiente', 'Aprobado', 'Rechazado']),
             'calificacion' => $this->faker->randomFloat(2, 0, 10),
         ];
     }

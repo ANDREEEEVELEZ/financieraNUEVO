@@ -11,7 +11,7 @@ class ProductoFinancieroFactory extends Factory
 
     public function definition(): array
     {
-        $tipo = $this->faker->randomElement(['grupal', 'individual']);
+        $tipo = fake()->randomElement(['grupal', 'individual']);
         return [
             'codigo'                  => strtoupper($this->faker->unique()->lexify('PROD-???')),
             'nombre'                  => $this->faker->words(3, true),

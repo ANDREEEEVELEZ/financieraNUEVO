@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Domain\Mora\Strategies\MoraCalculoInput;
+use App\Domain\Mora\Strategies\MoraFlatPorIntegranteStrategy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\CuotasGrupales;
@@ -14,11 +16,19 @@ class Mora extends Model
     protected $fillable = [
         'cuota_grupal_id',
         'fecha_atraso',
+        'dias_atraso',
+        'monto_mora_generada',
+        'monto_mora_pagada',
         'estado_mora',
+        'fecha_snapshot',
     ];
 
     protected $casts = [
-        'fecha_atraso' => 'date',
+        'fecha_atraso'        => 'date',
+        'fecha_snapshot'      => 'date',
+        'dias_atraso'          => 'integer',
+        'monto_mora_generada' => 'decimal:2',
+        'monto_mora_pagada'   => 'decimal:2',
     ];
 
 
@@ -45,12 +55,12 @@ class Mora extends Model
 
         if ($this->estado_mora === 'pagada' && $this->fecha_atraso) {
             $fechaAtrasoCongelada = Carbon::parse($this->fecha_atraso)->startOfDay();
-            return max(0, $fechaVencimiento->diffInDays($fechaAtrasoCongelada));
+            return max(0, $fechaVencimiento->diffInDays($fechaAtrasoCongelada, absolute: true));
         }
 
 
         $fechaActual = now()->startOfDay();
-        return max(0, $fechaVencimiento->diffInDays($fechaActual));
+        return max(0, $fechaVencimiento->diffInDays($fechaActual, absolute: true));
     }
 
 
@@ -66,6 +76,9 @@ class Mora extends Model
             return 0;
         }
 
+        $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
+        $producto = $cuota->prestamo->producto;
+        $strategy = $producto ? $producto->moraStrategy() : new MoraFlatPorIntegranteStrategy();
 
         if ($estadoMora === 'pagada') {
 
@@ -77,11 +90,13 @@ class Mora extends Model
                 $diasAtraso = 0;
                 if ($fechaAtrasoCongelada->greaterThan($fechaVencimiento)) {
 
-                    $diasAtraso = $fechaVencimiento->diffInDays($fechaAtrasoCongelada);
+                    $diasAtraso = $fechaVencimiento->diffInDays($fechaAtrasoCongelada, absolute: true);
                 }
 
-                $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
-                return $integrantes * $diasAtraso * 1;
+                return $strategy->calcular(new MoraCalculoInput(
+                    diasAtraso: $diasAtraso,
+                    numeroIntegrantes: $integrantes,
+                ));
             }
             return 0;
         }
@@ -93,15 +108,13 @@ class Mora extends Model
         $diasAtraso = 0;
         if ($fechaAtraso->greaterThan($fechaVencimiento)) {
 
-            $diasAtraso = $fechaVencimiento->diffInDays($fechaAtraso);
+            $diasAtraso = $fechaVencimiento->diffInDays($fechaAtraso, absolute: true);
         }
 
-        $integrantes = $cuota->prestamo->grupo->numero_integrantes ?? 0;
-
-
-        $montoMora = $integrantes * $diasAtraso * 1;
-
-        return $montoMora;
+        return $strategy->calcular(new MoraCalculoInput(
+            diasAtraso: $diasAtraso,
+            numeroIntegrantes: $integrantes,
+        ));
     }
 
     public function actualizarDiasAtraso()
