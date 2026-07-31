@@ -1,9 +1,11 @@
 <?php
 
+use App\Models\AplicacionPago;
 use App\Models\Cliente;
 use App\Models\CuotaIndividual;
 use App\Models\CuotasGrupales;
 use App\Models\Grupo;
+use App\Models\Pago;
 use App\Models\Prestamo;
 use App\Models\ProductoFinanciero;
 use App\Models\SeparacionCliente;
@@ -352,6 +354,55 @@ describe('MorosoSeparationService', function () {
         expect($resultado)->toBeInstanceOf(SeparacionCliente::class);
         expect($resultado->estado)->toBe('ejecutada');
         expect($resultado->cliente_id)->toBe($this->clienteMoroso->id);
+    });
+
+    // ── 4.11 NEW (Eje 4 dominio-pagos-mora-retanqueo) — deuda_mora ledger-derived ──
+
+    it('calcula deuda_mora neta de lo ya pagado via AplicacionPago (SaldoCuotaIndividualService)', function () {
+        // Forzar estrategia porcentual con tasa suficiente para un margen
+        // determinístico (independiente del tipo grupal/individual aleatorio
+        // del producto de fixture — con tipo_calculo_mora explícito no cae
+        // al fallback legacy basado en $producto->tipo).
+        $this->producto->update([
+            'tipo_calculo_mora' => 'porcentual_sobre_saldo',
+            'tasa_mora' => 0.12,
+        ]);
+
+        $cuotaMoroso = CuotaIndividual::where('cliente_id', $this->clienteMoroso->id)->firstOrFail();
+
+        $moraBruta = $cuotaMoroso->moraCalculada();
+        expect($moraBruta)->toBeGreaterThan(1.00);
+
+        // Pago parcial de mora ya aplicado antes de la separación — debe
+        // descontarse del cálculo, no re-cobrarse en deuda_mora.
+        $pago = Pago::factory()->create([
+            'cuota_grupal_id' => null,
+            'estado_pago' => 'aprobado',
+        ]);
+        AplicacionPago::create([
+            'pago_id' => $pago->id,
+            'cuota_id' => $cuotaMoroso->id,
+            'tipo_aplicacion' => 'cobranza',
+            'monto_aplicado_capital' => 0,
+            'monto_aplicado_interes' => 0,
+            'monto_aplicado_mora' => 1.00,
+            'fecha_aplicacion' => now(),
+        ]);
+
+        $moraEsperada = bcsub(number_format($moraBruta, 2, '.', ''), '1.00', 2);
+
+        $service = new MorosoSeparationService();
+        $auditoria = $service->separar(
+            $this->prestamoGrupal->id,
+            $this->clienteMoroso->id,
+            $this->user->id,
+            'Separación con mora parcialmente pagada'
+        );
+
+        expect(bccomp((string) $auditoria->deuda_mora, $moraEsperada, 2))->toBe(0);
+        // La regresión que este test previene: sin el fix ledger-derived de
+        // moraCalculada(), deuda_mora sería igual a la mora bruta (re-cobro).
+        expect(bccomp((string) $auditoria->deuda_mora, number_format($moraBruta, 2, '.', ''), 2))->toBeLessThan(0);
     });
 
 });

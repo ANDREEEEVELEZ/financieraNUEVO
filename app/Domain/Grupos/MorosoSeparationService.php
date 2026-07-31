@@ -2,6 +2,7 @@
 
 namespace App\Domain\Grupos;
 
+use App\Contracts\SaldoCuotaIndividualServiceInterface;
 use App\Contracts\SaldoCuotaServiceInterface;
 use App\Contracts\SeparacionServiceInterface;
 use App\Events\SeparacionRealizada;
@@ -236,11 +237,18 @@ class MorosoSeparationService implements SeparacionServiceInterface
     /**
      * Calcula la deuda del moroso usando BCMath para precision exacta.
      *
+     * La mora se lee vía SaldoCuotaIndividualService (Eje 4, single source
+     * of truth ledger-derived para CuotaIndividual) en vez de llamar
+     * moraCalculada() directamente — mismo criterio que reducirCuotasGrupales()
+     * en esta misma clase usa SaldoCuotaServiceInterface para el lado grupal.
+     *
      * @param iterable<CuotaIndividual> $cuotas
      * @return array{capital: string, interes: string, mora: string}
      */
     private function calcularDeuda(iterable $cuotas): array
     {
+        $saldoIndividualServicio = app(SaldoCuotaIndividualServiceInterface::class);
+
         $capital = '0.00';
         $interes = '0.00';
         $mora    = '0.00';
@@ -248,7 +256,7 @@ class MorosoSeparationService implements SeparacionServiceInterface
         foreach ($cuotas as $cuota) {
             $capital = bcadd($capital, (string) $cuota->saldo_capital, 2);
             $interes = bcadd($interes, (string) $cuota->saldo_interes, 2);
-            $mora    = bcadd($mora, (string) number_format($cuota->moraCalculada(), 2, '.', ''), 2);
+            $mora    = bcadd($mora, $saldoIndividualServicio->saldoMora($cuota), 2);
         }
 
         return ['capital' => $capital, 'interes' => $interes, 'mora' => $mora];

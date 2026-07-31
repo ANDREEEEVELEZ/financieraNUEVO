@@ -353,56 +353,21 @@ class PagoService implements PagoServiceInterface
                     break;
                 }
 
-                $saldoInteres = (string) $cuotaInd->saldo_interes;
-                $saldoCapital = (string) $cuotaInd->saldo_capital;
+                // Waterfall interés→capital + AplicacionPago + saldos: primitivo
+                // compartido con distribuirEnCuotasIndividuales() (Eje 3, SDD
+                // dominio-pagos-mora-retanqueo). Sin mora (siempre '0.00' aquí,
+                // registrarCanonico no maneja mora grupal) y sin crear AplicacionPago
+                // cuando no hubo aplicación real (comportamiento histórico de este método).
+                $aplicado = $this->aplicarWaterfallCuotaIndividual(
+                    $pago,
+                    $cuotaInd,
+                    $montoRestante,
+                    montoDisponibleMora: '0.00',
+                    tipoAplicacion: 'cobranza',
+                    crearAplicacionSiVacia: false
+                );
 
-                $aplicadoInteres = '0.00';
-                $aplicadoCapital = '0.00';
-
-                // Cubrir interés primero
-                if (bccomp($saldoInteres, '0.00', 2) > 0) {
-                    if (bccomp($montoRestante, $saldoInteres, 2) >= 0) {
-                        $aplicadoInteres = $saldoInteres;
-                        $montoRestante = bcsub($montoRestante, $saldoInteres, 2);
-                    } else {
-                        $aplicadoInteres = $montoRestante;
-                        $montoRestante = '0.00';
-                    }
-                }
-
-                // Luego capital
-                if (bccomp($montoRestante, '0.00', 2) > 0 && bccomp($saldoCapital, '0.00', 2) > 0) {
-                    if (bccomp($montoRestante, $saldoCapital, 2) >= 0) {
-                        $aplicadoCapital = $saldoCapital;
-                        $montoRestante = bcsub($montoRestante, $saldoCapital, 2);
-                    } else {
-                        $aplicadoCapital = $montoRestante;
-                        $montoRestante = '0.00';
-                    }
-                }
-
-                if (bccomp($aplicadoInteres, '0.00', 2) > 0 || bccomp($aplicadoCapital, '0.00', 2) > 0) {
-                    AplicacionPago::create([
-                        'pago_id'                => $pago->id,
-                        'cuota_id'               => $cuotaInd->id,
-                        'monto_aplicado_capital' => $aplicadoCapital,
-                        'monto_aplicado_interes' => $aplicadoInteres,
-                        'monto_aplicado_mora'    => '0.00',
-                        'fecha_aplicacion'       => $pago->fecha_pago,
-                    ]);
-
-                    $nuevoCapital = max(0.0, (float) bcsub($saldoCapital, $aplicadoCapital, 2));
-                    $nuevoInteres = max(0.0, (float) bcsub($saldoInteres, $aplicadoInteres, 2));
-
-                    $cuotaInd->saldo_capital = $nuevoCapital;
-                    $cuotaInd->saldo_interes = $nuevoInteres;
-
-                    if ($nuevoCapital == 0.0 && $nuevoInteres == 0.0) {
-                        $cuotaInd->estado = 'pagada';
-                    }
-
-                    $cuotaInd->save();
-                }
+                $montoRestante = bcsub($montoRestante, bcadd($aplicado['interes'], $aplicado['capital'], 2), 2);
             }
 
             // Ingreso (partida doble)
