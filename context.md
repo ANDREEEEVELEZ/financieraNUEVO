@@ -199,11 +199,13 @@ Los servicios que consumen APIs o recursos del framework se aislaron en `app/Inf
     *   *Categoría B (Resolución Dinámica):* Para recursos y páginas Filament/Livewire que no toleran DI en constructor por su ciclo de vida, resolviéndose vía `app(CacheServiceInterface::class)`.
 
 ### D. Patrón Strategy en el Motor de Moras
-Se eliminó la fórmula hardcoded de mora por día. El cálculo de atraso se abstrajo con el patrón Strategy:
-*   `MoraCalculatorInterface`: Interfaz del motor de cálculo.
-*   `MoraFijaPorDiaIntegrante`: Implementación de la mora por defecto (S/1 diario por integrante).
-*   `MoraPorcentualSaldoCapital`: Estrategia alternativa basada en un porcentaje sobre el saldo remanente.
-*   `MoraCalculatorFactory`: Factoría encargada de instanciar la estrategia correcta según la configuración de `BusinessRuleConfig`.
+Se eliminó la fórmula hardcoded de mora tanto a nivel grupal como individual. El cálculo se abstrajo con el patrón Strategy (SDD `dominio-pagos-mora-retanqueo`, Eje 2):
+*   `App\Domain\Mora\Strategies\MoraCalculationStrategy`: Interfaz del motor de cálculo (recibe un `MoraCalculoInput`).
+*   `MoraFlatPorIntegranteStrategy`: Implementación por defecto para productos grupales (S/1 diario por integrante).
+*   `MoraPorcentualSobreSaldoStrategy`: Estrategia por defecto para productos individuales (porcentaje sobre saldo de capital vía `tasa_mora`).
+*   `ProductoFinanciero::moraStrategy()`: Resuelve la estrategia según la columna `tipo_calculo_mora` del producto (con fallback por `tipo` grupal/individual si no está configurada). `Mora::calcularMontoMora()` y `CuotaIndividual::moraCalculada()` delegan a esta resolución en vez de tener la fórmula inline.
+
+(Nota: existió un scaffold previo no conectado en `app/Services/Mora/*`, nunca referenciado fuera de sí mismo — se eliminó en el Eje 6 de cleanup por quedar superseded por la implementación arriba.)
 
 ### E. Desacoplamiento mediante Eventos de Dominio
 Se introdujeron eventos de dominio (`PagoAprobado`, `PagoRevertido`, `PrestamoAprobado`, `ReagrupacionEjecutada`, `SeparacionRealizada`) despachados con la opción `$afterCommit = true`. Esto garantiza que los listeners secundarios de auditoría (`AuditListener`) o mensajería se ejecuten únicamente después de que la transacción SQL principal se haya completado con éxito, evitando que un error en el envío de una notificación provoque el rollback de un pago aprobado en el core del sistema.
@@ -317,7 +319,7 @@ Para las próximas iteraciones de desarrollo, se deben implementar las siguiente
 
 1.  **Cálculo e Historial Automático de Moras (Command + Scheduler):**
     *   *Objetivo:* Crear el comando Artisan `moras:actualizar` que se ejecute en el cron scheduler diariamente a las 00:00. 
-    *   *Comportamiento:* Recorrerá los préstamos activos, detectará cuotas individuales vencidas, calculará el monto de mora usando `MoraCalculatorFactory` e insertará o actualizará los registros en la tabla `moras`. La página de Filament `Moras` leerá de esta tabla en modo lectura estricta, eliminando toda mutación en tiempo de render.
+    *   *Comportamiento:* Recorrerá los préstamos activos, detectará cuotas individuales vencidas, calculará el monto de mora usando `ProductoFinanciero::moraStrategy()` (ver sección D) e insertará o actualizará los registros en la tabla `moras`. La página de Filament `Moras` leerá de esta tabla en modo lectura estricta, eliminando toda mutación en tiempo de render.
 2.  **Verificación Criptográfica del Log de Auditoría:**
     *   *Objetivo:* Implementar el comando `auditoria:verificar-cadena` que recorra la tabla `audit_logs` ordenada secuencialmente, recalcule los hashes SHA-256 usando el servicio `AuditHashService` y detecte si algún registro intermedio ha sido modificado o eliminado manualmente en la base de datos.
 3.  **Módulo UI de Reasignación en Lote de Cartera:**

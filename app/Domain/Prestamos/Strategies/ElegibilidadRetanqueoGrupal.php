@@ -4,56 +4,74 @@ namespace App\Domain\Prestamos\Strategies;
 
 use App\Domain\Prestamos\Concerns\FiltraCuotasPendientesConSaldo;
 use App\Models\Prestamo;
+use App\Models\Retanqueo;
 
 /**
- * Eligibility strategy for group prestamos based on minimum quorum.
+ * Eligibility strategy for group prestamos.
  *
- * A group prestamo is eligible when at least `porcentaje_minimo_retanqueo`
- * (default 51%) of its active members (estado_grupo_cliente = 'Activo') have
- * decided to retanquear.
+ * Two distinct checks live here, evaluated at two distinct points in the
+ * retanqueo lifecycle:
  *
- * "Decided to retanquear" is determined by comparing active integrantes count
- * against the total active integrantes. This strategy checks the RATIO only —
- * it does NOT execute desvinculación of salientes.
+ * - `esElegible()` — structural, discovery-time check (SR-4 contract with
+ *   ElegibilidadRetanqueoStrategy). Used by RetanqueoQueryService::obtenerGruposElegibles()
+ *   BEFORE any Retanqueo solicitud exists — there is no participation data
+ *   (RetanqueoIndividual rows) to evaluate a quorum against yet, so this only
+ *   verifies the same structural rule as ElegibilidadRetanqueoIndividual:
+ *   exactly 1 cuota pendiente con saldo.
  *
- * Hook: desvinculación of integrantes who choose not to retanquear (salientes)
- * should be triggered in RetanqueoEjecucionService::gestionarCambiosMembresiaGrupo()
- * after the quorum check passes.
+ * - `cumpleQuorum()` — the REAL quorum check: at least `porcentaje_minimo_retanqueo`
+ *   (default 51%) of the ORIGINAL group members (RetanqueoIndividual.participacion_tipo
+ *   IN ['retanquea', 'no_retanquea'] — excludes 'nueva', brand-new incoming
+ *   members) must have chosen 'retanquea'. Only meaningful once a Retanqueo
+ *   with its RetanqueoIndividual rows exists, i.e. called from
+ *   RetanqueoWorkflowService::aprobarRetanqueo().
  */
 final class ElegibilidadRetanqueoGrupal implements ElegibilidadRetanqueoStrategy
 {
     use FiltraCuotasPendientesConSaldo;
 
+    private const MIEMBROS_ORIGINALES = ['retanquea', 'no_retanquea'];
+
+    /**
+     * Structural, discovery-time check — no participation data available yet.
+     */
     public function esElegible(Prestamo $prestamo): bool
     {
-        $grupo = $prestamo->grupo;
+        return self::cuotasPendientesConSaldo($prestamo)->count() === 1;
+    }
 
-        if (!$grupo || !$grupo->productoFinanciero) {
-            // Fall back to individual rule when no product config available
-            return self::cuotasPendientesConSaldo($prestamo)->count() === 1;
-        }
+    /**
+     * Real quorum check, evaluated once a Retanqueo solicitud (with its
+     * RetanqueoIndividual rows) already exists.
+     */
+    public function cumpleQuorum(Retanqueo $retanqueo): bool
+    {
+        [$retanquean, $totalOriginales, $porcentajeMinimo] = $this->datosQuorum($retanqueo);
 
-        $porcentajeMinimo = (float) ($grupo->productoFinanciero->porcentaje_minimo_retanqueo ?? 0.51);
-
-        $totalActivos = $grupo->clientes()
-            ->wherePivot('estado_grupo_cliente', 'Activo')
-            ->whereNull('grupo_cliente.fecha_salida')
-            ->count();
-
-        if ($totalActivos === 0) {
+        if ($totalOriginales === 0) {
             return false;
         }
 
-        // "Decided to retanquear" = active integrantes who have NOT yet had a fecha_salida
-        // assigned. Salientes are those who paid early; the ratio check happens BEFORE
-        // desvinculación is executed (see hook comment in class docblock).
-        $retanquean = $grupo->clientes()
-            ->wherePivot('estado_grupo_cliente', 'Activo')
-            ->whereNull('grupo_cliente.fecha_salida')
+        return ($retanquean / $totalOriginales) >= $porcentajeMinimo;
+    }
+
+    /**
+     * Raw quorum figures: [retanquean, totalOriginales, porcentajeMinimo].
+     * Exposed so callers can build an actionable error message without
+     * re-running the same queries.
+     */
+    public function datosQuorum(Retanqueo $retanqueo): array
+    {
+        $porcentajeMinimo = (float) ($retanqueo->prestamoAntiguo?->producto?->porcentaje_minimo_retanqueo ?? 0.51);
+
+        $totalOriginales = $retanqueo->retanqueosIndividuales()
+            ->whereIn('participacion_tipo', self::MIEMBROS_ORIGINALES)
             ->count();
 
-        $ratio = $retanquean / $totalActivos;
+        $retanquean = $retanqueo->retanqueosIndividuales()
+            ->where('participacion_tipo', 'retanquea')
+            ->count();
 
-        return $ratio >= $porcentajeMinimo;
+        return [$retanquean, $totalOriginales, $porcentajeMinimo];
     }
 }

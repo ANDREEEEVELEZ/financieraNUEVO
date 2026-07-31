@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Domain\Mora\Strategies\MoraCalculoInput;
+use App\Domain\Mora\Strategies\MoraPorcentualSobreSaldoStrategy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -61,6 +63,13 @@ class CuotaIndividual extends Model
     /**
      * Calcula la mora dinámicamente basada en días de atraso.
      * La mora NO se guarda en BD, se calcula siempre.
+     *
+     * Ledger-derived (Eje 4, dominio-pagos-mora-retanqueo): la mora ya
+     * cobrada se descuenta como SUM(AplicacionPago.monto_aplicado_mora)
+     * para esta cuota (vía la relación aplicacionesPago()), mismo patrón
+     * que SaldoCuotaService::moraPagada() a nivel grupal. Sin esto, un pago
+     * parcial de mora no se reflejaba aquí y el siguiente cálculo volvía a
+     * cobrar los mismos días de atraso ya cubiertos.
      */
     public function moraCalculada(): float
     {
@@ -68,16 +77,39 @@ class CuotaIndividual extends Model
             return 0;
         }
 
-        $diasAtraso = now()->diffInDays($this->fecha_vencimiento);
-        $tasaMoraDiaria = ($this->prestamo->producto->tasa_mora ?? 0.05) / 30;
-        $moraBase = (float) $this->saldo_capital * $tasaMoraDiaria * $diasAtraso;
+        // absolute: true es necesario — Carbon 3 cambió el default de
+        // diffInDays() de true a false (diffs firmados por defecto), así que
+        // sin esto now()->diffInDays(fecha_vencimiento_pasada) devuelve un
+        // número NEGATIVO (fecha_vencimiento - now) y max(0, ...) en la
+        // estrategia lo pisaba a 0 siempre — la mora porcentual nunca se
+        // cobraba. Bug preexistente, no introducido por Eje 4, pero bloquea
+        // la fix de ledger de este mismo método si no se corrige aquí.
+        $diasAtraso = (int) now()->diffInDays($this->fecha_vencimiento, absolute: true);
 
         // Restar condonaciones de mora
-        $condonaciones = $this->ajustes()
+        $condonaciones = (float) $this->ajustes()
             ->where('tipo', 'condonacion_mora')
             ->sum('monto_ajuste');
 
-        return max(0, $moraBase - $condonaciones);
+        $producto = $this->prestamo->producto;
+        $strategy = $producto ? $producto->moraStrategy() : new MoraPorcentualSobreSaldoStrategy();
+
+        $moraGenerada = $strategy->calcular(new MoraCalculoInput(
+            diasAtraso: $diasAtraso,
+            saldoCapital: (float) $this->saldo_capital,
+            tasaMora: (float) ($producto?->tasa_mora ?? 0.05),
+            condonaciones: $condonaciones,
+        ));
+
+        $moraPagada = (float) $this->aplicacionesPago()->sum('monto_aplicado_mora');
+
+        $moraNeta = bcsub(
+            number_format($moraGenerada, 2, '.', ''),
+            number_format($moraPagada, 2, '.', ''),
+            2
+        );
+
+        return bccomp($moraNeta, '0.00', 2) < 0 ? 0.0 : (float) $moraNeta;
     }
 
     /**
@@ -120,7 +152,9 @@ class CuotaIndividual extends Model
         if (!$this->estaVencida()) {
             return 0;
         }
-        return now()->diffInDays($this->fecha_vencimiento);
+        // Ver nota en moraCalculada(): absolute: true evita el signo
+        // negativo que Carbon 3 introduce por defecto en diffInDays().
+        return (int) now()->diffInDays($this->fecha_vencimiento, absolute: true);
     }
 
     // Scopes

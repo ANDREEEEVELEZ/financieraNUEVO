@@ -5,6 +5,7 @@ namespace App\Domain\Prestamos;
 use App\Actions\Retanqueo\RegistrarCoberturaRetanqueoAction;
 use App\Contracts\RetanqueoEjecucionInterface;
 use App\Contracts\SaldoCuotaServiceInterface;
+use App\Domain\Prestamos\Concerns\ValidaParticipantesRetanqueoActivos;
 use App\Models\Retanqueo;
 use App\Models\Prestamo;
 use App\Models\PrestamoIndividual;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Log;
 
 class RetanqueoEjecucionService implements RetanqueoEjecucionInterface
 {
+    use ValidaParticipantesRetanqueoActivos;
+
     /**
      * Ejecuta un retanqueo aprobado.
      * Self-contained: does NOT call WorkflowService internally.
@@ -36,6 +39,11 @@ class RetanqueoEjecucionService implements RetanqueoEjecucionInterface
             if (!$retanqueo->estaAprobado()) {
                 throw new \Exception('Solo se pueden ejecutar retanqueos aprobados');
             }
+
+            // Coordinación retanqueo ↔ separación (Eje 5): un integrante
+            // original pudo haber sido separado del grupo entre la aprobación
+            // y esta ejecución. Separación bloquea retanqueo, nunca al revés.
+            self::validarParticipantesActivos($retanqueo, 'EJECUCIÓN');
 
             $prestamoAntiguo = $retanqueo->prestamoAntiguo;
             $grupo           = $prestamoAntiguo->grupo;

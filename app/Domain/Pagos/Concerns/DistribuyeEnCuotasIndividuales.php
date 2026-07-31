@@ -10,10 +10,11 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Waterfall applicator (interés primero, luego capital) compartido entre
- * PagoService (cobranza real) y RegistrarCoberturaRetanqueoAction (cobertura
- * de retanqueo) — SDD core-contable-seguridad, Slice C, decision D6. Evita que
- * ambos flujos diverjan en cómo se distribuye un monto entre las
- * CuotaIndividual de una misma CuotasGrupales.
+ * PagoService (cobranza real y pago canónico) y RegistrarCoberturaRetanqueoAction
+ * (cobertura de retanqueo) — SDD core-contable-seguridad, Slice C, decision D6, y
+ * SDD dominio-pagos-mora-retanqueo, Eje 3. Evita que los flujos diverjan en cómo
+ * se distribuye un monto entre las CuotaIndividual de una misma CuotasGrupales, y
+ * en cómo se aplica interés→capital sobre una CuotaIndividual puntual.
  */
 trait DistribuyeEnCuotasIndividuales
 {
@@ -59,33 +60,93 @@ trait DistribuyeEnCuotasIndividuales
             $saldoEsteIntegrante = (float) $cuotaInd->saldo_capital + (float) $cuotaInd->saldo_interes;
             $proporcion = $saldoEsteIntegrante / $totalSaldo;
 
-            // — Capital e interés proporcional —
-            $montoAplicadoCapital = '0.00';
-            $montoAplicadoInteres = '0.00';
-            $montoAplicadoMora = '0.00';
-
+            // — Capital, interés y mora proporcionales al integrante —
+            $montoTotal = '0.00';
             if (bccomp($montoParaCuota, '0.00', 2) > 0) {
                 $montoTotal = bcmul($montoParaCuota, number_format($proporcion, 10, '.', ''), 2);
-
-                // Primero cubre el interés, el resto va a capital
-                $saldoInteres = (string) $cuotaInd->saldo_interes;
-                if (bccomp($montoTotal, $saldoInteres, 2) >= 0) {
-                    $montoAplicadoInteres = $saldoInteres;
-                    $montoAplicadoCapital = bcsub($montoTotal, $saldoInteres, 2);
-                    // No puede exceder el saldo de capital
-                    if (bccomp($montoAplicadoCapital, (string) $cuotaInd->saldo_capital, 2) > 0) {
-                        $montoAplicadoCapital = (string) $cuotaInd->saldo_capital;
-                    }
-                } else {
-                    $montoAplicadoInteres = $montoTotal;
-                }
             }
 
+            $montoMoraProporcional = '0.00';
             if (bccomp($montoParaMora, '0.00', 2) > 0) {
-                $montoAplicadoMora = bcmul($montoParaMora, number_format($proporcion, 10, '.', ''), 2);
+                $montoMoraProporcional = bcmul($montoParaMora, number_format($proporcion, 10, '.', ''), 2);
             }
 
-            // Crear AplicacionPago
+            // Waterfall interés→capital + AplicacionPago + saldos: primitivo compartido.
+            $this->aplicarWaterfallCuotaIndividual(
+                $pago,
+                $cuotaInd,
+                $montoTotal,
+                $montoMoraProporcional,
+                $tipoAplicacion,
+                crearAplicacionSiVacia: true
+            );
+        }
+
+        Log::info('DistribuyeEnCuotasIndividuales: Pago distribuido entre integrantes', [
+            'pago_id' => $pago->id,
+            'cuota_grupal' => $cuotaGrupal->numero_cuota,
+            'integrantes' => $cuotasIndividuales->count(),
+            'tipo_aplicacion' => $tipoAplicacion,
+        ]);
+    }
+
+    /**
+     * Primitivo compartido: aplica el waterfall interés→capital sobre UNA
+     * CuotaIndividual puntual — el paso que `distribuirEnCuotasIndividuales()`
+     * (split proporcional grupal) y `PagoService::registrarCanonico()`
+     * (aplicación secuencial directa, sin CuotasGrupales) tienen en común.
+     *
+     * Cubre primero el saldo_interes con el monto disponible; el resto va a
+     * saldo_capital, topado a su saldo (nunca lo deja negativo). Si el monto
+     * disponible excede interés + capital de esta cuota, el excedente NO se
+     * aplica aquí — queda a criterio del caller (el split grupal lo descarta
+     * porque ya es la porción proporcional exacta; el pago canónico lo
+     * recupera vía el remanente devuelto y lo re-imputa a la siguiente cuota).
+     *
+     * @param  string  $montoDisponibleCuota  Monto ya asignado a ESTA cuota (capital+interés).
+     * @param  string  $montoDisponibleMora  Monto de mora ya asignado a ESTA cuota (0.00 si no aplica).
+     * @param  bool  $crearAplicacionSiVacia  true: crea el AplicacionPago aunque interés+capital+mora
+     *   aplicados sean 0.00 (comportamiento histórico del split grupal — deja rastro de auditoría
+     *   incluso en pagos 100% mora). false: solo crea el registro cuando algo fue efectivamente
+     *   aplicado (comportamiento histórico de registrarCanonico).
+     * @return array{interes: string, capital: string, mora: string} Montos efectivamente aplicados.
+     */
+    private function aplicarWaterfallCuotaIndividual(
+        Pago $pago,
+        CuotaIndividual $cuotaInd,
+        string $montoDisponibleCuota,
+        string $montoDisponibleMora = '0.00',
+        string $tipoAplicacion = 'cobranza',
+        bool $crearAplicacionSiVacia = true
+    ): array {
+        $montoAplicadoCapital = '0.00';
+        $montoAplicadoInteres = '0.00';
+        $montoAplicadoMora = '0.00';
+
+        if (bccomp($montoDisponibleCuota, '0.00', 2) > 0) {
+            // Primero cubre el interés, el resto va a capital
+            $saldoInteres = (string) $cuotaInd->saldo_interes;
+            if (bccomp($montoDisponibleCuota, $saldoInteres, 2) >= 0) {
+                $montoAplicadoInteres = $saldoInteres;
+                $montoAplicadoCapital = bcsub($montoDisponibleCuota, $saldoInteres, 2);
+                // No puede exceder el saldo de capital
+                if (bccomp($montoAplicadoCapital, (string) $cuotaInd->saldo_capital, 2) > 0) {
+                    $montoAplicadoCapital = (string) $cuotaInd->saldo_capital;
+                }
+            } else {
+                $montoAplicadoInteres = $montoDisponibleCuota;
+            }
+        }
+
+        if (bccomp($montoDisponibleMora, '0.00', 2) > 0) {
+            $montoAplicadoMora = $montoDisponibleMora;
+        }
+
+        $huboAplicacion = bccomp($montoAplicadoInteres, '0.00', 2) > 0
+            || bccomp($montoAplicadoCapital, '0.00', 2) > 0
+            || bccomp($montoAplicadoMora, '0.00', 2) > 0;
+
+        if ($crearAplicacionSiVacia || $huboAplicacion) {
             AplicacionPago::create([
                 'pago_id' => $pago->id,
                 'cuota_id' => $cuotaInd->id,
@@ -95,26 +156,25 @@ trait DistribuyeEnCuotasIndividuales
                 'monto_aplicado_mora' => $montoAplicadoMora,
                 'fecha_aplicacion' => $pago->fecha_pago ?? now(),
             ]);
-
-            // Actualizar saldos de la CuotaIndividual
-            $nuevoCapital = max(0.0, (float) bcsub((string) $cuotaInd->saldo_capital, $montoAplicadoCapital, 2));
-            $nuevoInteres = max(0.0, (float) bcsub((string) $cuotaInd->saldo_interes, $montoAplicadoInteres, 2));
-
-            $cuotaInd->saldo_capital = $nuevoCapital;
-            $cuotaInd->saldo_interes = $nuevoInteres;
-
-            if ($nuevoCapital == 0.0 && $nuevoInteres == 0.0) {
-                $cuotaInd->estado = 'pagada';
-            }
-
-            $cuotaInd->save();
         }
 
-        Log::info('DistribuyeEnCuotasIndividuales: Pago distribuido entre integrantes', [
-            'pago_id' => $pago->id,
-            'cuota_grupal' => $cuotaGrupal->numero_cuota,
-            'integrantes' => $cuotasIndividuales->count(),
-            'tipo_aplicacion' => $tipoAplicacion,
-        ]);
+        // Actualizar saldos de la CuotaIndividual
+        $nuevoCapital = max(0.0, (float) bcsub((string) $cuotaInd->saldo_capital, $montoAplicadoCapital, 2));
+        $nuevoInteres = max(0.0, (float) bcsub((string) $cuotaInd->saldo_interes, $montoAplicadoInteres, 2));
+
+        $cuotaInd->saldo_capital = $nuevoCapital;
+        $cuotaInd->saldo_interes = $nuevoInteres;
+
+        if ($nuevoCapital == 0.0 && $nuevoInteres == 0.0) {
+            $cuotaInd->estado = 'pagada';
+        }
+
+        $cuotaInd->save();
+
+        return [
+            'interes' => $montoAplicadoInteres,
+            'capital' => $montoAplicadoCapital,
+            'mora' => $montoAplicadoMora,
+        ];
     }
 }
