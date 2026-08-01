@@ -44,38 +44,51 @@ final class ActualizarMorasCommand extends Command
             return Command::SUCCESS;
         }
 
+        $cuotas = CuotasGrupales::query()
+            ->whereIn('prestamo_id', $prestamosActivos)
+            ->where('fecha_vencimiento', '<', now()->toDateString())
+            ->where('estado_pago', '!=', 'pagado')
+            ->get();
+
         $procesadas = 0;
+        $fallidas = 0;
 
-        DB::transaction(function () use ($prestamosActivos, &$procesadas) {
-            $cuotas = CuotasGrupales::query()
-                ->whereIn('prestamo_id', $prestamosActivos)
-                ->where('fecha_vencimiento', '<', now()->toDateString())
-                ->where('estado_pago', '!=', 'pagado')
-                ->lockForUpdate()
-                ->get();
+        foreach ($cuotas as $cuota) {
+            try {
+                DB::transaction(function () use ($cuota, &$procesadas) {
+                    $cuotaBloqueada = CuotasGrupales::query()
+                        ->whereKey($cuota->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
 
-            foreach ($cuotas as $cuota) {
-                $diasAtraso = (int) now()->startOfDay()->diffInDays($cuota->fecha_vencimiento->startOfDay(), absolute: true);
-                $moraCalculada = Mora::calcularMontoMora($cuota, now(), 'pendiente');
+                    $diasAtraso = (int) now()->startOfDay()->diffInDays($cuotaBloqueada->fecha_vencimiento->startOfDay(), absolute: true);
+                    $moraCalculada = Mora::calcularMontoMora($cuotaBloqueada, now(), 'pendiente');
 
-                Mora::updateOrCreate(
-                    ['cuota_grupal_id' => $cuota->id],
-                    [
-                        'fecha_atraso'        => $cuota->fecha_vencimiento->toDateString(),
-                        'dias_atraso'          => $diasAtraso,
-                        'monto_mora_generada' => $moraCalculada,
-                        'estado_mora'         => 'pendiente',
-                        'fecha_snapshot'      => now()->toDateString(),
-                    ]
-                );
+                    Mora::updateOrCreate(
+                        ['cuota_grupal_id' => $cuotaBloqueada->id],
+                        [
+                            'fecha_atraso'        => $cuotaBloqueada->fecha_vencimiento->toDateString(),
+                            'dias_atraso'          => $diasAtraso,
+                            'monto_mora_generada' => $moraCalculada,
+                            'estado_mora'         => 'pendiente',
+                            'fecha_snapshot'      => now()->toDateString(),
+                        ]
+                    );
 
-                $procesadas++;
+                    $procesadas++;
+                });
+            } catch (\Throwable $e) {
+                $fallidas++;
+                Log::error('ActualizarMorasCommand: fallo al procesar cuota, se continúa con las restantes', [
+                    'cuota_grupal_id' => $cuota->id,
+                    'error'           => $e->getMessage(),
+                ]);
             }
-        });
+        }
 
-        $this->info("Snapshot nocturno completado. Cuotas procesadas: {$procesadas}");
-        Log::info('ActualizarMorasCommand completado exitosamente', ['cuotas_procesadas' => $procesadas]);
+        $this->info("Snapshot nocturno completado. Cuotas procesadas: {$procesadas}, fallidas: {$fallidas}");
+        Log::info('ActualizarMorasCommand completado', ['cuotas_procesadas' => $procesadas, 'cuotas_fallidas' => $fallidas]);
 
-        return Command::SUCCESS;
+        return $fallidas === 0 ? Command::SUCCESS : Command::FAILURE;
     }
 }

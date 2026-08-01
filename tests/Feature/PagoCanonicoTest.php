@@ -24,7 +24,7 @@ describe('PagoService - Canonical Payment Path', function () {
             'estado' => 'pendiente'
         ]);
 
-        $service = new PagoService();
+        $service = app(PagoService::class);
 
         // Actuar
         $pago = $service->registrarCanonico(
@@ -75,7 +75,7 @@ describe('PagoService - Canonical Payment Path', function () {
             'estado' => 'pendiente',
         ]);
 
-        $service = new PagoService();
+        $service = app(PagoService::class);
 
         // Actuar: 150 alcanza para cancelar cuota1 (60) y dejar 90 para cuota2 (interés 20 + capital 70).
         $pago = $service->registrarCanonico(

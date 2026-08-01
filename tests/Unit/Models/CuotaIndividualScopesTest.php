@@ -50,15 +50,21 @@ it('scopeEnMora returns cuotas with estado vencida', function () {
     $prestamo = Prestamo::factory()->create(['grupo_id' => $grupo->id]);
     $cliente  = Cliente::factory()->create();
 
+    // numero_cuota explícito y distinto: ambas filas comparten prestamo_id +
+    // cliente_id, y el default del factory es random 1-12 sin unicidad —
+    // dejarlo al azar arriesga chocar contra la unique key compuesta
+    // (prestamo_id, cliente_id, numero_cuota) ~1/12 de las corridas.
     $vencida   = CuotaIndividual::factory()->create([
-        'prestamo_id' => $prestamo->id,
-        'cliente_id'  => $cliente->id,
-        'estado'      => 'vencida',
+        'prestamo_id'  => $prestamo->id,
+        'cliente_id'   => $cliente->id,
+        'numero_cuota' => 1,
+        'estado'       => 'vencida',
     ]);
     $pendiente = CuotaIndividual::factory()->create([
-        'prestamo_id' => $prestamo->id,
-        'cliente_id'  => $cliente->id,
-        'estado'      => 'pendiente',
+        'prestamo_id'  => $prestamo->id,
+        'cliente_id'   => $cliente->id,
+        'numero_cuota' => 2,
+        'estado'       => 'pendiente',
     ]);
 
     $result = CuotaIndividual::enMora()->pluck('id');

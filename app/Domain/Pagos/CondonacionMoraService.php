@@ -88,15 +88,27 @@ class CondonacionMoraService
             throw new \Exception('No se encontró la cuota del préstamo asociada a la mora.');
         }
 
-        // Buscar la primera cuota individual pendiente del préstamo
-        $cuotaIndividual = CuotaIndividual::where('prestamo_id', $cuotaGrupal->prestamo_id)
+        // La Mora se relaciona con CuotaGrupal, que es compartida por TODOS los
+        // integrantes del grupo para ese numero_cuota — puede haber más de una
+        // CuotaIndividual candidata (una por integrante). Tomar ->first() sin
+        // más contexto arriesgaba condonar al integrante equivocado. Si hay más
+        // de un candidato, es ambiguo: el llamador debe resolver e invocar
+        // condonar() con la CuotaIndividual específica en vez de una Mora.
+        $cuotasIndividuales = CuotaIndividual::where('prestamo_id', $cuotaGrupal->prestamo_id)
             ->where('numero_cuota', $cuotaGrupal->numero_cuota ?? 0)
-            ->first();
+            ->get();
 
-        if (!$cuotaIndividual) {
+        if ($cuotasIndividuales->isEmpty()) {
             throw new \Exception('No se encontró una cuota individual para registrar la condonación.');
         }
 
-        return $cuotaIndividual;
+        if ($cuotasIndividuales->count() > 1) {
+            throw new \Exception(
+                'La mora corresponde a más de una cuota individual (grupo con múltiples integrantes); '
+                . 'debe indicarse explícitamente la CuotaIndividual del integrante a condonar en vez de la Mora.'
+            );
+        }
+
+        return $cuotasIndividuales->first();
     }
 }

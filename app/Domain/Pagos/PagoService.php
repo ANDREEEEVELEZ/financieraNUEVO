@@ -3,6 +3,7 @@
 namespace App\Domain\Pagos;
 
 use App\Contracts\PagoServiceInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Domain\Pagos\Concerns\DistribuyeEnCuotasIndividuales;
 use App\Events\Domain\PagoAprobado;
 use App\Events\Domain\PagoRevertido;
@@ -18,6 +19,11 @@ use Illuminate\Support\Facades\DB;
 class PagoService implements PagoServiceInterface
 {
     use DistribuyeEnCuotasIndividuales;
+
+    public function __construct(
+        private readonly SaldoCuotaServiceInterface $saldoCuotaService
+    ) {
+    }
 
     /**
      * Aprueba un pago, actualiza saldos con precisión bcmath,
@@ -49,7 +55,6 @@ class PagoService implements PagoServiceInterface
                 throw new Exception('Solo se pueden aprobar pagos de préstamos en estado Activo, Al Día o En Mora.');
             }
 
-            $montoCuota   = (string) $cuota->monto_cuota_grupal;
             $montoPagado  = (string) $pago->monto_pagado;
 
             // — Mora —
@@ -84,27 +89,12 @@ class PagoService implements PagoServiceInterface
                 $montoRestanteParaCuota = '0.00';
             }
 
-            // — Saldos cuota grupal —
-            $pagosAprobados   = $cuota->pagos()->where('estado_pago', 'aprobado')->get();
-            $totalPagadoCuota = '0.00';
-            foreach ($pagosAprobados as $pAprobado) {
-                $diff = bcsub((string) $pAprobado->monto_pagado, (string) $pAprobado->monto_mora_pagada, 2);
-                if (bccomp($diff, '0.00', 2) > 0) {
-                    $totalPagadoCuota = bcadd($totalPagadoCuota, $diff, 2);
-                }
-            }
-
-            $saldoCuotaPendiente = bcsub($montoCuota, $totalPagadoCuota, 2);
-            if (bccomp($saldoCuotaPendiente, '0.00', 2) < 0) {
-                $saldoCuotaPendiente = '0.00';
-            }
-
-            $moraTotalPagada    = bcadd($pagosMoraPrevios, $moraPagadaEnEstePago, 2);
-            $saldoMoraPendiente = bcsub($montoMoraTotal, $moraTotalPagada, 2);
-            if (bccomp($saldoMoraPendiente, '0.00', 2) < 0) {
-                $saldoMoraPendiente = '0.00';
-            }
-
+            // — Saldos cuota grupal — fuente única de verdad: SaldoCuotaService,
+            // la misma que usan las vistas de Filament. Antes se recalculaba acá
+            // con una suma manual per-payment que podía divergir del valor
+            // mostrado en pantalla.
+            $saldoCuotaPendiente = $this->saldoCuotaService->saldoCuota($cuota);
+            $saldoMoraPendiente  = $this->saldoCuotaService->saldoMora($cuota);
             $saldoTotalPendiente = bcadd($saldoCuotaPendiente, $saldoMoraPendiente, 2);
 
             // Actualizar mora
