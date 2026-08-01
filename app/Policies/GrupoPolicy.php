@@ -105,4 +105,40 @@ class GrupoPolicy
     {
         return $user->can('reorder_grupo');
     }
+
+    // ─── Visibilidad de UI (no es CRUD ni transicion de estado) ────
+
+    /**
+     * Ver/editar el campo Asesor en el formulario del grupo (JO/SA lo ven,
+     * el resto no lo necesita — Asesor tiene su propio asesor_id implícito,
+     * Jefe de creditos no reasigna asesores desde este formulario). Verbatim
+     * copy of `GrupoResource::form()`'s `asesor_id` field `->visible()`
+     * closure (Slice 5f).
+     */
+    public function verCampoAsesor(User $user): bool
+    {
+        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+    }
+
+    /**
+     * Ver el filtro de Asesor en la tabla de grupos (JC/JO/SA lo ven, Asesor
+     * no lo necesita — ya solo ve sus propios grupos). Verbatim copy of
+     * `GrupoResource::table()`'s asesor `SelectFilter::visible()` closure
+     * (Slice 5f). No recibe un `Grupo` puntual, por eso se invoca como
+     * `$user->can('verFiltroAsesor', Grupo::class)`.
+     */
+    public function verFiltroAsesor(User $user): bool
+    {
+        return ! $user->hasRole('Asesor');
+    }
+
+    /**
+     * Cambiar el asesor de varios grupos a la vez (bulk action, JO/SA).
+     * Verbatim copy of `GrupoResource::table()`'s `cambiar_asesor`
+     * `BulkAction::visible()` closure (Slice 5f).
+     */
+    public function cambiarAsesorMasivo(User $user): bool
+    {
+        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+    }
 }

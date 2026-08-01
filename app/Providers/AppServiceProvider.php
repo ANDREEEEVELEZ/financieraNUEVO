@@ -27,31 +27,45 @@ use App\Observers\PrestamoObserver;
 use App\Observers\RetanqueoObserver;
 use App\Observers\SeparacionClienteObserver;
 use App\Contracts\AuditServiceInterface;
+use App\Contracts\AuthEventLoggerInterface;
 use App\Contracts\CacheServiceInterface;
 use App\Contracts\NotificationServiceInterface;
+use App\Contracts\TokenIssuerInterface;
 use App\Infrastructure\Cache\CacheService;
 use App\Contracts\CronogramaServiceInterface;
 use App\Contracts\PagoServiceInterface;
 use App\Contracts\RetanqueoEjecucionInterface;
 use App\Contracts\RetanqueoQueryInterface;
 use App\Contracts\RetanqueoWorkflowInterface;
-use App\Contracts\SaldoCuotaServiceInterface;
 use App\Contracts\SaldoCuotaIndividualServiceInterface;
+use App\Contracts\SaldoCuotaServiceInterface;
 use App\Contracts\SeparacionServiceInterface;
+use App\Domain\Auth\IssueTokenPair;
 use App\Domain\Pagos\PagoService;
-use App\Domain\Pagos\SaldoCuotaService;
 use App\Domain\Pagos\SaldoCuotaIndividualService;
+use App\Domain\Pagos\SaldoCuotaService;
 use App\Domain\Prestamos\CronogramaService;
 use App\Domain\Prestamos\RetanqueoEjecucionService;
 use App\Domain\Prestamos\RetanqueoQueryService;
 use App\Domain\Prestamos\RetanqueoWorkflowService;
 use App\Domain\Prestamos\Strategies\ElegibilidadRetanqueoIndividual;
 use App\Domain\Grupos\MorosoSeparationService;
+use App\Domain\Auth\AuthEventLogger;
 use App\Infrastructure\Notifications\NotificationService;
 use App\Infrastructure\Audit\AuditService;
+use App\Listeners\Auth\LogFailedLogin;
+use App\Listeners\Auth\LogPasswordReset;
+use App\Listeners\Auth\LogSuccessfulLogin;
+use App\Listeners\Auth\LogSuccessfulLogout;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -65,9 +79,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PagoServiceInterface::class, PagoService::class);
         $this->app->bind(CronogramaServiceInterface::class, CronogramaService::class);
         $this->app->bind(AuditServiceInterface::class, AuditService::class);
+        $this->app->bind(AuthEventLoggerInterface::class, AuthEventLogger::class);
         $this->app->bind(SeparacionServiceInterface::class, MorosoSeparationService::class);
         $this->app->bind(SaldoCuotaServiceInterface::class, SaldoCuotaService::class);
         $this->app->bind(SaldoCuotaIndividualServiceInterface::class, SaldoCuotaIndividualService::class);
+        $this->app->bind(TokenIssuerInterface::class, IssueTokenPair::class);
 
         // Retanqueo service decomposition — SR-4
         $this->app->bind(RetanqueoQueryInterface::class, function ($app) {
@@ -83,6 +99,35 @@ class AppServiceProvider extends ServiceProvider
         if (!$this->app->environment('local', 'testing')) {
             URL::forceScheme('https');
         }
+
+        // -----------------------------------------------------------------------
+        // Global password policy — applies to every password-entry flow
+        // validated via Laravel's Password rule (currently ResetPasswordRequest;
+        // any future registration/password-change flow inherits it
+        // automatically by using Password::defaults() instead of a hardcoded
+        // rule list).
+        // -----------------------------------------------------------------------
+        Password::defaults(function () {
+            $rule = Password::min(8)->mixedCase()->numbers()->symbols();
+
+            // The uncompromised() check makes a live outbound HTTP call to
+            // HaveIBeenPwned's k-anonymity API. Skipping it in local/testing
+            // keeps the suite offline and deterministic (same guard style as
+            // the HTTPS-forcing block above).
+            //
+            // Accepted risk: outside local/testing, if the HIBP lookup itself
+            // fails or times out, Laravel's uncompromised() rule fails open —
+            // an otherwise-valid password is NOT rejected solely because the
+            // breach-corpus check was unreachable. This is existing framework
+            // behavior (Illuminate\Validation\NotPwnedVerifier swallows the
+            // HTTP exception and treats an empty response as "not found"),
+            // not new logic introduced by this change.
+            if (!$this->app->environment('local', 'testing')) {
+                $rule->uncompromised();
+            }
+
+            return $rule;
+        });
 
         // -----------------------------------------------------------------------
         // Rate limiters applied via throttle middleware on specific routes.
@@ -118,5 +163,14 @@ class AppServiceProvider extends ServiceProvider
         PrestamoIndividual::observe(PrestamoIndividualObserver::class);
         Retanqueo::observe(RetanqueoObserver::class);
         SeparacionCliente::observe(SeparacionClienteObserver::class);
+
+        // Auth-event logging (laravel-security-hardening, Slice 6 / design D8).
+        // Explicit Event::listen() registrations — no auto-discovery, matching
+        // this project's "observers are explicit here" convention. Log-only:
+        // no email/Slack/webhook side effect is attached to any of these.
+        Event::listen(Login::class, LogSuccessfulLogin::class);
+        Event::listen(Failed::class, LogFailedLogin::class);
+        Event::listen(Logout::class, LogSuccessfulLogout::class);
+        Event::listen(PasswordReset::class, LogPasswordReset::class);
     }
 }

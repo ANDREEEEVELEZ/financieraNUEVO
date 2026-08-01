@@ -118,6 +118,7 @@ class Prestamo extends Model
         'es_retanqueo' => 'boolean',
         'es_parcialmente_retanqueado' => 'boolean',
         'tipo' => 'string',
+        'numero_cuenta_desembolso' => 'encrypted',
     ];
 
     // Relaciones

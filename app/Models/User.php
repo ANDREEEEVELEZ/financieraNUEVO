@@ -113,4 +113,16 @@ class User extends Authenticatable implements FilamentUser
 
         return $roles[0] ?? 'Asesor';
     }
+
+    /**
+     * The API-only password-reset flow has no web URL to embed in an email —
+     * the mobile app collects the raw token and submits it back via
+     * POST /api/v1/auth/reset-password. Override the default
+     * Illuminate\Auth\Notifications\ResetPassword notification (which builds
+     * a web route URL) with the API-specific notification instead.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ApiPasswordResetNotification($token));
+    }
 }

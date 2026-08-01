@@ -267,8 +267,8 @@ class ClienteResource extends Resource
                                             });
                                     })
                                     ->searchable()
-                                    ->required(fn() => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
-                                    ->visible(fn() => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                                    ->required(fn() => request()->user() && request()->user()->can('verCampoAsesor', Cliente::class))
+                                    ->visible(fn() => request()->user() && request()->user()->can('verCampoAsesor', Cliente::class))
                                     ->helperText('Seleccione el asesor responsable para este cliente.')
                                     ->prefixIcon('heroicon-o-user-group'),
                             ])->columns(['default' => 1, 'sm' => 2]),
@@ -338,7 +338,7 @@ class ClienteResource extends Resource
                                 return [$asesor->id => $asesor->persona->nombre . ' ' . $asesor->persona->apellidos];
                             });
                     })
-                    ->visible(fn() => \Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                    ->visible(fn() => request()->user() && request()->user()->can('verFiltroAsesor', Cliente::class))
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when($data['value'], function (Builder $query, $value) {
                             return $query->where('asesor_id', $value);
@@ -418,7 +418,7 @@ class ClienteResource extends Resource
                     ->label('Trasladar Cliente')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('warning')
-                    ->visible(fn() => request()->user() && request()->user()->hasAnyRole(['super_admin', 'Jefe de operaciones']))
+                    ->visible(fn() => request()->user() && request()->user()->can('trasladarCliente', Cliente::class))
                     ->form([
                         Forms\Components\Select::make('nuevo_asesor_id')
                             ->label('Nuevo Asesor')

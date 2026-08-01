@@ -135,6 +135,74 @@ class PermissionSeeder extends Seeder
             'ajustes.descontar_interes', // Descuento de interés (JO)
         ];
 
+        // ─── Permisos Slice 5b-financial (laravel-security-hardening) ───
+        // Shield-style CRUD permissions for Mora, CuotaIndividual,
+        // CuotasGrupales, AplicacionPago, AjusteDeuda — these 5 models have
+        // no existing Filament Resource of their own and currently ZERO
+        // authorization gate anywhere in the codebase (see each Policy
+        // class's docblock for the grep-derived evidence). Granted to ALL
+        // FOUR roles below to preserve that de-facto "open to any
+        // authenticated user" behavior — spec Requirement 4.3 forbids this
+        // refactor from silently tightening access. Not yet referenced by
+        // any Filament call site (that wiring is Slice 5c-5g, later PRs).
+        $financieroPermisos = [
+            'view_any_mora', 'view_mora', 'create_mora', 'update_mora', 'delete_mora',
+            'view_any_cuota_individual', 'view_cuota_individual', 'create_cuota_individual', 'update_cuota_individual', 'delete_cuota_individual',
+            'view_any_cuotas_grupales', 'view_cuotas_grupales', 'create_cuotas_grupales', 'update_cuotas_grupales', 'delete_cuotas_grupales',
+            'view_any_aplicacion_pago', 'view_aplicacion_pago', 'create_aplicacion_pago', 'update_aplicacion_pago', 'delete_aplicacion_pago',
+            'view_any_ajuste_deuda', 'view_ajuste_deuda', 'create_ajuste_deuda', 'update_ajuste_deuda', 'delete_ajuste_deuda',
+        ];
+
+        // ─── Permisos Slice 5b-lifecycle (laravel-security-hardening) ───
+        // Shield-style CRUD permissions for PrestamoIndividual,
+        // SeparacionCliente, Reagrupacion, RetanqueoIndividual. Grep across
+        // app/Filament and app/Domain/Prestamos + app/Domain/Grupos confirmed
+        // zero existing authorization gate for any of these 4 models: the
+        // Filament call sites that touch PrestamoIndividual/RetanqueoIndividual
+        // are plain data reads/writes (never a hasRole/hasAnyRole/visible/
+        // hidden/authorize/canX check), and SeparacionCliente/Reagrupacion
+        // have no Filament Resource of their own — written only by ungated
+        // domain services (MorosoSeparationService, RetanqueoWorkflowService/
+        // RetanqueoEjecucionService). Granted to ALL FOUR roles below to
+        // preserve that de-facto "open to any authenticated user" behavior —
+        // spec Requirement 4.3 forbids this refactor from silently tightening
+        // access. Not yet referenced by any Filament call site (that wiring
+        // is Slice 5c-5g, later PRs).
+        $lifecyclePermisos = [
+            'view_any_prestamo_individual', 'view_prestamo_individual', 'create_prestamo_individual', 'update_prestamo_individual', 'delete_prestamo_individual',
+            'view_any_separacion_cliente', 'view_separacion_cliente', 'create_separacion_cliente', 'update_separacion_cliente', 'delete_separacion_cliente',
+            'view_any_reagrupacion', 'view_reagrupacion', 'create_reagrupacion', 'update_reagrupacion', 'delete_reagrupacion',
+            'view_any_retanqueo_individual', 'view_retanqueo_individual', 'create_retanqueo_individual', 'update_retanqueo_individual', 'delete_retanqueo_individual',
+        ];
+
+        // ─── Permisos Slice 5b-catalog (laravel-security-hardening) ─────
+        // Shield-style CRUD permissions for the remaining 10 catalog models:
+        // AuditLog, BusinessRuleConfig, Categoria, ClienteScoring,
+        // ConsultaAsistente, MetaMensual, MetricaDiariaAsesor,
+        // MovimientoFinanciero, Persona, Subcategoria. This completes Slice
+        // 5b (11 original + 5 financial + 4 lifecycle + 10 catalog = 30
+        // Policies; the 31st model per design D7's count, GrupoCliente, is a
+        // justified exclusion — see AuthServiceProvider's docblock).
+        // None of these 10 models have a Filament Resource of their own and
+        // none have an existing authorization gate anywhere in the codebase
+        // (see each Policy class's docblock for the grep-derived evidence).
+        // Granted to ALL FOUR roles below to preserve that de-facto "open to
+        // any authenticated user" behavior — spec Requirement 4.3 forbids
+        // this refactor from silently tightening access. Not yet referenced
+        // by any Filament call site (that wiring is Slice 5c-5g, later PRs).
+        $catalogoPermisos = [
+            'view_any_audit_log', 'view_audit_log', 'create_audit_log', 'update_audit_log', 'delete_audit_log',
+            'view_any_business_rule_config', 'view_business_rule_config', 'create_business_rule_config', 'update_business_rule_config', 'delete_business_rule_config',
+            'view_any_categoria', 'view_categoria', 'create_categoria', 'update_categoria', 'delete_categoria',
+            'view_any_cliente_scoring', 'view_cliente_scoring', 'create_cliente_scoring', 'update_cliente_scoring', 'delete_cliente_scoring',
+            'view_any_consulta_asistente', 'view_consulta_asistente', 'create_consulta_asistente', 'update_consulta_asistente', 'delete_consulta_asistente',
+            'view_any_meta_mensual', 'view_meta_mensual', 'create_meta_mensual', 'update_meta_mensual', 'delete_meta_mensual',
+            'view_any_metrica_diaria_asesor', 'view_metrica_diaria_asesor', 'create_metrica_diaria_asesor', 'update_metrica_diaria_asesor', 'delete_metrica_diaria_asesor',
+            'view_any_movimiento_financiero', 'view_movimiento_financiero', 'create_movimiento_financiero', 'update_movimiento_financiero', 'delete_movimiento_financiero',
+            'view_any_persona', 'view_persona', 'create_persona', 'update_persona', 'delete_persona',
+            'view_any_subcategoria', 'view_subcategoria', 'create_subcategoria', 'update_subcategoria', 'delete_subcategoria',
+        ];
+
         // ─── Permisos de Productos Financieros ──────────────────────────
         $productoPermisos = [
             'productos.crear',
@@ -172,6 +240,9 @@ class PermissionSeeder extends Seeder
             $pagoPermisos,
             $retanqueoPermisos,
             $ajustePermisos,
+            $financieroPermisos,
+            $lifecyclePermisos,
+            $catalogoPermisos,
             $productoPermisos,
             $reportePermisos
         );
@@ -238,6 +309,15 @@ class PermissionSeeder extends Seeder
 
             // Ajustes
             'ajustes.condonar_mora',
+
+            // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
+            ...$financieroPermisos,
+
+            // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
+            ...$lifecyclePermisos,
+
+            // AuditLog, BusinessRuleConfig, Categoria, ClienteScoring, ConsultaAsistente, MetaMensual, MetricaDiariaAsesor, MovimientoFinanciero, Persona, Subcategoria (Slice 5b-catalog)
+            ...$catalogoPermisos,
 
             // Productos
             'productos.ver',
@@ -308,6 +388,15 @@ class PermissionSeeder extends Seeder
             'ajustes.condonar_mora',
             'ajustes.descontar_capital',
 
+            // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
+            ...$financieroPermisos,
+
+            // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
+            ...$lifecyclePermisos,
+
+            // AuditLog, BusinessRuleConfig, Categoria, ClienteScoring, ConsultaAsistente, MetaMensual, MetricaDiariaAsesor, MovimientoFinanciero, Persona, Subcategoria (Slice 5b-catalog)
+            ...$catalogoPermisos,
+
             // Productos
             'productos.ver',
             'view_any_producto::financiero',
@@ -357,6 +446,15 @@ class PermissionSeeder extends Seeder
             'view_pago',
             'create_pago',
             'reorder_pago',
+
+            // Mora, Cuotas, Aplicaciones de Pago, Ajustes de Deuda (Slice 5b-financial)
+            ...$financieroPermisos,
+
+            // PrestamoIndividual, SeparacionCliente, Reagrupacion, RetanqueoIndividual (Slice 5b-lifecycle)
+            ...$lifecyclePermisos,
+
+            // AuditLog, BusinessRuleConfig, Categoria, ClienteScoring, ConsultaAsistente, MetaMensual, MetricaDiariaAsesor, MovimientoFinanciero, Persona, Subcategoria (Slice 5b-catalog)
+            ...$catalogoPermisos,
 
             // Productos
             'productos.ver',

@@ -237,7 +237,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                         $user = Auth::user();
 
                                         return strtolower($record->estado_pago) === 'pendiente' &&
-                                            $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                                            $user->can('aprobar', $record);
                                     })
                                     ->action(function ($livewire, $record) {
                                         try {
@@ -263,7 +263,7 @@ class GrupoDetallePagos extends Page implements HasTable
                                         $user = Auth::user();
 
                                         return strtolower($record->estado_pago) === 'pendiente' &&
-                                            $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                                            $user->can('rechazar', $record);
                                     })
                                     ->action(function ($livewire, $record) {
                                         try {
@@ -825,24 +825,7 @@ class GrupoDetallePagos extends Page implements HasTable
                             return $data;
                         })
 
-                        ->visible(function ($record) {
-                            $user = Auth::user();
-
-                            // Super admin y jefes pueden ver todos los pagos
-                            if ($user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos'])) {
-                                return true;
-                            }
-
-                            // Asesores pueden ver y editar sus propios pagos
-                            if ($user->hasRole('Asesor')) {
-                                $asesor = \App\Models\Asesor::where('user_id', $user->id)->first();
-                                $grupo = $record->cuotaGrupal?->prestamo?->grupo;
-
-                                return $asesor && $grupo && $grupo->asesor_id === $asesor->id;
-                            }
-
-                            return false;
-                        })
+                        ->visible(fn ($record) => Auth::user()->can('verEnGrupoDetalle', $record))
 
                         ->action(function ($record, array $data) {
                             $user = Auth::user();
@@ -888,7 +871,7 @@ class GrupoDetallePagos extends Page implements HasTable
                             $user = Auth::user();
 
                             return strtolower($record->estado_pago) === 'pendiente' &&
-                                $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                                $user->can('aprobar', $record);
                         })
                         ->action(function ($record) {
                             try {
@@ -915,7 +898,7 @@ class GrupoDetallePagos extends Page implements HasTable
                             $user = Auth::user();
 
                             return strtolower($record->estado_pago) === 'pendiente' &&
-                                $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
+                                $user->can('rechazar', $record);
                         })
                         ->action(function ($record) {
                             try {
@@ -940,11 +923,7 @@ class GrupoDetallePagos extends Page implements HasTable
                         ->label('Aprobar Seleccionados')
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(function () {
-                            $user = Auth::user();
-
-                            return $user->hasAnyRole(['super_admin', 'Jefe de operaciones']);
-                        })
+                        ->visible(fn () => Auth::user()->can('aprobarMasivo', Pago::class))
                         ->action(function ($records) {
                             $aprobados = 0;
                             foreach ($records as $record) {
@@ -984,11 +963,7 @@ class GrupoDetallePagos extends Page implements HasTable
                 ->icon('heroicon-m-plus')
                 ->color('primary')
                 ->url(fn () => PagoResource::getUrl('create', ['cuota_grupal_id' => $this->getCuotaGrupalIdVigente()]))
-                ->visible(function () {
-                    $user = Auth::user();
-
-                    return $user->hasRole('Asesor');
-                }),
+                ->visible(fn () => Auth::user()->can('crearParaGrupo', Pago::class)),
         ];
     }
 

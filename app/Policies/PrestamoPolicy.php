@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Contracts\CacheServiceInterface;
 use App\Models\User;
 use App\Models\Prestamo;
 use Illuminate\Auth\Access\HandlesAuthorization;
@@ -25,24 +26,74 @@ class PrestamoPolicy
         return $user->can('view_any_prestamo');
     }
 
+    /**
+     * View (Resource drift consolidation, Slice 5d): verbatim copy of
+     * `PrestamoResource::canView()`'s body, which was the actual authorization
+     * source for the Filament panel — the pre-existing Spatie-permission-based
+     * body above was never reachable (the Resource's own `canView()` override
+     * short-circuited before Filament could fall back to this Policy).
+     * Asesor is scoped to préstamos of their own grupo; other privileged roles
+     * see any préstamo.
+     */
     public function view(User $user, Prestamo $prestamo): bool
     {
-        return $user->can('view_prestamo');
+        if ($user->hasRole('Asesor')) {
+            $asesor = app(CacheServiceInterface::class)->getAsesorByUserId($user->id);
+
+            return (bool) ($asesor && $prestamo->grupo && $prestamo->grupo->asesor_id === $asesor->id);
+        }
+
+        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
     }
 
+    /**
+     * Create (Resource drift consolidation, Slice 5d): verbatim copy of
+     * `PrestamoResource::canCreate()`'s body. Deliberately distinct from the
+     * Spatie-permission check this method previously had — `create_prestamo`
+     * is never assigned/checked anywhere for this Resource; the role list
+     * below is what actually governed panel access.
+     */
     public function create(User $user): bool
     {
-        return $user->can('create_prestamo');
+        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos', 'Asesor']);
     }
 
+    /**
+     * Update (Resource drift consolidation, Slice 5d): verbatim copy of
+     * `PrestamoResource::canEdit()`'s body — see `view()`'s docblock for why
+     * this replaces (not calls) the pre-existing Spatie-permission body.
+     */
     public function update(User $user, Prestamo $prestamo): bool
     {
-        return $user->can('update_prestamo');
+        if ($prestamo->es_retanqueo) {
+            return false;
+        }
+
+        if ($prestamo->estado !== Prestamo::ESTADO_PENDIENTE) {
+            return false;
+        }
+
+        if ($user->hasRole('Asesor')) {
+            $asesor = app(CacheServiceInterface::class)->getAsesorByUserId($user->id);
+
+            return (bool) ($asesor && $prestamo->grupo && $prestamo->grupo->asesor_id === $asesor->id);
+        }
+
+        return $user->hasAnyRole(['super_admin', 'Jefe de operaciones', 'Jefe de creditos']);
     }
 
+    /**
+     * Delete (Resource drift consolidation, Slice 5d): verbatim copy of
+     * `PrestamoResource::canDelete()`'s body — super_admin only, and never a
+     * retanqueo.
+     */
     public function delete(User $user, Prestamo $prestamo): bool
     {
-        return $user->can('delete_prestamo');
+        if ($prestamo->es_retanqueo) {
+            return false;
+        }
+
+        return $user->hasRole('super_admin');
     }
 
     public function deleteAny(User $user): bool
@@ -78,6 +129,19 @@ class PrestamoPolicy
     public function reorder(User $user): bool
     {
         return $user->can('reorder_prestamo');
+    }
+
+    // ─── Visibilidad de UI (no es CRUD ni transición de estado) ─────
+
+    /**
+     * Ver el filtro de Asesor en la tabla de préstamos (JC/JO/SA lo ven,
+     * Asesor no lo necesita — ya solo ve los préstamos de su propio grupo).
+     * No recibe un `Prestamo` puntual, por eso se invoca como
+     * `$user->can('verFiltroAsesor', Prestamo::class)`.
+     */
+    public function verFiltroAsesor(User $user): bool
+    {
+        return ! $user->hasRole('Asesor');
     }
 
     // ─── Transiciones de estado ─────────────────────────────────────
@@ -125,6 +189,18 @@ class PrestamoPolicy
     {
         return $prestamo->puedeReformular()
             && $user->hasAnyRole(['Asesor', 'Jefe de creditos', 'super_admin']);
+    }
+
+    /**
+     * Reenviar: Reformulado → Pendiente (Asesor, super_admin).
+     * State check folded in, matching this Policy's established `reformular`/
+     * `condonarMora` convention (unlike `aprobar/firmar/desembolsar/rechazar`,
+     * which keep state checks inline at the caller).
+     */
+    public function reenviar(User $user, Prestamo $prestamo): bool
+    {
+        return $prestamo->estado === Prestamo::ESTADO_REFORMULADO
+            && $user->hasAnyRole(['Asesor', 'super_admin']);
     }
 
     /**
