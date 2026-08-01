@@ -62,9 +62,11 @@ it('canEdit uses CacheServiceInterface::getAsesorByUserId not a raw DB query', f
         300
     );
 
-    // Set the user on the request directly
-    $request = request();
-    $request->setUserResolver(fn() => $user);
+    // PrestamoResource::canEdit() now delegates to PrestamoPolicy::update() via
+    // Filament's default Gate-based authorization (Resource drift consolidation,
+    // Slice 5d), which resolves the user from Auth::user() — request()->setUserResolver()
+    // does not feed that, so the user must be authenticated via actingAs().
+    $this->actingAs($user);
 
     $result = PrestamoResource::canEdit($prestamo);
 

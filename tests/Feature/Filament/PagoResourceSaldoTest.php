@@ -9,6 +9,7 @@ use App\Models\Grupo;
 use App\Models\Pago;
 use App\Models\Prestamo;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -19,6 +20,11 @@ beforeEach(function () {
     // Table actions build URLs against the current panel; these resources are
     // registered in the 'dashboard' panel, not the default 'admin' panel.
     Filament::setCurrentPanel(Filament::getPanel('dashboard'));
+
+    // CuotasGrupalesPolicy::viewAny() gates on the Spatie 'view_any_cuotas_grupales'
+    // permission (Slice 5b-financial) — without seeding it, even super_admin fails
+    // CuotasResource::canAccess() and Livewire::test() returns a null instance.
+    $this->seed(PermissionSeeder::class);
 });
 
 /**

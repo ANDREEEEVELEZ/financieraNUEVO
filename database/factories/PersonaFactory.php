@@ -28,7 +28,7 @@ class PersonaFactory extends Factory
         'sexo' => $faker->randomElement(['Masculino', 'Femenino']),
         'fecha_nacimiento' => $faker->date('Y-m-d'),
         'celular' => '9' . $faker->numberBetween(10000000, 99999999),
-        'correo' => 'user' . $faker->unique()->numberBetween(1, 9999) . '@example.com',
+        'correo' => $faker->unique()->safeEmail(),
         'direccion' => 'Calle ' . $faker->numberBetween(1, 999),
         'distrito' => $faker->randomElement(['Lima', 'Surco']),
         'estado_civil' => $faker->randomElement(['Soltero', 'Casado']),

@@ -32,6 +32,12 @@ it('returns correct shape with meta cobrado and pct keys', function () {
 });
 
 it('uses snapshot when daily metrics exist for the month', function () {
+    // Frozen mid-month: today()->subDay() must stay within the same calendar
+    // month regardless of which real-world day the suite runs on, otherwise
+    // this flakes on the 1st of any month (the previous day falls into the
+    // prior month and MetaCobranzaService excludes it from the sum).
+    Carbon::setTestNow(Carbon::parse('2026-01-15'));
+
     $user = User::factory()->create();
 
     MetricaDiariaAsesor::create([
@@ -48,6 +54,8 @@ it('uses snapshot when daily metrics exist for the month', function () {
     $result = app(MetaCobranzaService::class)->calcular($user, Carbon::now());
 
     expect($result['cobrado'])->toBe(5000.0);
+
+    Carbon::setTestNow();
 });
 
 it('defaults meta to 25000 when no MetaMensual exists', function () {

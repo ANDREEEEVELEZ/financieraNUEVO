@@ -52,14 +52,14 @@ it('resets the password with a valid token and invalidates prior sessions', func
     $response = $this->postJson('/api/v1/auth/reset-password', [
         'email'                 => $user->email,
         'token'                 => $token,
-        'password'              => 'new-strong-password',
-        'password_confirmation' => 'new-strong-password',
+        'password'              => 'New-Strong-Password9',
+        'password_confirmation' => 'New-Strong-Password9',
     ]);
 
     $response->assertOk()->assertJson(['success' => true]);
 
     $user->refresh();
-    expect(\Illuminate\Support\Facades\Hash::check('new-strong-password', $user->password))->toBeTrue();
+    expect(\Illuminate\Support\Facades\Hash::check('New-Strong-Password9', $user->password))->toBeTrue();
 
     $this->app['auth']->forgetGuards();
 
